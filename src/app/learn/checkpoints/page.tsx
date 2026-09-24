@@ -1,0 +1,15 @@
+import { redirect } from "next/navigation";
+import AppShell from "@/components/layout/AppShell";
+import CheckpointSubmitButton from "@/components/learning/CheckpointSubmitButton";
+import { createClient } from "@/lib/supabase/server";
+import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+
+export default async function LearnerCheckpointsPage(){
+ const supabase=await createClient(); const {data:{user}}=await supabase.auth.getUser(); if(!user) redirect("/login");
+ const {data:profile}=await supabase.from("profiles").select("full_name,email,role").eq("id",user.id).single(); if(profile?.role==="trainer") redirect("/trainer");
+ const {data:days}=await supabase.from("days").select("id,day_number,title,position,checkpoints(id,title,description,checkpoint_type,passing_score,position)").eq("program_id",HELLOGOV_PROGRAM_ID).eq("is_published",true).order("position");
+ const checkpointIds=(days??[]).flatMap((d:any)=>(d.checkpoints??[]).map((c:any)=>c.id));
+ const {data:results}=checkpointIds.length?await supabase.from("checkpoint_results").select("checkpoint_id,status,score,passed,trainer_feedback,submitted_at,graded_at").eq("learner_id",user.id).in("checkpoint_id",checkpointIds):{data:[]};
+ const byId=new Map((results??[]).map((r:any)=>[r.checkpoint_id,r]));
+ return <AppShell role="learner" userName={profile?.full_name} userEmail={profile?.email}><main className="mx-auto max-w-5xl"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#e84545]">Evaluations</p><h1 className="mt-2 text-3xl font-semibold text-slate-950">Checkpoints</h1><p className="mt-2 text-slate-500">Complete the required knowledge checks, practical exercises and mock-call checkpoints throughout onboarding.</p><div className="mt-8 space-y-8">{(days??[]).map((day:any)=>{const cps=[...(day.checkpoints??[])].sort((a:any,b:any)=>a.position-b.position);if(!cps.length)return null;return <section key={day.id}><h2 className="mb-3 text-lg font-semibold text-slate-900">Day {day.day_number} · {day.title}</h2><div className="space-y-3">{cps.map((cp:any)=>{const r:any=byId.get(cp.id);return <article key={cp.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex flex-wrap justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-purple-600">{cp.checkpoint_type.replaceAll("_"," ")}</p><h3 className="mt-1 font-semibold text-slate-950">{cp.title}</h3>{cp.description&&<p className="mt-2 text-sm leading-6 text-slate-500">{cp.description}</p>}</div><div className="text-right text-sm"><div className="font-semibold text-slate-700">{r?.status?.replaceAll("_"," ")??"Not submitted"}</div>{r?.score!=null&&<div className="mt-1 text-slate-500">Score: {Number(r.score).toFixed(0)}%</div>}</div></div>{r?.trainer_feedback&&<div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm text-slate-600"><b>Trainer feedback:</b> {r.trainer_feedback}</div>}<CheckpointSubmitButton checkpointId={cp.id} submitted={Boolean(r)}/></article>})}</div></section>})}</div></main></AppShell>;
+}

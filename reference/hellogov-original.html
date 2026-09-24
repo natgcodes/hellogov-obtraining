@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HelloGov · Customer Support Onboarding</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#00A0AC; --brand-600:#008C97; --brand-700:#00727B;
+  --tint:#E6F6F7; --tint-2:#F2FBFB;
+  --ink:#0E2A32; --ink-2:#4B6873; --ink-3:#88A0A8;
+  --line:#E2EAEC; --line-2:#EDF2F3;
+  --bg:#F6F9F9; --surface:#FFFFFF; --surface-2:#FAFCFC;
+  --ok:#0F7B4F; --ok-tint:#E8F5EE;
+  --note:#9A6B10; --note-tint:#FBF3E2;
+  --danger:#B4342C; --danger-tint:#FBECEA;
+  --shadow:0 1px 2px rgba(14,42,50,.04), 0 8px 24px rgba(14,42,50,.05);
+  --shadow-lg:0 2px 8px rgba(14,42,50,.06), 0 24px 60px rgba(14,42,50,.13);
+  --r:14px; --r-sm:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --brand:#2BBFCA; --brand-600:#46CDD7; --brand-700:#7FDDE4;
+  --tint:#0E2A2E; --tint-2:#0C2226;
+  --ink:#E8F0F1; --ink-2:#9DB4BB; --ink-3:#6E888F;
+  --line:#22343A; --line-2:#1B2A2F;
+  --bg:#0B1417; --surface:#111D21; --surface-2:#0F1A1E;
+  --ok:#54C08C; --ok-tint:#0F2A22;
+  --note:#D9AE5A; --note-tint:#2A2316;
+  --danger:#E08279; --danger-tint:#2C1917;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  --shadow-lg:0 2px 8px rgba(0,0,0,.35), 0 24px 60px rgba(0,0,0,.5);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  font-feature-settings:'ss01';
+}
+h1,h2,h3,h4{margin:0;letter-spacing:-.022em;font-weight:800;line-height:1.14}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ============ SHELL ============ */
+.app{display:grid;grid-template-columns:252px 1fr;min-height:100vh}
+.side{
+  background:var(--surface);border-right:1px solid var(--line);
+  padding:22px 16px;display:flex;flex-direction:column;gap:26px;
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+}
+.logo{display:flex;align-items:center;gap:9px;padding:0 8px;font-weight:800;font-size:19px;letter-spacing:-.03em}
+.logo .mark{width:26px;height:26px;border-radius:8px;background:var(--brand);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+.navlabel{font-size:11.5px;font-weight:700;color:var(--ink-3);padding:0 10px;margin-bottom:7px;letter-spacing:.04em}
+.nav{display:flex;flex-direction:column;gap:2px}
+.navitem{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:none;border:none;padding:9px 10px;border-radius:9px;
+  font-size:14.5px;font-weight:600;color:var(--ink-2);transition:background .14s,color .14s;
+}
+.navitem:hover{background:var(--line-2);color:var(--ink)}
+.navitem[aria-current="true"]{background:var(--tint);color:var(--brand-700)}
+.navitem .ico{width:18px;height:18px;flex:none;display:grid;place-items:center}
+.navitem .sub{margin-left:auto;font-size:12px;font-weight:600;color:var(--ink-3)}
+.navitem.locked{color:var(--ink-3)}
+.sidefoot{margin-top:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:13px 14px;font-size:13px;color:var(--ink-2)}
+.sidefoot b{display:block;color:var(--ink);font-size:13.5px;margin-bottom:3px}
+
+.topbar{
+  position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:14px;padding:12px 30px;
+}
+.search{flex:1;max-width:470px;position:relative}
+.search input{
+  width:100%;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:9px 12px 9px 36px;font-size:14px;
+}
+.search input::placeholder{color:var(--ink-3)}
+.search .si{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none;display:grid}
+.sresults{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;z-index:40;max-height:340px;overflow:auto;
+}
+.sresults button{display:block;width:100%;text-align:left;background:none;border:none;padding:9px 11px;border-radius:8px;font-size:14px}
+.sresults button:hover{background:var(--line-2)}
+.sresults .m{font-size:12px;color:var(--ink-3);font-weight:600}
+.sresults .empty{padding:12px;font-size:13.5px;color:var(--ink-2)}
+
+.modesw{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;margin-left:auto}
+.modesw button{background:none;border:none;padding:6px 13px;border-radius:7px;font-size:13.5px;font-weight:700;color:var(--ink-2)}
+.modesw button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--tint);color:var(--brand-700);display:grid;place-items:center;font-size:12.5px;font-weight:800;flex:none}
+
+main{padding:36px 30px 90px;max-width:1020px}
+@media(max-width:1000px){
+  .app{grid-template-columns:1fr}
+  .side{position:static;height:auto;flex-direction:row;align-items:center;gap:14px;overflow-x:auto;padding:12px 16px}
+  .side .navlabel,.sidefoot{display:none}
+  .nav{flex-direction:row}
+  .navitem{white-space:nowrap}
+  main{padding:24px 18px 80px}
+  .topbar{padding:10px 18px}
+}
+
+/* ============ PRIMITIVES ============ */
+.eyebrow{font-size:12.5px;font-weight:700;color:var(--brand-700);margin-bottom:7px}
+.h1{font-size:clamp(30px,4vw,40px)}
+.lede{color:var(--ink-2);font-size:16px;margin:9px 0 0;max-width:60ch}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--line-2);color:var(--ink-2)}
+.pill.brand{background:var(--tint);color:var(--brand-700)}
+.pill.ok{background:var(--ok-tint);color:var(--ok)}
+.pill.sample{background:var(--note-tint);color:var(--note)}
+.pill.tbd{background:var(--line-2);color:var(--ink-3)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  background:var(--brand);color:#fff;border:1px solid transparent;border-radius:10px;
+  padding:10px 17px;font-size:14.5px;font-weight:700;transition:background .14s,transform .1s;
+}
+.btn:hover{background:var(--brand-600)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{background:var(--line);color:var(--ink-3);cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{background:var(--line-2)}
+.btn.sm{padding:6px 12px;font-size:13.5px;border-radius:8px}
+.btn.danger{background:transparent;border-color:var(--line);color:var(--danger)}
+.btn.danger:hover{background:var(--danger-tint)}
+.bar{height:6px;background:var(--line-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .45s cubic-bezier(.2,.7,.3,1)}
+.bar.ok i{background:var(--ok)}
+.muted{color:var(--ink-2)}
+.tiny{font-size:12.5px;color:var(--ink-3)}
+.sectitle{font-size:13px;font-weight:700;color:var(--ink-3);margin:0 0 12px}
+
+/* ============ JOURNEY TIMELINE ============ */
+.journey{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:4px 0 2px}
+.jstep{flex:1;min-width:112px;background:none;border:none;padding:0;text-align:center;position:relative}
+.jstep .track{position:absolute;top:13px;height:2px;background:var(--line);left:50%;right:-50%;z-index:0}
+.jstep.done .track{background:var(--ok)}
+.jstep:last-child .track{display:none}
+.jstep .knob{
+  position:relative;z-index:1;width:28px;height:28px;border-radius:50%;margin:0 auto 9px;
+  display:grid;place-items:center;background:var(--surface);border:2px solid var(--line);color:var(--ink-3);
+  transition:transform .16s;
+}
+.jstep.done .knob{background:var(--ok);border-color:var(--ok);color:#fff}
+.jstep.current .knob{border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 4px var(--tint)}
+.jstep.current .knob::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--brand)}
+.jstep:hover .knob{transform:scale(1.07)}
+.jstep .nm{font-size:13.5px;font-weight:700;display:block}
+.jstep .st{font-size:12px;color:var(--ink-3);display:block;margin-top:1px}
+.jstep.current .nm{color:var(--brand-700)}
+.jstep.locked .nm{color:var(--ink-3)}
+
+/* ============ STAT CARDS ============ */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:26px 0}
+@media(max-width:700px){.stats{grid-template-columns:1fr}}
+.stat{padding:20px 22px;display:flex;align-items:center;gap:18px}
+.ring{width:64px;height:64px;flex:none;position:relative;display:grid;place-items:center}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring b{font-size:15px;font-weight:800}
+.stat .lbl{font-size:13px;font-weight:700;color:var(--ink-3)}
+.stat .val{font-size:15px;font-weight:700;margin-top:1px}
+.stat .sub{font-size:13px;color:var(--ink-2)}
+.certmini{width:52px;height:52px;border-radius:13px;background:var(--line-2);display:grid;place-items:center;color:var(--ink-3);flex:none}
+.certmini.earned{background:var(--tint);color:var(--brand)}
+
+/* ============ DAY HERO ============ */
+.dayhero{
+  position:relative;overflow:hidden;padding:28px 30px;margin:0 0 22px;
+  background:linear-gradient(180deg,var(--tint-2),var(--surface));border:1px solid var(--line);border-radius:var(--r);
+}
+.dayhero h2{font-size:clamp(24px,3.2vw,32px);margin:9px 0 8px}
+.dayhero p{margin:0;color:var(--ink-2);max-width:58ch;font-size:15.5px}
+.dayhero .meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:16px;font-size:13.5px;color:var(--ink-2);font-weight:600}
+.dayhero .meta span{display:inline-flex;align-items:center;gap:6px}
+.dayart{position:absolute;right:-10px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none}
+@media(max-width:820px){.dayart{display:none}}
+
+.progressrow{display:flex;align-items:center;gap:14px;margin:0 0 18px}
+.progressrow .t{font-size:14px;font-weight:700;white-space:nowrap}
+.progressrow .bar{flex:1}
+.progressrow .p{font-size:13.5px;font-weight:700;color:var(--ink-2);width:38px;text-align:right}
+
+/* ============ LEARNING PATH ============ */
+.path{position:relative;padding-left:0}
+.pitem{position:relative;display:flex;gap:16px;padding-bottom:10px}
+.pitem .rail{width:34px;flex:none;display:flex;flex-direction:column;align-items:center}
+.pitem .node{
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;
+  background:var(--surface);border:2px solid var(--line);color:var(--ink-3);font-size:12.5px;font-weight:800;
+}
+.pitem.done .node{background:var(--ok);border-color:var(--ok);color:#fff}
+.pitem.current .node{border-color:var(--brand);color:var(--brand-700);background:var(--surface);box-shadow:0 0 0 4px var(--tint)}
+.pitem.cp .node{border-radius:9px;transform:rotate(45deg)}
+.pitem.cp .node > *{transform:rotate(-45deg)}
+.pitem .line{flex:1;width:2px;background:var(--line);margin:5px 0 -10px}
+.pitem.done .line{background:var(--ok)}
+.pitem:last-child .line{display:none}
+.pcard{
+  flex:1;background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;display:flex;align-items:center;gap:14px;text-align:left;width:100%;
+  transition:border-color .14s, box-shadow .14s, transform .14s;margin-bottom:8px;
+}
+button.pcard{cursor:pointer}
+button.pcard:hover{border-color:var(--brand);box-shadow:var(--shadow)}
+.pitem.current .pcard{border-color:var(--brand);background:var(--tint-2);box-shadow:var(--shadow)}
+.pitem.locked .pcard{background:var(--surface-2);border-style:dashed;cursor:default}
+.pitem.locked .pcard:hover{border-color:var(--line);box-shadow:none}
+.pitem.locked .ptitle,.pitem.locked .pdesc{color:var(--ink-3)}
+.pcard .picon{width:36px;height:36px;border-radius:9px;background:var(--line-2);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.pitem.current .picon{background:var(--tint);color:var(--brand-700)}
+.pitem.cp .pcard{background:var(--surface-2);border-left:3px solid var(--brand)}
+.pitem.cp.locked .pcard{border-left-color:var(--line)}
+.pbody{flex:1;min-width:0}
+.ptitle{font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ptitle .num{color:var(--ink-3);font-weight:700;font-size:13px}
+.pdesc{font-size:13.5px;color:var(--ink-2);margin-top:2px}
+.pmeta{display:flex;align-items:center;gap:10px;flex:none;font-size:13px;color:var(--ink-3);font-weight:600}
+@media(max-width:640px){.pmeta .est{display:none}}
+.lockmsg{font-size:12.5px;color:var(--ink-3)}
+
+/* ============ SETUP CHECKLIST ============ */
+.setup{padding:22px 24px;margin-bottom:22px}
+.setup h3{font-size:19px;margin-bottom:5px}
+.sitem{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--line-2);font-size:14.5px}
+.sitem:last-child{border-bottom:none}
+.sitem input{width:18px;height:18px;accent-color:var(--brand)}
+.sitem.on{color:var(--ink-2)}
+
+/* ============ DRAWER ============ */
+.scrim{position:fixed;inset:0;background:rgba(9,26,31,.42);opacity:0;pointer-events:none;transition:opacity .22s;z-index:60}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;height:100dvh;width:clamp(460px,42vw,660px);
+  background:var(--surface);border-left:1px solid var(--line);box-shadow:var(--shadow-lg);
+  transform:translateX(101%);transition:transform .3s cubic-bezier(.32,.72,0,1);z-index:70;
+  display:flex;flex-direction:column;
+}
+.drawer.on{transform:translateX(0)}
+@media(max-width:700px){
+  .drawer{width:100%;border-left:none}
+}
+@media(prefers-reduced-motion:reduce){.drawer,.scrim,.bar i{transition:none}}
+.dhead{padding:22px 28px 0;flex:none}
+.dcrumb{font-size:12.5px;font-weight:700;color:var(--brand-700);letter-spacing:.02em}
+.dhead h2{font-size:27px;margin:7px 0 9px}
+.dmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-2);font-weight:600}
+.dclose{position:absolute;top:18px;right:20px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;width:32px;height:32px;display:grid;place-items:center;color:var(--ink-2)}
+.dclose:hover{background:var(--line-2);color:var(--ink)}
+.dtabs{display:flex;gap:4px;padding:18px 28px 0;border-bottom:1px solid var(--line);flex:none}
+.dtabs button{background:none;border:none;padding:9px 14px;font-size:14px;font-weight:700;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:8px 8px 0 0}
+.dtabs button:hover{color:var(--ink)}
+.dtabs button[aria-selected="true"]{color:var(--brand-700);border-bottom-color:var(--brand)}
+.dbody{flex:1;overflow-y:auto;padding:24px 28px 30px}
+.dfoot{flex:none;padding:16px 28px;border-top:1px solid var(--line);background:var(--surface);display:flex;align-items:center;gap:14px}
+.dfoot .req{font-size:13px;color:var(--ink-3);flex:1}
+
+.learnbox{background:var(--tint-2);border:1px solid var(--line);border-radius:12px;padding:17px 19px;display:flex;gap:14px}
+.learnbox .ic{color:var(--brand);flex:none;margin-top:1px}
+.learnbox h4{font-size:15px;margin-bottom:4px}
+.learnbox p{margin:0;font-size:14.5px;color:var(--ink-2)}
+.blk{margin-top:26px}
+.blk > h4{font-size:14px;margin-bottom:11px}
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.method{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:13px 12px;text-align:center}
+.method .mi{color:var(--brand);margin-bottom:7px;display:grid;place-items:center}
+.method .mt{font-size:13px;font-weight:700;line-height:1.3}
+
+.matlist{display:flex;flex-direction:column;gap:9px}
+.mat{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:13px 15px;text-align:left;width:100%}
+.mat:hover{border-color:var(--brand)}
+.mat .mi{width:36px;height:36px;border-radius:9px;background:var(--line-2);display:grid;place-items:center;flex:none;color:var(--ink-2)}
+.mat.done .mi{background:var(--ok-tint);color:var(--ok)}
+.mat .mb{flex:1;min-width:0}
+.mat .mn{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.mat .md{font-size:13px;color:var(--ink-2);margin-top:1px}
+.matview{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:12px}
+.matview .vh{padding:11px 15px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.matview .vb{padding:18px;font-size:14.5px;color:var(--ink-2)}
+.fakevid{aspect-ratio:16/9;background:linear-gradient(135deg,var(--tint),var(--line-2));display:grid;place-items:center;color:var(--brand-700)}
+.fakedoc{background:var(--surface-2);padding:20px;font-size:14px;line-height:1.7}
+.fakedoc .ln{height:9px;background:var(--line);border-radius:4px;margin:9px 0}
+
+/* ============ PRACTICE ============ */
+.act{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:16px;background:var(--surface)}
+.acth{padding:14px 17px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.acth .at{font-size:14.5px;font-weight:700;flex:1;min-width:130px}
+.actb{padding:18px}
+.instr{font-size:14.5px;color:var(--ink-2);margin:0 0 14px}
+.scen{background:var(--tint-2);border-left:3px solid var(--brand);border-radius:0 10px 10px 0;padding:13px 16px;margin:0 0 15px;font-size:14.5px}
+.scen b{display:block;font-size:12.5px;color:var(--brand-700);margin-bottom:4px}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;align-items:flex-start;gap:11px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14.5px;text-align:left;background:var(--surface);width:100%;transition:border-color .14s,background .14s}
+.opt:hover{border-color:var(--brand)}
+.opt .rd{width:17px;height:17px;border-radius:50%;border:2px solid var(--line);flex:none;margin-top:1px;display:grid;place-items:center;transition:border-color .14s}
+.opt.sel .rd,.opt.right .rd,.opt.wrong .rd{border-color:currentColor}
+.opt.sel .rd::after,.opt.right .rd::after,.opt.wrong .rd::after{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.opt.sel{color:var(--brand-700)}.opt.right{color:var(--ok)}.opt.wrong{color:var(--danger)}
+.opt.sel{border-color:var(--brand);background:var(--tint-2)}
+.opt.right{border-color:var(--ok);background:var(--ok-tint)}
+.opt.wrong{border-color:var(--danger);background:var(--danger-tint)}
+.fb{margin-top:14px;border-radius:11px;padding:13px 16px;font-size:14.5px;display:flex;gap:11px}
+.fb.good{background:var(--ok-tint);color:var(--ok)}
+.fb.bad{background:var(--note-tint);color:var(--note)}
+.fb .fi{flex:none;margin-top:1px}
+.fb b{display:block;margin-bottom:3px}
+.fb p{margin:0;color:inherit;opacity:.92}
+.actf{display:flex;align-items:center;gap:11px;margin-top:16px}
+
+.docs{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:15px}
+@media(max-width:620px){.docs{grid-template-columns:1fr}}
+.docc{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.docc .dh{padding:9px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700}
+.docp{padding:16px;background:var(--surface-2);min-height:150px;display:flex;flex-direction:column;gap:9px;justify-content:center}
+.docp .row{display:flex;gap:8px;align-items:center}
+.docp .sq{width:38px;height:46px;border-radius:5px;background:var(--line);flex:none}
+.docp .txt{height:8px;background:var(--line);border-radius:4px;flex:1}
+.docp .txt.s{max-width:60%}
+.docp.blur{filter:blur(1.4px);opacity:.75}
+
+.pairs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.pairs{grid-template-columns:1fr}}
+.pcol{display:flex;flex-direction:column;gap:8px}
+.pbtn{border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:14px;text-align:left;background:var(--surface);font-weight:600}
+.pbtn:hover{border-color:var(--brand)}
+.pbtn.sel{border-color:var(--brand);background:var(--tint-2)}
+.pbtn.matched{border-color:var(--ok);background:var(--ok-tint);color:var(--ok);cursor:default}
+.pbtn.miss{border-color:var(--danger);background:var(--danger-tint)}
+
+.ord{display:flex;flex-direction:column;gap:8px}
+.ordi{display:flex;align-items:center;gap:11px;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:14.5px;background:var(--surface)}
+.ordi .on{width:24px;height:24px;border-radius:7px;background:var(--line-2);display:grid;place-items:center;font-size:12px;font-weight:800;color:var(--ink-2);flex:none}
+.ordi .ot{flex:1}
+.ordi .oc{display:flex;gap:3px}
+.ordi button{width:26px;height:26px;border:1px solid var(--line);background:var(--surface);border-radius:7px;display:grid;place-items:center;color:var(--ink-2)}
+.ordi button:hover{border-color:var(--brand);color:var(--brand)}
+.ordi.right{border-color:var(--ok);background:var(--ok-tint)}
+.ordi.wrong{border-color:var(--danger);background:var(--danger-tint)}
+
+.ta{width:100%;min-height:110px;border:1px solid var(--line);border-radius:11px;padding:13px 15px;font-size:14.5px;resize:vertical;background:var(--surface);line-height:1.6}
+.model{background:var(--ok-tint);border-radius:11px;padding:14px 16px;font-size:14.5px;margin-top:13px;white-space:pre-line}
+.model b{display:block;color:var(--ok);font-size:12.5px;margin-bottom:5px}
+
+.feed{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.feed .fh{padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.fev{display:flex;gap:11px;padding:12px 14px;border-bottom:1px solid var(--line-2);align-items:flex-start}
+.fev:last-child{border-bottom:none}
+.fev .fa{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-size:11px;font-weight:800;background:var(--line-2);color:var(--ink-2)}
+.fev.sydney .fa{background:var(--tint);color:var(--brand-700)}
+.fev .fw{flex:1;min-width:0}
+.fev .fn{font-size:13.5px;font-weight:700;display:flex;gap:8px;align-items:baseline}
+.fev .ft{font-size:12px;color:var(--ink-3);font-weight:600}
+.fev .fx{font-size:13.5px;color:var(--ink-2);margin-top:1px}
+.acct{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.acct div{background:var(--surface);padding:12px 14px}
+.acct .k{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.acct .v{font-size:14px;font-weight:700;margin-top:2px}
+
+.chk{display:flex;flex-direction:column;gap:2px}
+.chki{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;font-size:14.5px}
+.chki:hover{background:var(--surface-2)}
+.chki input{width:18px;height:18px;accent-color:var(--brand)}
+.tlead{background:var(--note-tint);border-radius:11px;padding:13px 16px;font-size:13.5px;color:var(--note);display:flex;gap:10px;margin-bottom:14px}
+.tlead .ti{flex:none;margin-top:1px}
+
+.empty{border:1px dashed var(--line);border-radius:12px;padding:26px 20px;text-align:center;color:var(--ink-3);font-size:14px}
+.empty b{display:block;color:var(--ink-2);font-size:14.5px;margin-bottom:3px}
+
+/* ============ QUIZ ============ */
+.qhead{display:flex;align-items:center;gap:13px;margin-bottom:20px}
+.qhead .bar{flex:1}
+.qhead .qn{font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.qq{font-size:18px;font-weight:700;line-height:1.35;margin:0 0 16px}
+.qres{text-align:center;padding:14px 0 6px}
+.qres .big{font-size:52px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.qres .pct{font-size:17px;font-weight:700;color:var(--ink-2);margin-top:4px}
+.qres p{color:var(--ink-2);margin:12px 0 0;font-size:14.5px}
+.qrev{margin-top:22px;display:flex;flex-direction:column;gap:11px;text-align:left}
+.qrv{border:1px solid var(--line);border-radius:11px;padding:13px 15px}
+.qrv .qt{font-size:14.5px;font-weight:700;display:flex;gap:9px}
+.qrv .ans{font-size:13.5px;color:var(--ink-2);margin-top:6px}
+.qrv .ans .yes{color:var(--ok);font-weight:700}
+.qrv .ans .no{color:var(--danger);font-weight:700}
+
+/* ============ CERT / NESTING ============ */
+.cert{padding:30px;text-align:center}
+.certbadge{width:86px;height:86px;border-radius:24px;margin:0 auto 18px;display:grid;place-items:center;background:var(--line-2);color:var(--ink-3)}
+.certbadge.earned{background:linear-gradient(145deg,var(--brand),var(--brand-700));color:#fff;box-shadow:0 12px 30px -10px var(--brand)}
+.cert h2{font-size:26px;margin-bottom:8px}
+.cert p{color:var(--ink-2);max-width:48ch;margin:0 auto;font-size:15px}
+.certlist{display:flex;flex-direction:column;gap:10px;margin-top:24px;text-align:left}
+.certi{display:flex;align-items:center;gap:13px;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.certi .ci{width:34px;height:34px;border-radius:9px;background:var(--line-2);display:grid;place-items:center;color:var(--ink-2);flex:none}
+.certi .cb{flex:1}
+.certi .cn{font-size:14.5px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.certi .cd{font-size:13px;color:var(--ink-2);margin-top:1px}
+.nest{margin-top:18px;padding:24px 26px}
+.nest h3{font-size:19px;margin-bottom:6px}
+.stages{display:flex;align-items:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+.stage{flex:1;min-width:130px;border:1px dashed var(--line);border-radius:12px;padding:15px 16px;background:var(--surface-2)}
+.stage .sn{font-size:14.5px;font-weight:700}
+.stage .sd{font-size:12.5px;color:var(--ink-3);margin-top:2px}
+.arr{color:var(--ink-3);flex:none}
+@media(max-width:720px){.arr{display:none}}
+
+/* ============ TRAINER ============ */
+.tbanner{display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--surface);border-radius:12px;padding:13px 18px;margin-bottom:22px;font-size:14px;font-weight:600}
+.tbanner .tb{flex:1}
+.tbanner .btn{background:var(--surface);color:var(--ink)}
+.tbanner .btn:hover{background:var(--line-2)}
+.tbanner .btn.ghost{background:transparent;border-color:rgba(255,255,255,.28);color:var(--surface)}
+.tbanner .btn.ghost:hover{background:rgba(255,255,255,.1)}
+.pvbanner{background:var(--note-tint);color:var(--note);border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600}
+.pvbanner .tb{flex:1}
+
+.tday{margin-bottom:16px;overflow:hidden}
+.tdayh{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+.tdayh .tn{font-size:16px;font-weight:800;flex:1}
+.tdayh .tn input{background:transparent;border:1px solid transparent;border-radius:7px;padding:3px 7px;font-weight:800;font-size:16px;width:100%;max-width:380px}
+.tdayh .tn input:hover{border-color:var(--line);background:var(--surface)}
+.tdayh .tn input:focus{border-color:var(--brand);background:var(--surface);outline:none}
+.tdayb{padding:10px 12px}
+.trow{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:7px;background:var(--surface);cursor:grab;
+}
+.trow:last-child{margin-bottom:0}
+.trow.cp{background:var(--tint-2);border-left:3px solid var(--brand)}
+.trow.dragging{opacity:.35}
+.trow.over{border-color:var(--brand);box-shadow:0 -2px 0 var(--brand) inset}
+.trow .grip{color:var(--ink-3);cursor:grab;flex:none;display:grid}
+.trow .tt{flex:1;min-width:0}
+.trow .tnm{font-size:14.5px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trow .tsub{font-size:12.5px;color:var(--ink-3);margin-top:1px}
+.trow .tac{display:flex;gap:4px;flex:none}
+.iconbtn{width:30px;height:30px;border:1px solid var(--line);background:var(--surface);border-radius:8px;display:grid;place-items:center;color:var(--ink-2)}
+.iconbtn:hover{border-color:var(--brand);color:var(--brand)}
+.iconbtn.dg:hover{border-color:var(--danger);color:var(--danger)}
+.addrow{display:flex;gap:8px;padding:4px 0 2px}
+
+.modal{position:fixed;inset:0;z-index:80;display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;background:rgba(9,26,31,.45)}
+.modal.on{display:flex}
+.msheet{background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);width:min(680px,100%);overflow:hidden}
+.mh{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.mh h3{font-size:19px;flex:1}
+.mb{padding:22px 24px;max-height:64vh;overflow-y:auto}
+.mf{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:var(--surface-2)}
+.fgrp{margin-bottom:16px}
+.fgrp label{display:block;font-size:13px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
+.fgrp input[type=text],.fgrp input[type=number],.fgrp textarea,.fgrp select{
+  width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:14.5px;background:var(--surface);
+}
+.fgrp textarea{min-height:76px;resize:vertical;line-height:1.55}
+.fgrp .hint{font-size:12.5px;color:var(--ink-3);margin-top:5px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.f2{grid-template-columns:1fr}}
+.chiprow{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:9px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--line-2);border-radius:999px;padding:4px 6px 4px 11px;font-size:13px;font-weight:600}
+.chip button{background:none;border:none;color:var(--ink-3);display:grid;padding:0}
+.chip button:hover{color:var(--danger)}
+.msec{border-top:1px solid var(--line);margin:20px -24px 0;padding:18px 24px 0}
+.msec > h4{font-size:14px;margin-bottom:12px;display:flex;align-items:center;gap:9px}
+.msec > h4 .btn{margin-left:auto}
+.minirow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-bottom:7px;font-size:14px}
+.minirow .mt{flex:1;min-width:0}
+.minirow .mn{font-weight:700;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.minirow .ms{font-size:12.5px;color:var(--ink-3)}
+.toastwrap{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--ink);color:var(--surface);border-radius:11px;padding:11px 18px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);animation:tin .28s ease}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.toast{animation:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="logo"><span class="mark">HG</span>HelloGov</div>
+    <div>
+      <div class="navlabel">Onboarding</div>
+      <div class="nav" id="nav"></div>
+    </div>
+    <div class="sidefoot">
+      <b>Need help?</b>
+      Ask your trainer, or revisit any completed module at any time.
+    </div>
+  </aside>
+  <div>
+    <div class="topbar">
+      <div class="search">
+        <span class="si"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+        <input id="q" type="search" placeholder="Search modules, topics or resources..." autocomplete="off" aria-label="Search training">
+        <div id="qres"></div>
+      </div>
+      <div class="modesw" role="group" aria-label="Mode">
+        <button id="mLearner" aria-pressed="true">Learner</button>
+        <button id="mTrainer" aria-pressed="false">Trainer</button>
+      </div>
+      <div class="avatar" title="Demo trainee">JS</div>
+    </div>
+    <main id="main"></main>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="dTitle"></aside>
+<div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+<div class="toastwrap" id="toasts"></div>
+<script>
+/* ===================== ICONS ===================== */
+const I = (p,s=18,w=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ico = {
+  check:  p=>I('<path d="M20 6 9 17l-5-5"/>',p||16,2.6),
+  lock:   p=>I('<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',p||15),
+  book:   p=>I('<path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h7M8 11h7"/>',p||17),
+  grid:   p=>I('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/>',p||17),
+  home:   p=>I('<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/>',p||17),
+  award:  p=>I('<circle cx="12" cy="9" r="5"/><path d="m8.5 13.5-1 7.5 4.5-2.5 4.5 2.5-1-7.5"/>',p||17),
+  flag:   p=>I('<path d="M5 21V4h13l-2.5 4L18 12H5"/>',p||17),
+  play:   p=>I('<path d="M8 5.5v13l10-6.5z"/>',p||17),
+  doc:    p=>I('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',p||17),
+  link:   p=>I('<path d="M10 13a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3"/><path d="M14 11a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.3-1.3"/>',p||17),
+  slides: p=>I('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>',p||17),
+  target: p=>I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',p||18),
+  person: p=>I('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>',p||18),
+  phone:  p=>I('<path d="M6 3h3l2 5-2.5 1.5a11 11 0 0 0 5 5L15 12l5 2v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 5.2 2 2 0 0 1 6 3"/>',p||17),
+  mail:   p=>I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',p||17),
+  ear:    p=>I('<path d="M7 9a5 5 0 0 1 10 0c0 3-3 3.5-3 6a2.5 2.5 0 0 1-5 .3"/><path d="M7 15v2a3 3 0 0 0 3 3"/>',p||17),
+  eye:    p=>I('<path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6"/><circle cx="12" cy="12" r="2.6"/>',p||17),
+  pen:    p=>I('<path d="m15 4 5 5L8.5 20.5 3 21l.5-5.5z"/>',p||17),
+  chat:   p=>I('<path d="M21 12a8 8 0 0 1-8 8H4l1.6-3.2A8 8 0 1 1 21 12"/>',p||17),
+  diamond:p=>I('<path d="M12 3 21 12l-9 9-9-9z"/>',p||15),
+  x:      p=>I('<path d="M6 6 18 18M18 6 6 18"/>',p||16),
+  arrow:  p=>I('<path d="M5 12h13M13 6l6 6-6 6"/>',p||16),
+  chevR:  p=>I('<path d="m9 5 7 7-7 7"/>',p||16),
+  up:     p=>I('<path d="m6 15 6-6 6 6"/>',p||15),
+  down:   p=>I('<path d="m6 9 6 6 6-6"/>',p||15),
+  plus:   p=>I('<path d="M12 5v14M5 12h14"/>',p||16),
+  copy:   p=>I('<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',p||15),
+  trash:  p=>I('<path d="M4 7h16M10 7V5h4v2M6 7l1 13h10l1-13"/>',p||15),
+  grip:   p=>I('<circle cx="9" cy="6" r="1.3" fill="currentColor"/><circle cx="15" cy="6" r="1.3" fill="currentColor"/><circle cx="9" cy="12" r="1.3" fill="currentColor"/><circle cx="15" cy="12" r="1.3" fill="currentColor"/><circle cx="9" cy="18" r="1.3" fill="currentColor"/><circle cx="15" cy="18" r="1.3" fill="currentColor"/>',p||16,0),
+  clock:  p=>I('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/>',p||15),
+  layers: p=>I('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',p||15),
+  info:   p=>I('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',p||17),
+  sun:    p=>I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M18.4 5.6l1.4-1.4M4.2 19.8l1.4-1.4"/>',p||16),
+  moon:   p=>I('<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5"/>',p||16),
+  alert:  p=>I('<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',p||16),
+  wrench: p=>I('<path d="M15 4a5 5 0 0 0-5 6.5L4 16.5V20h3.5l6-6A5 5 0 0 0 20 9l-3 1-2-2z"/>',p||17),
+  sort:   p=>I('<path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l3 3M17 20l-3-3"/>',p||15)
+};
+
+/* ===================== PROGRAM DATA =====================
+   Single source of truth for Learner Mode and Trainer Mode.
+   Nothing training-specific is hardcoded in the UI layer.
+   Flags: source:true  = from the HelloGov planning document
+          sample:true  = invented only to demonstrate the UX
+========================================================= */
+let uid = 0; const nid = p => p + '_' + (++uid) + '_' + Math.random().toString(36).slice(2,6);
+
+const SEED = {
+  title: 'Customer Support Onboarding',
+  description: 'Build the knowledge and skills to support HelloGov customers with confidence.',
+  setup: {
+    id:'setup', title:'Tool Setup', subtitle:'Before Day 1',
+    description:'Access is a prerequisite, not a lesson. Confirm each item before Day 1 begins.',
+    disclaimer:'Sample readiness list. Access requirements have not been confirmed with HelloGov yet.',
+    items:[
+      {id:'s1', label:'HelloGov platform access'},
+      {id:'s2', label:'Aircall access'},
+      {id:'s3', label:'Slack access'},
+      {id:'s4', label:'Email access'},
+      {id:'s5', label:'Required permissions granted'}
+    ]
+  },
+  days:[
+    /* ---------------- DAY 1 ---------------- */
+    {
+      id:'d1', title:'Passport Service Foundations', short:'Foundations',
+      description:"Understand HelloGov's passport service, terminology, requirements and process before moving into customer operations.",
+      items:[
+        { id:'m101', kind:'module', required:true, title:'HelloGov & iVisa', est:30,
+          description:'Why the partnership exists and how Customer Support fits in.',
+          objective:'Understand what HelloGov and iVisa do, why the partnership was created, and how Customer Service supports customers throughout the process.',
+          concepts:['HelloGov','iVisa','Partnership','Support role'],
+          methods:['Trainer-led'],
+          materials:[
+            {id:'r101a', type:'slides', title:'Company & Partnership Overview', requirement:'required', note:'Trainer deck', sample:true},
+            {id:'r101b', type:'link', title:'HelloGov + iVisa', url:'https://www.hellogov.com/hellogov-ivisa', requirement:'reference', note:'Public page', source:true}
+          ],
+          activities:[
+            {id:'a101', type:'written', requirement:'required', title:'Explain HelloGov to a customer',
+             instructions:'A customer asks what HelloGov actually does. Write the answer you would give on a call, in two or three sentences.',
+             model:'HelloGov is a private company registered with the U.S. Department of State as a hand-carry passport courier. We prepare and review your application, submit it through our courier network, and keep you updated until your passport is back in your hands. The government fee is separate from our service.',
+             sample:true}
+          ]},
+        { id:'m102', kind:'module', required:true, title:'Handbook Intro', est:null,
+          description:'The Customer Support Employee Handbook and how to navigate it.',
+          objective:'Know the Customer Support Employee Handbook and where to look things up during the rest of training and on the floor.',
+          concepts:['Handbook','Reference'],
+          methods:['Guided reading'],
+          materials:[
+            {id:'r102a', type:'doc', title:'Customer Support Employee Handbook', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a102', type:'written', requirement:'optional', title:'Find it in the handbook',
+             instructions:'Your trainer will give you three questions. Note where in the handbook you found each answer.',
+             model:'Model answers will be added once the handbook is final.', sample:true}
+          ]},
+        { id:'m103', kind:'module', required:true, title:'Vocabulary', est:40,
+          description:'Internal terms and passport-related terminology.',
+          objective:'Learn the most important internal terms, passport-related terminology such as acceptance agents, and the words and phrases agents need to communicate clearly with customers.',
+          concepts:['Acceptance agent','Internal terms','Customer-facing language'],
+          methods:['Guided explanation','Self-paced reading'],
+          note:'Read alongside the handbook rather than separately. The trainer covers the core concepts first.',
+          materials:[
+            {id:'r103a', type:'link', title:'Vocabulary document', url:'https://docs.google.com/document/d/1n4-cj4MaNOn3CSR2z7xzDbz8mXlda2diJNVq4cg0IA/edit?tab=t.0', requirement:'required', note:'Keep open while reading the handbook', source:true}
+          ],
+          activities:[
+            {id:'a103', type:'match', requirement:'required', title:'Match the term to its meaning',
+             instructions:'Pair each term with the definition that fits. Sample set for UX demonstration.', sample:true,
+             pairs:[
+               {l:'Acceptance agent', r:'An authorized location that accepts and verifies passport applications'},
+               {l:'Expedited service', r:'A faster processing option offered at a higher price'},
+               {l:'Courier', r:'A registered company that hand-carries applications to the agency'},
+               {l:'Application package', r:'The full set of forms and documents sent by the customer'}
+             ]}
+          ]},
+        { id:'m104', kind:'module', required:true, title:'Document Etiquette', est:40,
+          description:'Standards for each document and the ID options per passport type.',
+          objective:'Know the standards for each document, the possible ID options depending on the passport type, and how to access examples to share with the customer and save them.',
+          concepts:['Document standards','ID options','Examples'],
+          methods:['Live demo','Guided practice'],
+          materials:[
+            {id:'r104a', type:'doc', title:'Sample Document Guide', requirement:'required', note:'Demo resource', sample:true},
+            {id:'r104b', type:'video', title:'Reviewing a document submission', requirement:'optional', note:'Demo video', sample:true}
+          ],
+          activities:[
+            {id:'a104', type:'compare', requirement:'required', title:'Which document would you accept?', sample:true,
+             instructions:'Two submissions for the same requirement. Pick the one that meets the standard.',
+             scenario:'A customer uploads a photo of their proof of citizenship. Only one version is usable.',
+             docs:[
+               {label:'Document A', quality:'good', caption:'Flat, fully in frame, all four corners visible, text readable.'},
+               {label:'Document B', quality:'bad', caption:'Angled, one corner cut off, glare across the text.'}
+             ],
+             options:['Document A','Document B','Neither is acceptable'],
+             correct:0,
+             explain:'Document A is flat, complete and legible. Document B is cut off and has glare, so the agency would likely reject it. Sample exercise: the official document standards are still being documented.'}
+          ]},
+        { id:'m105', kind:'module', required:true, title:'Types of Passport & Requirements', est:30,
+          description:'The services HelloGov offers and when each one applies.',
+          objective:'Learn the different passport services offered by HelloGov, when each one is used, their requirements, and how to identify the correct service for each customer.',
+          concepts:['Service types','Requirements','Service selection'],
+          methods:['Trainer-led','Scenario practice'],
+          materials:[
+            {id:'r105a', type:'doc', title:'Service & Requirements Matrix', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a105', type:'scenario', requirement:'required', title:'Identify the right service', sample:true,
+             instructions:'Read the situation and choose the service path. Sample scenario for UX demonstration.',
+             scenario:'A customer says their passport expired two years ago and they still have the book. They are not travelling for another four months.',
+             options:['A first-time application','A renewal','An urgent replacement','Not enough information yet'],
+             correct:3,
+             explain:'Eligibility depends on details this customer has not given you yet, such as when the book was issued and their age at the time. The right move is to keep asking. Actual eligibility rules are confirmed by HelloGov and are not defined in this prototype.'}
+          ]},
+        { id:'cp101', kind:'checkpoint', variant:'midday', required:true, title:'Midday Checkpoint',
+          description:'Knowledge check on terminology, service concepts and documents.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'A customer asks who HelloGov is. Which description is accurate?', options:['A government agency that issues passports','A private company registered with the U.S. Department of State as a hand-carry courier','A travel agency that books flights and passports','A courier owned by the State Department'], correct:1, explain:'HelloGov is a private company registered with the Department of State as a hand-carry passport courier. It is not part of the government.'},
+            {id:'q2', prompt:'What is an acceptance agent?', options:['An automated checker inside the platform','A HelloGov support representative','An authorized location that accepts and verifies passport applications','The courier who delivers the finished passport'], correct:2, explain:'Acceptance agents are authorized locations where applications are accepted and verified in person.'},
+            {id:'q3', prompt:'A customer sends a photo of a document taken at an angle with one corner outside the frame. What should you do?', options:['Accept it and note the issue','Ask for a new photo that shows the whole document flat and readable','Crop the image yourself and submit it','Escalate immediately'], correct:1, explain:'A document that is cut off or unreadable risks a rejection later. Asking for a clean resubmission early saves the customer time.'},
+            {id:'q4', prompt:'A customer has not told you when their passport was issued or how old they were at the time. Can you confirm which service applies?', options:['Yes, assume a renewal','Yes, assume a first-time application','No, keep gathering information','No, escalate right away'], correct:2, explain:'Service eligibility depends on details you do not have yet. Keep asking before committing to a path.'}
+          ]},
+        { id:'m106', kind:'module', required:true, title:'Passport Processing', est:60,
+          description:'The full path of an application, from intake to delivery.',
+          objective:'Understand the complete passport process, from receiving the application and reviewing documents to submitting it to the government and delivering the passport to the customer.',
+          concepts:['Intake','Document review','Submission','Delivery'],
+          methods:['Visual walkthrough'],
+          materials:[
+            {id:'r106a', type:'video', title:'End-to-end process walkthrough', requirement:'required', note:'Demo video', sample:true}
+          ],
+          activities:[
+            {id:'a106', type:'order', requirement:'required', title:'Put the process in order', sample:true,
+             instructions:'Arrange the stages of a passport application in the order they happen. Sample sequence for UX demonstration.',
+             steps:['Application received','Documents reviewed','Application package assembled','Submitted to the government','Passport returned to HelloGov','Delivered to the customer'],
+             explain:'This sample sequence demonstrates the ordering exercise type. The confirmed stage names come from HelloGov.'}
+          ]},
+        { id:'m107', kind:'module', required:true, title:'Processing Times & Prices', estMin:60, estMax:120,
+          description:'Timelines and costs per service, and how to calculate expected dates.',
+          objective:'Learn the processing times and prices for each passport service, how to calculate expected completion dates, and how to explain timelines and costs to customers.',
+          concepts:['Processing times','Service pricing','Expected date'],
+          methods:['Guided demo','Hands-on practice'],
+          note:'Knowing the numbers. Handling a customer who disputes them is covered separately on Day 3.',
+          materials:[
+            {id:'r107a', type:'doc', title:'Times & Pricing Reference', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a107', type:'written', requirement:'optional', title:'Calculate an expected date', sample:true,
+             instructions:'Your trainer gives you a start date and a service. Write the expected completion date and how you reached it.',
+             model:'Model answers will be added once the official processing times are confirmed. No times or prices are invented in this prototype.'}
+          ]},
+        { id:'m108', kind:'module', required:true, title:'Training Charts', est:60,
+          description:'Reading the chart quickly under call pressure.',
+          objective:'Learn to understand and quickly read the training chart given by HelloGov.',
+          concepts:['Training chart','Lookup'],
+          methods:['Guided demo','Hands-on practice'],
+          materials:[
+            {id:'r108a', type:'doc', title:'Training Chart', requirement:'required', note:'Provided by HelloGov', pending:true, source:true}
+          ],
+          activities:[
+            {id:'a108', type:'written', requirement:'optional', title:'Find the answer in the chart', sample:true,
+             instructions:'Your trainer reads you a customer question. Use the chart to locate the answer and write down where you found it.',
+             model:'The point is learning to use the reference, not memorising it.'}
+          ]},
+        { id:'cp102', kind:'checkpoint', variant:'eod', required:true, title:'End-of-Day Checkpoint',
+          description:'Scenario check across requirements, processing, times and chart use.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'Where does document review sit in the process?', options:['Before the application is received','After intake and before submission to the government','After the government returns the passport','It runs in parallel with delivery'], correct:1, explain:'Documents are reviewed after intake so problems are caught before the package goes to the government.'},
+            {id:'q2', prompt:'A customer asks for an exact delivery date. What is the accurate framing?', options:['Give a guaranteed date','Give the expected date based on the service and explain what it depends on','Refuse to give any date','Give the fastest possible date'], correct:1, explain:'Expected dates are estimates tied to the service and government processing. Presenting them as guarantees creates a problem later.'},
+            {id:'q3', prompt:'What is the training chart for?', options:['Memorising every service detail','Looking up the right answer quickly while on a call','Recording customer notes','Tracking your own progress'], correct:1, explain:'The chart is a reference tool. Speed of lookup matters more than memorisation.'}
+          ]}
+      ]
+    },
+    /* ---------------- DAY 2 ---------------- */
+    {
+      id:'d2', title:'Platform & Customer Interaction', short:'Platform & Tools',
+      description:'Learn how to navigate the HelloGov platform, understand the customer journey, and practice core communication skills.',
+      items:[
+        { id:'m201', kind:'module', required:true, title:'Customer Journey', est:30,
+          description:"The customer's path from the website to a passport in hand.",
+          objective:"Follow the customer's experience from visiting the website and completing the application to document submission, passport processing, and final delivery.",
+          concepts:['Website','Application','Submission','Delivery'],
+          methods:['Visual walkthrough','Case review'],
+          materials:[
+            {id:'r201a', type:'link', title:'hellogov.com', url:'https://www.hellogov.com', requirement:'required', note:'Walk the public flow as a customer would', source:true}
+          ],
+          activities:[
+            {id:'a201', type:'order', requirement:'required', title:'Trace the customer journey', sample:true,
+             instructions:'Put the stages of the customer experience in order, from their first visit to delivery.',
+             steps:['Visits the website','Completes the application','Submits documents','Application is processed','Passport is delivered'],
+             explain:'This mirrors the journey described in the planning document. Individual screens and statuses are confirmed by HelloGov.'}
+          ]},
+        { id:'m202', kind:'module', required:true, title:'HelloGov Platform & Tools', est:60,
+          description:'Finding applications, reviewing accounts, checking status and payments.',
+          objective:'Learn how to navigate the HelloGov platform and the main tools used by agents to find applications, review customer information, check statuses and payment information, and edit and assist customers.',
+          concepts:['Application lookup','Account review','Status','Payments'],
+          methods:['Live demo','Hands-on practice'],
+          materials:[
+            {id:'r202a', type:'video', title:'Platform walkthrough', requirement:'required', note:'Demo video', sample:true},
+            {id:'r202b', type:'doc', title:'Platform quick reference', requirement:'reference', note:'Demo resource', sample:true}
+          ],
+          activities:[
+            {id:'a202', type:'account', requirement:'required', title:'Investigate a sample account', sample:true,
+             instructions:'Open the sample account below and answer the question. All data is fictional.',
+             account:{name:'Sample Customer', order:'DEMO-001', service:'Example Service', status:'Example Status — documents received', payment:'Example payment on file'},
+             feed:[
+               {who:'Customer', time:'10:15 AM', text:'Submitted documents.'},
+               {who:'Agent', time:'10:20 AM', text:'Called customer, no answer.'},
+               {who:'Sydney', time:'10:24 AM', text:'Sent a reminder email to the customer.', sydney:true}
+             ],
+             question:'Where would you look first to tell this customer what happens next?',
+             options:['The payment section','The order status and the most recent account activity','The customer’s email address','The courier list'],
+             correct:1,
+             explain:'Status plus the latest activity tells you where the application actually is. Sample account for UX demonstration only.'}
+          ]},
+        { id:'m203', kind:'module', required:true, title:'Sydney', est:30,
+          description:'What Sydney is and how to spot it on an account.',
+          objective:'Understand who Sydney is, how it works, and how to identify it on the customer account.',
+          concepts:['Sydney','Automated activity','Account activity','When to escalate'],
+          methods:['Guided demo','Case review'],
+          materials:[
+            {id:'r203a', type:'doc', title:'Sydney documentation', requirement:'required', note:'Documentation referenced in the planning document', pending:true, source:true},
+            {id:'r203b', type:'video', title:'Spotting Sydney on an account', requirement:'optional', note:'Demo video', sample:true}
+          ],
+          activities:[
+            {id:'a203', type:'account', requirement:'required', title:'Identify Sydney', sample:true,
+             instructions:'In the sample account activity below, identify which entry is Sydney rather than a person.',
+             account:{name:'Sample Customer', order:'DEMO-002', service:'Example Service', status:'Example Status — awaiting customer'},
+             feed:[
+               {who:'Customer', time:'10:15 AM', text:'Submitted documents.'},
+               {who:'Agent', time:'10:20 AM', text:'Called customer, no answer.'},
+               {who:'Sydney', time:'10:24 AM', text:'Sent a reminder email to the customer.', sydney:true}
+             ],
+             question:'Which entry shows automated activity rather than a person?',
+             options:['The 10:15 AM entry','The 10:20 AM entry','The 10:24 AM entry','None of them'],
+             correct:2,
+             explain:'The 10:24 AM entry is attributed to Sydney, so it is automated. Knowing this stops you from telling a customer that a person contacted them. Sample account for UX demonstration only.'}
+          ]},
+        { id:'cp201', kind:'checkpoint', variant:'midday', required:true, title:'Midday Checkpoint',
+          description:'Platform challenge: locate information and read an account correctly.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'A customer wants to know where their application is right now. What do you check first?', options:['Their payment method','The order status and latest account activity','Their email history only','The courier marketplace'], correct:1, explain:'Status plus recent activity gives you the real position of the application.'},
+            {id:'q2', prompt:'An account shows an email sent by Sydney. How should you describe it to the customer?', options:['As a message from their assigned agent','As an automated message from our system','As a government notification','Do not mention it at all'], correct:1, explain:'Sydney activity is automated. Describing it as a person creates an expectation you cannot meet.'},
+            {id:'q3', prompt:'The customer journey starts where?', options:['At the courier','On the HelloGov website','At the government agency','At document review'], correct:1, explain:'The journey begins with the customer visiting the site and completing the application.'}
+          ]},
+        { id:'m204', kind:'module', required:true, title:'Call Flow', est:60,
+          description:'From accepting the task to closing the call.',
+          objective:"Follow the call flow, from the moment you accept a task to completion, including the greeting, call tips, how to identify the customer's request, tone of voice, and notes. Also how to leave a voicemail when a customer does not reply and when to call again.",
+          concepts:['Greeting','Probing','Tone','Voicemail','Closing'],
+          methods:['Call listening','Guided roleplay'],
+          materials:[
+            {id:'r204a', type:'doc', title:'Call Flow Guide', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a204a', type:'callreview', requirement:'required', title:'Call Listening #1', sample:true,
+             instructions:'Review the sample interaction below, then answer the question. This is a written stand-in for the recording.',
+             transcript:[
+               {who:'Agent', text:'Thanks for calling HelloGov, this is Sample Agent. Can I start with the name on the application?'},
+               {who:'Customer', text:'Sample Customer. I sent my documents two days ago and I have not heard anything.'},
+               {who:'Agent', text:'Let me pull that up. I can see the documents arrived. Before I explain the next step, can you confirm the email on the account?'},
+               {who:'Customer', text:'Yes, it is the one I applied with.'},
+               {who:'Agent', text:'Perfect. Here is where things stand, and here is what happens next.'}
+             ],
+             checklist:['Opening','Verification','Probing','Resolution','Tone','Notes','Closing'],
+             question:'What did the agent do before explaining the status?',
+             options:['Escalated the case','Verified who they were speaking to','Offered a refund','Transferred the call'],
+             correct:1,
+             explain:'Verification comes before sharing account details. Sample interaction for UX demonstration.'},
+            {id:'a204b', type:'roleplay', requirement:'required', title:'Guided Roleplay #1', sample:true,
+             instructions:'Run this with your trainer. They will play the customer and can stop to correct you.',
+             scenario:'A customer calls because they submitted documents and have not heard back. Sample scenario.',
+             goal:'Identify the request, verify the customer, explain where the application stands, and close clearly.',
+             skills:['Opening','Probing','Accuracy','Tone','Resolution','Closing']},
+            {id:'a204c', type:'shadow', requirement:'optional', title:'Guided Shadowing', sample:true,
+             instructions:'Sit with a senior rep and observe a live interaction. Tick each stage as you hear it.',
+             checklist:['Opening','Verification','Probing','Resolution','Tone','Notes','Closing']}
+          ]},
+        { id:'m205', kind:'module', required:true, title:'Order Status', est:null,
+          description:'Reading a status and turning it into a next step.',
+          objective:'Review an account and determine the current order status, what it means, the next steps, and what to communicate to the customer.',
+          concepts:['Status','Next steps','Customer message'],
+          methods:['Case review','Hands-on practice'],
+          materials:[
+            {id:'r205a', type:'doc', title:'Status Reference', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a205', type:'account', requirement:'required', title:'Read the status', sample:true,
+             instructions:'Review the sample account and choose the correct next step.',
+             account:{name:'Sample Customer', order:'DEMO-003', service:'Example Service', status:'Example Status — awaiting customer document'},
+             feed:[
+               {who:'Sydney', time:'09:02 AM', text:'Requested a missing document from the customer.', sydney:true},
+               {who:'Customer', time:'11:40 AM', text:'Replied asking which document is missing.'}
+             ],
+             question:'What is the next step for this account?',
+             options:['Submit the package to the government','Tell the customer exactly which document is outstanding','Cancel the order','Wait for Sydney to follow up again'],
+             correct:1,
+             explain:'The customer has asked a direct question and the account is waiting on them. Answering it unblocks the case. Sample account for UX demonstration.'}
+          ]},
+        { id:'m206', kind:'module', required:true, title:'Notes', est:null,
+          description:'Writing the account note after an interaction.',
+          objective:'Write account notes with the proper structure and approved abbreviations after an interaction.',
+          concepts:['Note structure','Abbreviations'],
+          methods:['Live demo','Writing practice'],
+          materials:[
+            {id:'r206a', type:'doc', title:'Notes Structure & Abbreviations', requirement:'required', note:'Structure still being confirmed', pending:true}
+          ],
+          activities:[
+            {id:'a206', type:'written', requirement:'required', title:'Write the account note', sample:true,
+             instructions:'Using the Call Listening #1 interaction, write the note you would leave on the account. Then compare with the sample.',
+             model:'Sample note, for format demonstration only:\n\nInbound call. Customer asking for status after document submission. Verified identity against account email. Documents confirmed received; explained current status and next step. No action required from customer. Customer satisfied, call closed.\n\nThe approved structure and abbreviation set are still being confirmed with HelloGov.'}
+          ]},
+        { id:'m207', kind:'module', required:true, title:'Email Etiquette', est:30,
+          description:'Macros, when to use them, and writing without one.',
+          objective:'Know the available macros, their usage, how to select them, and the guidelines for writing emails such as application package, reschedule and tracking.',
+          concepts:['Macros','Application package','Reschedule','Tracking'],
+          methods:['Case review','Writing practice'],
+          materials:[
+            {id:'r207a', type:'doc', title:'Macro Library', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a207a', type:'mcq', requirement:'required', title:'Choose the right macro', sample:true,
+             instructions:'Sample exercise. The real macro library will replace these options.',
+             scenario:'A customer emails asking for the tracking number of their returned passport.',
+             options:['Application package macro','Reschedule macro','Tracking macro','No macro, write from scratch'],
+             correct:2,
+             explain:'A tracking request maps to the tracking macro. When no macro fits, the fallback structure is still being defined with HelloGov.'},
+            {id:'a207b', type:'written', requirement:'optional', title:'Write without a macro', sample:true,
+             instructions:'A customer asks something no macro covers. Draft the reply.',
+             model:'HelloGov email standards have not been confirmed, so no model answer is provided yet. Your trainer will review your draft.'}
+          ]},
+        { id:'cp202', kind:'checkpoint', variant:'eod', required:true, title:'End-of-Day Checkpoint',
+          description:'Customer interaction check across call flow, status, notes and email.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'What comes before sharing account details on a call?', options:['Offering a discount','Verifying who you are speaking to','Reading the notes aloud','Transferring to a senior'], correct:1, explain:'Verification protects the customer and the account.'},
+            {id:'q2', prompt:'An account is waiting on a document and the customer has asked which one. What do you do?', options:['Wait for the automated follow-up','Tell them exactly which document is outstanding','Cancel and restart the order','Submit the package anyway'], correct:1, explain:'The case is blocked on an answer only you can give.'},
+            {id:'q3', prompt:'When should you write the account note?', options:['Only if something went wrong','After the interaction, following the approved structure','At the end of your shift for all calls','Only when a senior asks'], correct:1, explain:'Notes are written per interaction so the next agent can pick the case up cleanly.'},
+            {id:'q4', prompt:'A customer request has no matching macro. What is the correct behaviour?', options:['Send the closest macro anyway','Write a clear reply and follow the team guidance','Ignore the email','Ask the customer to call instead'], correct:1, explain:'Forcing an unrelated macro confuses the customer. The exact fallback structure is still being confirmed.'},
+            {id:'q5', prompt:'How should Sydney activity be described to a customer?', options:['As a message from their agent','As an automated message from our system','As a government notice','As a courier update'], correct:1, explain:'Sydney is automated, and saying otherwise sets a false expectation.'}
+          ]}
+      ]
+    },
+    /* ---------------- DAY 3 ---------------- */
+    {
+      id:'d3', title:'Support Actions & Processes', short:'Support Actions',
+      description:'Learn how to evaluate customer situations, take the appropriate action and clearly explain what happens next.',
+      items:[
+        { id:'m301', kind:'module', required:true, title:'Upgrade & Downgrade Process', est:60,
+          description:'Changing a service, recalculating and explaining the result.',
+          objective:"Learn when an upgrade or downgrade is possible, how pricing changes are calculated, how to process additional payments or refunds, and how to determine the customer's new expected date. Includes the authorization letter and shipping label, and the customer's perspective.",
+          concepts:['Upgrade','Downgrade','Authorization letter','Shipping label','New expected date'],
+          methods:['Scenario practice','Roleplay'],
+          materials:[
+            {id:'r301a', type:'doc', title:'Upgrade & Downgrade Process', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a301a', type:'scenario', requirement:'required', title:'Can this change be made?', sample:true,
+             instructions:'Sample decision exercise. Eligibility rules are confirmed by HelloGov and are not defined here.',
+             scenario:'A customer wants to move to a faster service. Their package has already been sent to the courier.',
+             options:['Process the upgrade immediately','Decline outright','Check where the package is before committing to anything','Refund and start over'],
+             correct:2,
+             explain:'What is possible depends on where the package physically is. Committing before checking creates a promise you may not be able to keep.'},
+            {id:'a301b', type:'roleplay', requirement:'optional', title:'Explain a service change', sample:true,
+             instructions:'Run with your trainer.',
+             scenario:'A customer has requested a change and wants to know what it costs and when their passport now arrives.',
+             goal:'Explain what changes, what it costs and what the new expected date depends on, without guaranteeing anything unconfirmed.',
+             skills:['Clarity','Accuracy','Expectation setting','Tone']}
+          ]},
+        { id:'m302', kind:'module', required:true, title:'Tentative Itinerary', est:30,
+          description:'What it is and how to guide the customer through it.',
+          objective:'Learn what a tentative itinerary is, the related macros, how to explain it to the customer and guide them step by step.',
+          concepts:['Tentative itinerary','Macros','Step-by-step guidance'],
+          methods:['Guided demo','Scenario practice'],
+          materials:[
+            {id:'r302a', type:'doc', title:'Tentative Itinerary Guide', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a302', type:'roleplay', requirement:'required', title:'Guide the customer', sample:true,
+             instructions:'Run with your trainer.',
+             scenario:'A customer does not understand what a tentative itinerary is or why it is needed.',
+             goal:'Explain it in plain language and walk them through what to do, one step at a time.',
+             skills:['Plain language','Patience','Step-by-step guidance','Confirmation']}
+          ]},
+        { id:'m303', kind:'module', required:true, title:'Customer Price Education', est:60,
+          description:'Service cost versus passport cost, explained to a real person.',
+          objective:'Learn about the prices HelloGov offers, the difference between the cost of the service and the cost of the passport book, how the information is displayed, how we explain this to the customer, and discounts such as CLEAR.',
+          concepts:['Service cost','Government fee','CLEAR','Explaining pricing'],
+          methods:['Scenario practice','Roleplay'],
+          note:'Different from Processing Times & Prices on Day 1. There you learn the number; here you learn to hold the conversation.',
+          materials:[
+            {id:'r303a', type:'doc', title:'Customer Pricing Explanation Guide', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a303', type:'roleplay', requirement:'required', title:'Explain the pricing', sample:true,
+             instructions:'Run with your trainer.',
+             scenario:'A customer is upset because they believe they were charged twice for the same thing.',
+             goal:'Separate the service charge from the government fee clearly, without becoming defensive. Do not quote figures that have not been confirmed.',
+             skills:['De-escalation','Clarity','Accuracy','Tone']}
+          ]},
+        { id:'cp301', kind:'checkpoint', variant:'midday', required:true, title:'Midday Checkpoint',
+          description:'Decision check across service changes, itinerary and pricing.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'A customer asks to upgrade after the package has left. What is your first move?', options:['Promise the upgrade','Check where the package is','Refuse','Refund the order'], correct:1, explain:'You cannot commit before you know what is physically possible.'},
+            {id:'q2', prompt:'A customer thinks they were double-charged. What are you separating for them?', options:['Two identical service charges','The service charge and the government fee','Shipping and handling','A discount and a refund'], correct:1, explain:'The service and the government fee are different things and usually the root of the confusion.'},
+            {id:'q3', prompt:'A customer does not understand the tentative itinerary. What works best?', options:['Send the macro and end the call','Explain it plainly and walk them through step by step','Escalate','Tell them to search online'], correct:1, explain:'This is a guidance moment, not a deflection.'}
+          ]},
+        { id:'m304', kind:'module', required:true, title:'Tracking', est:null,
+          description:'Locating tracking information and handling a missing number.',
+          objective:'Learn about the tracking locator number and the phone number to use when the tracking number has not been provided to the customer.',
+          concepts:['Locator number','Tracking number','Missing tracking'],
+          methods:['Case review','Hands-on practice'],
+          materials:[
+            {id:'r304a', type:'doc', title:'Tracking Reference', requirement:'required', note:'Which tracking numbers can be shared is still being confirmed', pending:true}
+          ],
+          activities:[
+            {id:'a304', type:'scenario', requirement:'required', title:'No tracking number', sample:true,
+             instructions:'Sample decision exercise. Tracking rules are confirmed by HelloGov and are not defined here.',
+             scenario:'A customer says they never received a tracking number and wants to know where their passport is.',
+             options:['Give them any tracking reference you can find','Check what tracking information exists and what may be shared','Tell them to wait','Escalate immediately'],
+             correct:1,
+             explain:'Not every reference on the account is shareable. Confirm what exists and what is allowed before giving a number out.'}
+          ]},
+        { id:'m305', kind:'module', required:true, title:'Bypassing', est:40,
+          description:'Which steps can be skipped, and when.',
+          objective:'Learn about the possible steps we can bypass for the customer, in which cases to offer it, and how to do it.',
+          concepts:['Bypass','Eligibility','When to offer'],
+          methods:['Decision-tree practice'],
+          materials:[
+            {id:'r305a', type:'doc', title:'Bypass Guide', requirement:'required', note:'Criteria still being confirmed', pending:true}
+          ],
+          activities:[
+            {id:'a305', type:'mcq', requirement:'required', title:'Bypass or not?', sample:true,
+             instructions:'Sample decision-tree exercise. Real bypass eligibility is defined by HelloGov and is not encoded here.',
+             scenario:'A customer is asking to skip a step to save time. You are not certain whether their case qualifies.',
+             options:['Bypass','Do not bypass','Need more information'],
+             correct:2,
+             explain:'When eligibility is unclear, gathering information is the correct answer. Guessing on a bypass can cost the customer their application.'}
+          ]},
+        { id:'m306', kind:'module', required:true, title:'Escalation Flow', est:30,
+          description:'When to escalate, what to gather, and where it goes.',
+          objective:'Learn about the different Slack channels and their use, the escalation process, the timeframe, and how the information is delivered back to the customer.',
+          concepts:['Escalation','Routing','Timeframe','Customer follow-up'],
+          methods:['Process simulation'],
+          materials:[
+            {id:'r306a', type:'doc', title:'Escalation Routing Guide', requirement:'required', note:'Channels and response times still being confirmed', pending:true}
+          ],
+          activities:[
+            {id:'a306', type:'scenario', requirement:'required', title:'Escalate or resolve?', sample:true,
+             instructions:'Sample exercise. No channels, routes or response times are invented in this prototype.',
+             scenario:'A customer case has a problem you have not seen before and you cannot find guidance for it.',
+             options:['Guess and act','Tell the customer you cannot help','Gather the full context, then escalate through the defined route','Close the case'],
+             correct:2,
+             explain:'An escalation is only useful if it arrives complete. Gather the context first, then route it.'}
+          ]},
+        { id:'cp302', kind:'checkpoint', variant:'eod', required:true, title:'End-of-Day Checkpoint',
+          description:'Case challenge: identify, decide, act, explain.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'You are unsure whether a bypass applies. What do you choose?', options:['Bypass','Do not bypass','Gather more information','Escalate without context'], correct:2, explain:'Uncertainty is a signal to ask, not to act.'},
+            {id:'q2', prompt:'What makes an escalation useful to the team receiving it?', options:['Speed above everything','Complete context','A friendly tone','Tagging several channels'], correct:1, explain:'An incomplete escalation just comes back to you.'},
+            {id:'q3', prompt:'A customer wants a tracking number you are not sure you can share. What do you do?', options:['Share it anyway','Confirm what exists and what may be shared','Tell them there is none','End the call'], correct:1, explain:'Confirm before sharing. What is shareable is defined by HelloGov.'}
+          ]}
+      ]
+    },
+    /* ---------------- DAY 4 ---------------- */
+    {
+      id:'d4', title:'Cancellations, Refunds & Special Cases', short:'Exceptions',
+      description:'Apply what you know to exceptions, difficult conversations and cases that need judgment.',
+      items:[
+        { id:'m401', kind:'module', required:true, title:'Non-Refundable', est:null,
+          description:'Holding the policy and handling the objection.',
+          objective:'Learn how the non-refundable condition works once the packet is open, how to hold the position with the customer, and what happens when the case escalates.',
+          concepts:['Non-refundable','Objection handling','Escalation'],
+          methods:['Case review','Roleplay'],
+          materials:[
+            {id:'r401a', type:'doc', title:'Refund Policy Reference', requirement:'required', note:'Policy detail confirmed by HelloGov', pending:true}
+          ],
+          activities:[
+            {id:'a401', type:'roleplay', requirement:'required', title:'Objection handling', sample:true,
+             instructions:'Run with your trainer.',
+             scenario:'A customer is demanding a refund and is becoming frustrated. Sample scenario.',
+             goal:'Stay calm, explain the position accurately without inventing rules, and know the point at which the case should escalate.',
+             skills:['De-escalation','Accuracy','Boundaries','Escalation judgment']}
+          ]},
+        { id:'m402', kind:'module', required:true, title:'Order Cancellation', est:30,
+          description:'Managing the request and the customer journey after it.',
+          objective:'Learn how to manage a cancellation request, the customer journey when they receive our email with next steps, the refund timeframe, and related cases.',
+          concepts:['Cancellation request','Next-steps email','Refund timeframe'],
+          methods:['Process simulation'],
+          materials:[
+            {id:'r402a', type:'doc', title:'Cancellation Process', requirement:'required', note:'Document in preparation', pending:true}
+          ],
+          activities:[
+            {id:'a402', type:'order', requirement:'required', title:'Sequence the cancellation', sample:true,
+             instructions:'Put the stages in order. Sample sequence for UX demonstration; the confirmed process comes from HelloGov.',
+             steps:['Customer requests cancellation','Agent reviews the order','Next steps explained to the customer','Account documented'],
+             explain:'This demonstrates the ordering exercise. Actual cancellation rules and refund timeframes are not invented here.'}
+          ]},
+        { id:'cp401', kind:'checkpoint', variant:'midday', required:true, title:'Midday Checkpoint',
+          description:'Exception check across non-refundable and cancellation scenarios.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'A customer demands a refund and you are not certain the case qualifies. What do you do?', options:['Promise the refund','Refuse and end the call','Explain accurately what you do know and check before committing','Transfer without context'], correct:2, explain:'Never commit to a refund outcome you have not confirmed, and never invent a rule to close the conversation.'},
+            {id:'q2', prompt:'What happens right after a cancellation request is reviewed?', options:['The refund lands instantly','The next steps are explained to the customer','The account is deleted','The courier is notified'], correct:1, explain:'The customer needs to know what happens next before anything else moves.'},
+            {id:'q3', prompt:'Why does the account need to be documented after a cancellation?', options:['For your own record only','So the next agent can pick the case up accurately','It is optional','To speed up the refund'], correct:1, explain:'The note is what the next person relies on.'}
+          ]},
+        { id:'m403', kind:'module', required:true, title:'Special Cases', est:null,
+          description:'Diagnose first, then decide which process applies.',
+          objective:'Handle mixed situations where you must diagnose the issue before deciding what process applies. Planning topics include declined at the courier, cancelling a scheduled call, and an application on hold.',
+          concepts:['Declined at courier','Scheduled call cancellation','Application on hold'],
+          methods:['Scenario practice','Case review'],
+          materials:[
+            {id:'r403a', type:'doc', title:'Special Cases Map', requirement:'required', note:'The full set of special cases is still being mapped', pending:true}
+          ],
+          activities:[
+            {id:'a403', type:'scenario', requirement:'required', title:'Scenario Lab', sample:true,
+             instructions:'You are not told which process applies. Diagnose first. Sample scenario.',
+             scenario:'A customer calls upset. Their application has not moved in several days and they mention something about the courier.',
+             options:['Start a cancellation','Diagnose what actually happened before choosing a process','Offer a refund','Escalate without details'],
+             correct:1,
+             explain:'Several different situations produce the same customer complaint. Diagnosis comes before process selection.'}
+          ]},
+        { id:'cp402', kind:'checkpoint', variant:'eod', required:true, title:'End-of-Day Checkpoint',
+          description:'Mock call round. You are not told which process is being tested.',
+          settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true},
+          questions:[
+            {id:'q1', prompt:'A customer is upset and mentions the courier, but has not said what happened. What comes first?', options:['Pick a process and act','Diagnose the situation','Apologise and escalate','Offer a refund'], correct:1, explain:'Diagnosis first. The same complaint can come from several different situations.'},
+            {id:'q2', prompt:'You cannot find guidance for a case. What is the safe behaviour?', options:['Improvise a rule','Tell the customer what you do know and route it correctly','Say nothing','Close the case'], correct:1, explain:'Inventing a rule on a call is worse than saying you will confirm and come back.'},
+            {id:'q3', prompt:'After a difficult call, what must always happen?', options:['Nothing, if it was resolved','The account is documented','A refund is issued','The customer is emailed a survey'], correct:1, explain:'Documentation is what protects the customer and the next agent.'}
+          ]}
+      ]
+    }
+  ],
+  certification:{
+    id:'cert', title:'HelloGov Customer Support Certification',
+    description:'Completed after Days 1 to 4. Passing criteria are still being defined.',
+    components:[
+      {id:'c1', title:'Final Knowledge Quiz', status:'confirmed', description:'Covers the full program.'},
+      {id:'c2', title:'Practical / Platform Assessment', status:'provisional', description:'Structure not finalised.'},
+      {id:'c3', title:'Mock Call Assessment', status:'provisional', description:'Structure not finalised.'}
+    ],
+    passing:'Passing criteria: TBD'
+  },
+  postTraining:{
+    title:'Nesting & Supported Production',
+    description:'Training does not end at certification. The supported production stage has not been defined yet.',
+    stages:[
+      {name:'Shadowing', note:'Details TBD'},
+      {name:'Supported Calls', note:'Details TBD'},
+      {name:'QA & Coaching', note:'Details TBD'}
+    ],
+    disclaimer:'Program details TBD. No duration, call volume, QA target or graduation criteria has been defined.'
+  }
+};
+
+/* ===================== STATE ===================== */
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+const S = {
+  mode:'learner',          // learner | trainer
+  preview:false,           // trainer previewing the draft as a learner
+  view:'overview',         // overview | setup | d1.. | cert
+  published:null,
+  draft:null,
+  dirty:false,
+  progress:{ mods:{}, mats:{}, acts:{}, cps:{}, setup:{} },
+  drawer:null,             // {itemId, dayId, tab}
+  quiz:null,
+  act:{},                  // transient UI state per activity
+  toastId:0
+};
+
+function save(){
+  try{ localStorage.setItem('hg-learn-v1', JSON.stringify({
+    published:S.published, draft:S.draft, dirty:S.dirty, progress:S.progress
+  })); }catch(e){}
+}
+function load(){
+  let d=null;
+  try{ d = JSON.parse(localStorage.getItem('hg-learn-v1')||'null'); }catch(e){ d=null; }
+  if(d && d.published && d.draft){
+    S.published=d.published; S.draft=d.draft; S.dirty=!!d.dirty; S.progress=d.progress||S.progress;
+  } else {
+    S.published = clone(SEED); S.draft = clone(SEED);
+    demoProgress();
+  }
+}
+function resetAll(){
+  try{ localStorage.removeItem('hg-learn-v1'); }catch(e){}
+  S.published = clone(SEED); S.draft = clone(SEED); S.dirty=false;
+  S.progress = { mods:{}, mats:{}, acts:{}, cps:{}, setup:{} };
+  demoProgress(); S.view='overview'; S.act={}; save(); render();
+  toast('Demo state restored');
+}
+/* Demo state: Day 1 complete, Day 2 in progress, Sydney is current. */
+function demoProgress(){
+  const p = S.progress;
+  S.published.setup.items.forEach(i => p.setup[i.id]=true);
+  const d1 = S.published.days[0], d2 = S.published.days[1];
+  const finish = it => {
+    if(it.kind==='module'){
+      (it.materials||[]).forEach(m=>p.mats[m.id]=true);
+      (it.activities||[]).forEach(a=>p.acts[a.id]=true);
+      p.mods[it.id]=true;
+    } else {
+      const ans={}; (it.questions||[]).forEach((q,i)=>ans[i]=q.correct);
+      p.cps[it.id]={submitted:true, score:(it.questions||[]).length, total:(it.questions||[]).length, answers:ans};
+    }
+  };
+  d1.items.forEach(finish);
+  finish(d2.items.find(i=>i.id==='m201'));
+  finish(d2.items.find(i=>i.id==='m202'));
+}
+
+/* ===================== PROGRAM ACCESS ===================== */
+const prog = () => (S.mode==='trainer' || S.preview) ? S.draft : S.published;
+const learnerProg = () => S.preview ? S.draft : S.published;
+const allItems = p => p.days.flatMap(d => d.items.map(it => ({day:d, item:it})));
+const findDay = (p,id) => p.days.find(d=>d.id===id);
+const findItem = (p,id) => { for(const d of p.days){ const it=d.items.find(i=>i.id===id); if(it) return {day:d,item:it}; } return null; };
+const mods = d => d.items.filter(i=>i.kind==='module');
+
+function estLabel(m){
+  if(m.estMin && m.estMax) return 'Est. ~' + fmtMin(m.estMin) + '–' + fmtMin(m.estMax);
+  if(m.est) return '~' + fmtMin(m.est);
+  return 'Time TBD';
+}
+function fmtMin(n){ return n>=60 ? (n%60? (n/60).toFixed(1).replace('.0','')+' hr' : (n/60)+' hr') : n+' min'; }
+function dayEst(d){
+  const ms = mods(d);
+  const known = ms.filter(m=>m.est||m.estMin);
+  if(!known.length) return 'Estimated duration in progress';
+  const lo = known.reduce((a,m)=>a+(m.estMin||m.est),0);
+  const hi = known.reduce((a,m)=>a+(m.estMax||m.est),0);
+  const missing = ms.length - known.length;
+  const base = lo===hi ? 'Est. ~'+fmtMin(lo) : 'Est. ~'+fmtMin(lo)+'–'+fmtMin(hi);
+  return base + (missing ? ' + '+missing+' TBD' : '');
+}
+
+/* ===================== PROGRESSION ===================== */
+function matDone(m){ return !!S.progress.mats[m.id]; }
+function actDone(a){ return !!S.progress.acts[a.id]; }
+function modReqs(m){
+  const r = [...(m.materials||[]).filter(x=>x.requirement==='required'),
+             ...(m.activities||[]).filter(x=>x.requirement==='required')];
+  return r;
+}
+function modReady(m){
+  return (m.materials||[]).filter(x=>x.requirement==='required').every(matDone)
+      && (m.activities||[]).filter(x=>x.requirement==='required').every(actDone);
+}
+function cpResult(cp){ return S.progress.cps[cp.id]||null; }
+function isDone(it){
+  if(it.kind==='module') return !!S.progress.mods[it.id];
+  const r = cpResult(it); if(!r||!r.submitted) return false;
+  const ps = it.settings && it.settings.passingScore;
+  if(ps!=null && it.settings.requiredToProgress) return (r.score/Math.max(1,r.total))*100 >= ps;
+  return true;
+}
+/* Status derives purely from configured order — reordering changes progression automatically. */
+function states(){
+  const p = learnerProg(), out = {}, dayOut = {};
+  let blocked = false, currentSet = false;
+  for(const d of p.days){
+    let dayAll = true;
+    for(const it of d.items){
+      if(isDone(it)){ out[it.id]='done'; continue; }
+      if(it.required!==false) dayAll = false;
+      if(blocked){ out[it.id]='locked'; }
+      else if(!currentSet){ out[it.id]='current'; currentSet=true; }
+      else { out[it.id]='available'; }
+      if(it.required!==false) blocked = true;
+    }
+    dayOut[d.id] = dayAll ? 'done' : (d.items.some(i=>out[i.id]==='current'||out[i.id]==='available') ? 'current' : 'locked');
+  }
+  if(S.preview){ for(const k in out) if(out[k]==='locked') out[k]='available';
+                 for(const k in dayOut) if(dayOut[k]==='locked') dayOut[k]='available'; }
+  const allDays = p.days.every(d=>dayOut[d.id]==='done');
+  return {item:out, day:dayOut, certUnlocked:allDays || S.preview, certEarned:false};
+}
+function dayProgress(d){
+  const req = d.items.filter(i=>i.required!==false);
+  const done = req.filter(isDone).length;
+  return {done, total:req.length, pct: req.length? Math.round(done/req.length*100):0};
+}
+function overallProgress(){
+  const p = learnerProg();
+  const all = allItems(p).map(x=>x.item).filter(i=>i.required!==false);
+  const m = all.filter(i=>i.kind==='module');
+  const done = all.filter(isDone).length;
+  return {done, total:all.length, pct: all.length?Math.round(done/all.length*100):0,
+          modDone:m.filter(isDone).length, modTotal:m.length};
+}
+
+/* ===================== UI HELPERS ===================== */
+function toast(msg){
+  const w = document.getElementById('toasts');
+  const el = document.createElement('div'); el.className='toast'; el.textContent=msg;
+  w.appendChild(el); setTimeout(()=>el.remove(), 2600);
+}
+function ring(pct,size,stroke,color){
+  const r=(size-stroke)/2, c=2*Math.PI*r;
+  return `<div class="ring" style="width:${size}px;height:${size}px">
+    <svg viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="${stroke}"/>
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color||'var(--brand)'}" stroke-width="${stroke}"
+        stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-pct/100)}"/>
+    </svg><b>${pct}%</b></div>`;
+}
+const reqPill = r => r==='required' ? '<span class="pill">Required</span>'
+               : r==='optional' ? '<span class="pill">Optional</span>'
+               : '<span class="pill">Reference</span>';
+const matIcon = t => t==='video'?ico.play():t==='link'?ico.link():t==='slides'?ico.slides():ico.doc();
+const methodIcon = m => /roleplay|trainer/i.test(m)?ico.person():/video/i.test(m)?ico.play():
+  /listening|call/i.test(m)?ico.ear():/shadow/i.test(m)?ico.eye():/writ/i.test(m)?ico.pen():
+  /demo|walkthrough/i.test(m)?ico.grid():/read/i.test(m)?ico.book():ico.target();
+
+/* ===================== NAV ===================== */
+function renderNav(){
+  const p = learnerProg(), st = states();
+  const rows = [
+    {id:'overview', label:'Overview', icon:ico.home(), state:'open'},
+    {id:'setup', label:'Before Day 1', icon:ico.wrench(), state:'open',
+     sub:(p.setup.items.filter(i=>S.progress.setup[i.id]).length)+'/'+p.setup.items.length}
+  ];
+  p.days.forEach((d,i)=>rows.push({id:d.id, label:'Day '+(i+1), icon:null, state:st.day[d.id], sub:d.short}));
+  rows.push({id:'cert', label:'Certification', icon:ico.award(), state: st.certUnlocked?'open':'locked'});
+
+  document.getElementById('nav').innerHTML = rows.map(r=>{
+    const locked = r.state==='locked';
+    const mark = r.state==='done' ? `<span style="color:var(--ok)">${ico.check(16)}</span>`
+      : r.state==='current' ? `<span style="color:var(--brand)">${I('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2" fill="currentColor"/>',16)}</span>`
+      : locked ? `<span>${ico.lock(15)}</span>` : (r.icon||'');
+    return `<button class="navitem ${locked?'locked':''}" data-nav="${r.id}" ${locked?'aria-disabled="true"':''}
+      aria-current="${S.view===r.id}"><span class="ico">${mark}</span>${esc(r.label)}
+      ${r.sub?`<span class="sub">${esc(r.sub)}</span>`:''}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.nav, st2=states();
+    if(id!=='overview'&&id!=='setup'){
+      if(id==='cert' && !st2.certUnlocked) return toast('Complete Days 1 to 4 to unlock certification');
+      if(id!=='cert' && st2.day[id]==='locked') return toast('Complete the previous day to unlock');
+    }
+    S.view=id; render(); window.scrollTo({top:0,behavior:'instant'});
+  }));
+}
+
+/* ===================== OVERVIEW ===================== */
+function viewOverview(){
+  const p = learnerProg(), st = states(), o = overallProgress();
+  const curDay = p.days.find(d=>st.day[d.id]==='current') || p.days[p.days.length-1];
+  const curItem = curDay && curDay.items.find(i=>st.item[i.id]==='current');
+  const nextCp = curDay && curDay.items.find(i=>i.kind==='checkpoint' && !isDone(i));
+
+  const steps = [...p.days.map((d,i)=>({key:d.id, nm:'Day '+(i+1), st:d.short, state:st.day[d.id]})),
+                 {key:'cert', nm:'Certification', st:'Final Assessment', state: st.certEarned?'done':(st.certUnlocked?'current':'locked')}];
+
+  const dp = curDay ? dayProgress(curDay) : null;
+
+  return `
+  <div class="eyebrow">Customer Support Training</div>
+  <h1 class="h1">Your onboarding journey</h1>
+  <p class="lede">${esc(p.description)}</p>
+
+  <div class="card" style="padding:24px 26px;margin:28px 0 0">
+    <div class="journey">${steps.map((s,i)=>`
+      <button class="jstep ${s.state==='done'?'done':s.state==='current'?'current':'locked'}" data-go="${s.key}">
+        <span class="track"></span>
+        <span class="knob">${s.state==='done'?ico.check(15):s.state==='locked'?ico.lock(13):''}</span>
+        <span class="nm">${esc(s.nm)}</span><span class="st">${esc(s.st)}</span>
+      </button>`).join('')}</div>
+  </div>
+
+  <div class="stats">
+    <div class="card stat">
+      ${ring(o.pct,64,7)}
+      <div><div class="lbl">Overall progress</div>
+      <div class="val">${o.modDone} of ${o.modTotal} modules completed</div>
+      <div class="sub">${o.done} of ${o.total} required items</div></div>
+    </div>
+    <div class="card stat">
+      <div class="certmini">${ico.award(24)}</div>
+      <div><div class="lbl">Certifications earned</div>
+      <div class="val">0 / 1</div>
+      <div class="sub">${st.certUnlocked?'Certification is available':'Unlocks after Day '+p.days.length}</div></div>
+    </div>
+  </div>
+
+  ${curDay?`
+  <h3 class="sectitle">Continue your onboarding</h3>
+  <div class="dayhero">
+    <div class="dayart">${I('<rect x="10" y="14" width="46" height="60" rx="6"/><path d="M20 30h26M20 40h26M20 50h16"/>',96,1.6)}</div>
+    <span class="pill brand">Day ${p.days.indexOf(curDay)+1}</span>
+    <h2>${esc(curDay.title)}</h2>
+    <p>${esc(curDay.description)}</p>
+    <div class="meta">
+      <span>${ico.layers()} ${mods(curDay).length} modules</span>
+      <span>${ico.clock()} ${esc(dayEst(curDay))}</span>
+      ${nextCp?`<span>${ico.diamond(14)} Next: ${esc(nextCp.title)}</span>`:''}
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" data-go="${curDay.id}">Go to Day ${p.days.indexOf(curDay)+1} ${ico.arrow(15)}</button>
+      ${curItem?`<button class="btn ghost" data-open="${curItem.id}" data-day="${curDay.id}">Open ${esc(curItem.title)}</button>`:''}
+    </div>
+    <div class="progressrow" style="margin:22px 0 0">
+      <span class="t">${dp.done} of ${dp.total} completed</span>
+      <span class="bar"><i style="width:${dp.pct}%"></i></span><span class="p">${dp.pct}%</span>
+    </div>
+  </div>`:''}
+
+  ${nestingCard(p)}`;
+}
+function nestingCard(p){
+  const n = p.postTraining;
+  return `<div class="card nest">
+    <span class="pill tbd">After training</span>
+    <h3 style="margin-top:10px">${esc(n.title)}</h3>
+    <p class="muted" style="margin:0;max-width:56ch;font-size:14.5px">${esc(n.description)}</p>
+    <div class="stages">${n.stages.map((s,i)=>`
+      <div class="stage"><div class="sn">${esc(s.name)}</div><div class="sd">${esc(s.note)}</div></div>
+      ${i<n.stages.length-1?`<span class="arr">${ico.chevR(16)}</span>`:''}`).join('')}</div>
+    <p class="tiny" style="margin:16px 0 0">${esc(n.disclaimer)}</p>
+  </div>`;
+}
+
+/* ===================== SETUP ===================== */
+function viewSetup(){
+  const p = learnerProg(), s = p.setup;
+  const done = s.items.filter(i=>S.progress.setup[i.id]).length;
+  return `
+  <div class="eyebrow">${esc(s.subtitle)}</div>
+  <h1 class="h1">${esc(s.title)}</h1>
+  <p class="lede">${esc(s.description)}</p>
+  <div class="card setup" style="margin-top:26px">
+    <div class="progressrow" style="margin-bottom:6px">
+      <span class="t">${done} of ${s.items.length} confirmed</span>
+      <span class="bar ${done===s.items.length?'ok':''}"><i style="width:${Math.round(done/s.items.length*100)}%"></i></span>
+      <span class="p">${Math.round(done/s.items.length*100)}%</span>
+    </div>
+    ${s.items.map(i=>`<label class="sitem ${S.progress.setup[i.id]?'on':''}">
+      <input type="checkbox" data-setup="${i.id}" ${S.progress.setup[i.id]?'checked':''}> ${esc(i.label)}</label>`).join('')}
+    <p class="tiny" style="margin:16px 0 0">${ico.info(14)} ${esc(s.disclaimer)}</p>
+  </div>`;
+}
+
+/* ===================== DAY VIEW ===================== */
+function viewDay(dayId){
+  const p = learnerProg(), d = findDay(p,dayId); if(!d) return viewOverview();
+  const st = states(), dp = dayProgress(d), idx = p.days.indexOf(d)+1;
+  let n = 0;
+  return `
+  <div class="dayhero">
+    <div class="dayart">${I('<rect x="10" y="14" width="46" height="60" rx="6"/><path d="M20 30h26M20 40h26M20 50h16"/>',96,1.6)}</div>
+    <span class="pill brand">Day ${idx}</span>
+    <h2>${esc(d.title)}</h2>
+    <p>${esc(d.description)}</p>
+    <div class="meta">
+      <span>${ico.layers()} ${mods(d).length} modules</span>
+      <span>${ico.clock()} ${esc(dayEst(d))}</span>
+    </div>
+  </div>
+  <div class="progressrow">
+    <span class="t">${dp.done} of ${dp.total} completed</span>
+    <span class="bar ${dp.pct===100?'ok':''}"><i style="width:${dp.pct}%"></i></span>
+    <span class="p">${dp.pct}%</span>
+  </div>
+  <div class="path">${d.items.map(it=>{
+    const s = st.item[it.id]||'locked';
+    const cls = s==='done'?'done':s==='current'?'current':s==='locked'?'locked':'';
+    const cp = it.kind==='checkpoint';
+    if(!cp) n++;
+    const node = s==='done'? ico.check(15) : cp? ico.diamond(13) : `<span>${String(n).padStart(2,'0')}</span>`;
+    const tag = cp ? `<span class="pill ${s==='locked'?'tbd':'brand'}">${it.variant==='midday'?'Midday':'End of day'}</span>` : '';
+    const right = s==='done' ? `<span class="pill ok">${ico.check(13)} Completed</span>`
+      : s==='locked' ? `<span class="pill tbd">${ico.lock(12)} Locked</span>`
+      : `<span class="btn sm">${cp?'Start':'Continue'} ${ico.arrow(14)}</span>`;
+    const est = it.kind==='module' ? `<span class="est">${esc(estLabel(it))}</span>` : '';
+    const inner = `
+      <span class="picon">${cp?ico.diamond(16):moduleIcon(it)}</span>
+      <span class="pbody">
+        <span class="ptitle">${cp?'':`<span class="num">${String(n).padStart(2,'0')}</span>&nbsp;`}${esc(it.title)} ${tag}</span>
+        <span class="pdesc">${esc(it.description||'')}</span>
+      </span>
+      <span class="pmeta">${est}${right}</span>`;
+    return `<div class="pitem ${cls} ${cp?'cp':''}">
+      <span class="rail"><span class="node">${node}</span><span class="line"></span></span>
+      ${s==='locked'
+        ? `<div class="pcard" title="Complete the previous module to unlock">${inner}</div>`
+        : `<button class="pcard" data-open="${it.id}" data-day="${d.id}">${inner}</button>`}
+    </div>`;
+  }).join('')}</div>`;
+}
+function moduleIcon(m){
+  const t = (m.title||'').toLowerCase();
+  if(/call|flow/.test(t)) return ico.phone(17);
+  if(/email/.test(t)) return ico.mail(17);
+  if(/platform|tool|chart/.test(t)) return ico.grid(17);
+  if(/sydney/.test(t)) return ico.chat(17);
+  if(/note|status/.test(t)) return ico.doc(17);
+  if(/journey|process/.test(t)) return ico.flag(17);
+  if(/vocab|handbook|document/.test(t)) return ico.book(17);
+  return ico.target(17);
+}
+
+/* ===================== CERTIFICATION ===================== */
+function viewCert(){
+  const p = learnerProg(), c = p.certification, st = states();
+  return `
+  <div class="eyebrow">Final step</div>
+  <h1 class="h1">Certification</h1>
+  <p class="lede">${esc(c.description)}</p>
+  <div class="card cert" style="margin-top:26px">
+    <div class="certbadge ${st.certEarned?'earned':''}">${ico.award(40)}</div>
+    <h2>${esc(c.title)}</h2>
+    <p>${st.certUnlocked?'All four days are complete. The assessment structure is still being finalised.':'Complete Days 1 to '+p.days.length+' to unlock the certification.'}</p>
+    <div class="certlist">${c.components.map(x=>`
+      <div class="certi">
+        <span class="ci">${x.status==='confirmed'?ico.check(17):ico.lock(16)}</span>
+        <span class="cb"><span class="cn">${esc(x.title)}
+          ${x.status==='provisional'?'<span class="pill tbd">Provisional</span>':'<span class="pill brand">Confirmed</span>'}</span>
+          <span class="cd">${esc(x.description)}</span></span>
+      </div>`).join('')}</div>
+    <p class="tiny" style="margin-top:18px">${esc(c.passing)}</p>
+  </div>
+  ${nestingCard(p)}`;
+}
+
+/* ===================== DRAWER ===================== */
+function openItem(itemId, dayId){
+  const p = learnerProg(); const f = findItem(p,itemId); if(!f) return;
+  const st = states();
+  if(st.item[itemId]==='locked'){ return toast('Complete the previous module to unlock'); }
+  if(f.item.kind==='checkpoint'){
+    const prev = cpResult(f.item);
+    S.quiz = prev && prev.submitted
+      ? {id:itemId, idx:0, answers:{...(prev.answers||{})}, submitted:true, review:false}
+      : {id:itemId, idx:0, answers:{}, submitted:false, review:false};
+  } else { S.quiz=null; }
+  S.drawer = {itemId, dayId:f.day.id, tab:'overview'};
+  renderDrawer(); document.getElementById('scrim').classList.add('on');
+  const dr=document.getElementById('drawer'); dr.classList.add('on'); dr.setAttribute('aria-hidden','false');
+  setTimeout(()=>{ const b=dr.querySelector('.dclose'); if(b) b.focus(); },60);
+}
+function closeDrawer(){
+  S.drawer=null; S.quiz=null;
+  document.getElementById('scrim').classList.remove('on');
+  const dr=document.getElementById('drawer'); dr.classList.remove('on'); dr.setAttribute('aria-hidden','true');
+  render();
+}
+function renderDrawer(){
+  if(!S.drawer) return;
+  const p = learnerProg(), f = findItem(p,S.drawer.itemId); if(!f) return closeDrawer();
+  const {day,item} = f, dayIdx = p.days.indexOf(day)+1;
+  const dr = document.getElementById('drawer');
+  if(item.kind==='checkpoint'){ dr.innerHTML = quizHTML(item,day,dayIdx); bindQuiz(item); return; }
+
+  const num = mods(day).indexOf(item)+1;
+  const hasMat = (item.materials||[]).length>0, hasAct = (item.activities||[]).length>0;
+  const tabs = [['overview','Overview']];
+  if(hasMat) tabs.push(['materials','Materials']);
+  if(hasAct) tabs.push(['practice','Practice']);
+  if(!tabs.find(t=>t[0]===S.drawer.tab)) S.drawer.tab='overview';
+  const ready = modReady(item), done = isDone(item);
+  const reqs = modReqs(item), left = reqs.filter(r=> r.type? !matDone(r) : !actDone(r)).length;
+
+  dr.innerHTML = `
+  <div class="dhead">
+    <button class="dclose" aria-label="Close lesson">${ico.x(16)}</button>
+    <div class="dcrumb">Day ${dayIdx} · Module ${String(num).padStart(2,'0')}</div>
+    <h2 id="dTitle">${esc(item.title)}</h2>
+    <div class="dmeta">
+      <span>${ico.clock(14)} ${esc(estLabel(item))}</span>
+      ${(item.methods||[]).length?`<span>·</span><span>${esc(item.methods.join(' + '))}</span>`:''}
+      ${done?'<span class="pill ok">'+ico.check(12)+' Completed</span>':''}
+    </div>
+  </div>
+  <div class="dtabs" role="tablist">${tabs.map(t=>
+    `<button role="tab" data-tab="${t[0]}" aria-selected="${S.drawer.tab===t[0]}">${t[1]}</button>`).join('')}</div>
+  <div class="dbody">${
+    S.drawer.tab==='overview' ? tabOverview(item) :
+    S.drawer.tab==='materials' ? tabMaterials(item) : tabPractice(item)
+  }</div>
+  <div class="dfoot">
+    <span class="req">${done?'Completed. You can revisit this module any time.'
+      : left? left+' required item'+(left>1?'s':'')+' remaining'
+      : 'All required items done'}</span>
+    <button class="btn" id="cc" ${(!ready||done)?'disabled':''}>${done?'Completed':'Complete & Continue'}</button>
+  </div>`;
+  bindDrawer(item, day);
+}
+function tabOverview(m){
+  return `
+  <div class="learnbox"><span class="ic">${ico.target(20)}</span>
+    <div><h4>What you'll learn</h4><p>${esc(m.objective||m.description||'')}</p></div></div>
+  ${(m.concepts||[]).length?`<div class="blk"><h4>Key concepts</h4>
+    <div class="tags">${m.concepts.map(c=>`<span class="pill">${esc(c)}</span>`).join('')}</div></div>`:''}
+  ${(m.methods||[]).length?`<div class="blk"><h4>Suggested learning method</h4>
+    <div class="methods">${m.methods.map(x=>`<div class="method"><div class="mi">${methodIcon(x)}</div><div class="mt">${esc(x)}</div></div>`).join('')}</div>
+    <p class="tiny" style="margin-top:9px">Provisional. Instructional design is still being finalised.</p></div>`:''}
+  ${m.note?`<div class="blk"><h4>How this module runs</h4>
+    <div class="matview"><div class="vb">${esc(m.note)}</div></div></div>`:''}`;
+}
+function tabMaterials(m){
+  const list = m.materials||[];
+  if(!list.length) return `<div class="empty"><b>No materials yet</b>Materials for this module are in development.</div>`;
+  return `<div class="matlist">${list.map(r=>{
+    const open = S.act['open_'+r.id];
+    return `<div>
+      <button class="mat ${matDone(r)?'done':''}" data-mat="${r.id}">
+        <span class="mi">${matDone(r)?ico.check(16):matIcon(r.type)}</span>
+        <span class="mb"><span class="mn">${esc(r.title)} ${reqPill(r.requirement)}
+          ${r.sample?'<span class="pill sample">Demo resource</span>':''}
+          ${r.pending?'<span class="pill tbd">In preparation</span>':''}
+          ${r.source&&!r.sample?'<span class="pill brand">From planning doc</span>':''}</span>
+        <span class="md">${esc(r.note||'')}</span></span>
+        <span class="pmeta">${open?ico.up(15):ico.down(15)}</span>
+      </button>
+      ${open?matView(r):''}
+    </div>`;
+  }).join('')}</div>`;
+}
+function matView(r){
+  let body='';
+  if(r.type==='video') body = `<div class="fakevid">${ico.play(40)}</div>
+    <div class="vb">Sample video placeholder. The real recording will be added here.</div>`;
+  else if(r.type==='link') body = `<div class="vb">Opens in a new tab.<br><a href="${esc(r.url)}" target="_blank" rel="noopener" style="color:var(--brand-700);font-weight:700">${esc(r.url)}</a>
+    <p class="tiny" style="margin-top:10px">Opening a link does not complete the module on its own.</p></div>`;
+  else if(r.pending) body = `<div class="vb"><b>Content in development.</b><br>This document has not been written yet. It is listed so the structure is visible.</div>`;
+  else body = `<div class="fakedoc"><div class="ln" style="width:62%"></div><div class="ln"></div><div class="ln"></div><div class="ln" style="width:78%"></div>
+    <p class="tiny" style="margin-top:14px">Sample document preview for UX demonstration.</p></div>`;
+  return `<div class="matview">
+    <div class="vh">${matIcon(r.type)} ${esc(r.title)}</div>${body}
+    <div class="vb" style="border-top:1px solid var(--line);display:flex;gap:10px;align-items:center">
+      <button class="btn sm ${matDone(r)?'ghost':''}" data-matdone="${r.id}">${matDone(r)?'Marked reviewed':'Mark as reviewed'}</button>
+      ${r.url?`<a class="btn sm ghost" href="${esc(r.url)}" target="_blank" rel="noopener">Open ${ico.link(14)}</a>`:''}
+    </div></div>`;
+}
+function tabPractice(m){
+  const list = m.activities||[];
+  if(!list.length) return `<div class="empty"><b>Practice activity in development</b>This module does not have a practice activity configured yet.</div>`;
+  return list.map(a=>renderAct(a)).join('');
+}
+
+/* ---------- activities ---------- */
+function renderAct(a){
+  const s = S.act[a.id] || {};
+  const head = `<div class="acth">
+      <span class="at">${esc(a.title)}</span>
+      ${reqPill(a.requirement)}
+      ${a.sample?'<span class="pill sample">Sample exercise</span>':''}
+      ${actDone(a)?'<span class="pill ok">'+ico.check(12)+' Done</span>':''}
+    </div>`;
+  const instr = a.instructions?`<p class="instr">${esc(a.instructions)}</p>`:'';
+  const scen = a.scenario?`<div class="scen"><b>Scenario</b>${esc(a.scenario)}</div>`:'';
+  let body='';
+
+  if(a.type==='mcq'||a.type==='scenario'){
+    body = instr + scen + optionsHTML(a,s) + feedbackHTML(a,s) + checkBtn(a,s);
+  }
+  else if(a.type==='compare'){
+    body = instr + scen + `<div class="docs">${a.docs.map(d=>`
+      <div class="docc"><div class="dh">${esc(d.label)}</div>
+        <div class="docp ${d.quality==='bad'?'blur':''}">
+          <div class="row"><span class="sq"></span><span class="txt"></span></div>
+          <div class="txt"></div><div class="txt s"></div><div class="txt"></div>
+        </div>
+        <div class="vb" style="padding:11px 13px;font-size:13px">${esc(d.caption)}</div>
+      </div>`).join('')}</div>` + optionsHTML(a,s) + feedbackHTML(a,s) + checkBtn(a,s);
+  }
+  else if(a.type==='account'){
+    body = instr + `<div class="acct">${Object.entries(a.account).map(([k,v])=>
+      `<div><div class="k">${esc(k.replace(/^\w/,c=>c.toUpperCase()))}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>
+      <div class="feed"><div class="fh">Customer activity — fictional sample account</div>
+      ${a.feed.map(f=>`<div class="fev ${f.sydney?'sydney':''}">
+        <span class="fa">${f.sydney?ico.chat(15):f.who==='Agent'?ico.person(15):ico.person(15)}</span>
+        <span class="fw"><span class="fn">${esc(f.who)} <span class="ft">${esc(f.time)}</span></span>
+        <span class="fx">${esc(f.text)}</span></span></div>`).join('')}</div>
+      <p class="qq" style="font-size:15.5px;margin:16px 0 12px">${esc(a.question)}</p>`
+      + optionsHTML(a,s) + feedbackHTML(a,s) + checkBtn(a,s);
+  }
+  else if(a.type==='callreview'){
+    body = instr + `<div class="feed"><div class="fh">Sample interaction — written stand-in for the recording</div>
+      ${a.transcript.map(t=>`<div class="fev"><span class="fa">${t.who==='Agent'?ico.person(15):ico.chat(15)}</span>
+      <span class="fw"><span class="fn">${esc(t.who)}</span><span class="fx">${esc(t.text)}</span></span></div>`).join('')}</div>
+      <div class="blk"><h4>While you read, listen for</h4><div class="tags">${a.checklist.map(c=>`<span class="pill">${esc(c)}</span>`).join('')}</div></div>
+      <p class="qq" style="font-size:15.5px;margin:18px 0 12px">${esc(a.question)}</p>`
+      + optionsHTML(a,s) + feedbackHTML(a,s) + checkBtn(a,s);
+  }
+  else if(a.type==='match'){
+    const pool = s.pool || (s.pool = shuffled(a.pairs.map((p,i)=>i)));
+    body = instr + `<div class="pairs">
+      <div class="pcol">${a.pairs.map((p,i)=>`<button class="pbtn ${s.done&&s.done[i]?'matched':''} ${s.sel===i?'sel':''}" data-ml="${a.id}:${i}" ${s.done&&s.done[i]?'disabled':''}>${esc(p.l)}</button>`).join('')}</div>
+      <div class="pcol">${pool.map(i=>`<button class="pbtn ${s.done&&s.done[i]?'matched':''} ${s.miss===i?'miss':''}" data-mr="${a.id}:${i}" ${s.done&&s.done[i]?'disabled':''}>${esc(a.pairs[i].r)}</button>`).join('')}</div>
+    </div>` + (s.complete?`<div class="fb good"><span class="fi">${ico.check(16)}</span><div><b>All pairs matched</b><p>Nice. You can move on.</p></div></div>`:'')
+      + (s.complete?markBtn(a):'');
+  }
+  else if(a.type==='order'){
+    const order = s.order || (s.order = shuffled(a.steps.map((x,i)=>i)));
+    body = instr + `<div class="ord">${order.map((si,pos)=>{
+      const cls = s.checked ? (order[pos]===pos?'right':'wrong') : '';
+      return `<div class="ordi ${cls}"><span class="on">${pos+1}</span><span class="ot">${esc(a.steps[si])}</span>
+        <span class="oc">
+          <button data-mv="${a.id}:${pos}:-1" ${pos===0?'disabled':''} aria-label="Move up">${ico.up(14)}</button>
+          <button data-mv="${a.id}:${pos}:1" ${pos===order.length-1?'disabled':''} aria-label="Move down">${ico.down(14)}</button>
+        </span></div>`; }).join('')}</div>`
+      + (s.checked?feedbackHTML(a,{...s, correct: order.every((v,i)=>v===i)}):'')
+      + `<div class="actf"><button class="btn sm" data-ordcheck="${a.id}">Check order</button>
+         ${s.checked&&order.every((v,i)=>v===i)?markBtn(a,true):''}</div>`;
+  }
+  else if(a.type==='written'){
+    body = instr + scen + `<textarea class="ta" data-wr="${a.id}" placeholder="Write your answer...">${esc(s.text||'')}</textarea>
+      <div class="actf"><button class="btn sm ghost" data-model="${a.id}">${s.model?'Hide example':'Compare with example'}</button>
+      ${markBtn(a,true)}</div>
+      ${s.model?`<div class="model"><b>Sample answer</b>${esc(a.model)}</div>`:''}
+      <p class="tiny" style="margin-top:10px">Written answers are not automatically graded in this prototype.</p>`;
+  }
+  else if(a.type==='roleplay'){
+    body = `<div class="tlead"><span class="ti">${ico.person(16)}</span>
+      <div>Trainer-led activity. This happens away from the screen; the platform only records that it was done.</div></div>`
+      + instr + scen
+      + `<div class="blk"><h4>Agent goal</h4><p class="instr" style="margin:0">${esc(a.goal)}</p></div>
+         <div class="blk"><h4>Skills to practice</h4><div class="tags">${a.skills.map(x=>`<span class="pill">${esc(x)}</span>`).join('')}</div></div>
+         <div class="actf">${actDone(a)?'<span class="pill ok">'+ico.check(12)+' Completed</span>':'<span class="pill tbd">Awaiting completion</span>'}
+         ${markBtn(a,true)}</div>`;
+  }
+  else if(a.type==='shadow'){
+    const ck = s.ck||{};
+    body = `<div class="tlead"><span class="ti">${ico.eye(16)}</span>
+      <div>Observation activity. Tick each stage as you hear it in the live interaction.</div></div>`
+      + instr + `<div class="chk">${a.checklist.map((c,i)=>`
+        <label class="chki"><input type="checkbox" data-ck="${a.id}:${i}" ${ck[i]?'checked':''}> ${esc(c)}</label>`).join('')}</div>
+      <div class="actf">${markBtn(a,true)}</div>`;
+  }
+  else body = `<div class="empty"><b>Activity type not configured</b>${esc(a.type)}</div>`;
+
+  return `<div class="act">${head}<div class="actb">${body}</div></div>`;
+}
+function optionsHTML(a,s){
+  return `<div class="opts">${a.options.map((o,i)=>{
+    let cls = s.sel===i?'sel':'';
+    if(s.checked){ if(i===a.correct) cls='right'; else if(s.sel===i) cls='wrong'; }
+    return `<button class="opt ${cls}" data-opt="${a.id}:${i}" ${s.checked?'disabled':''}>
+      <span class="rd"></span><span style="color:var(--ink)">${esc(o)}</span></button>`;
+  }).join('')}</div>`;
+}
+function feedbackHTML(a,s){
+  if(!s.checked) return '';
+  const ok = s.correct!=null ? s.correct : s.sel===a.correct;
+  return `<div class="fb ${ok?'good':'bad'}"><span class="fi">${ok?ico.check(16):ico.info(16)}</span>
+    <div><b>${ok?'Correct':'Not quite'}</b><p>${esc(a.explain||'')}</p></div></div>`;
+}
+function checkBtn(a,s){
+  if(s.checked) return `<div class="actf">${actDone(a)?'<span class="pill ok">'+ico.check(12)+' Recorded</span>':markBtn(a,true)}
+    <button class="btn sm ghost" data-retry="${a.id}">Try again</button></div>`;
+  return `<div class="actf"><button class="btn sm" data-check="${a.id}" ${s.sel==null?'disabled':''}>Check answer</button></div>`;
+}
+function markBtn(a,inline){
+  return actDone(a) ? `<button class="btn sm ghost" data-unmark="${a.id}">Completed ${ico.check(13)}</button>`
+    : `<button class="btn sm ${inline?'':''}" data-mark="${a.id}">Mark complete</button>`;
+}
+function shuffled(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a.every((v,i)=>v===i)&&a.length>1?shuffled(arr):a; }
+
+function bindDrawer(item, day){
+  const dr = document.getElementById('drawer');
+  dr.querySelector('.dclose').addEventListener('click', closeDrawer);
+  dr.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{ S.drawer.tab=b.dataset.tab; renderDrawer(); }));
+  dr.querySelectorAll('[data-mat]').forEach(b=>b.addEventListener('click',()=>{
+    const k='open_'+b.dataset.mat; S.act[k]=!S.act[k]; renderDrawer(); }));
+  dr.querySelectorAll('[data-matdone]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.matdone; S.progress.mats[id]=!S.progress.mats[id]; save(); renderDrawer(); }));
+  dr.querySelectorAll('[data-opt]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,i]=b.dataset.opt.split(':'); S.act[id]={...(S.act[id]||{}), sel:+i}; renderDrawer(); }));
+  dr.querySelectorAll('[data-check]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.check, a=findAct(item,id); const s=S.act[id]||{};
+    S.act[id]={...s, checked:true, correct: s.sel===a.correct};
+    if(s.sel===a.correct) S.progress.acts[id]=true;
+    save(); renderDrawer(); }));
+  dr.querySelectorAll('[data-retry]').forEach(b=>b.addEventListener('click',()=>{
+    S.act[b.dataset.retry]={}; renderDrawer(); }));
+  dr.querySelectorAll('[data-mark]').forEach(b=>b.addEventListener('click',()=>{
+    S.progress.acts[b.dataset.mark]=true; save(); renderDrawer(); }));
+  dr.querySelectorAll('[data-unmark]').forEach(b=>b.addEventListener('click',()=>{
+    delete S.progress.acts[b.dataset.unmark]; save(); renderDrawer(); }));
+  dr.querySelectorAll('[data-model]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.model; S.act[id]={...(S.act[id]||{}), model:!(S.act[id]||{}).model}; renderDrawer(); }));
+  dr.querySelectorAll('[data-wr]').forEach(t=>t.addEventListener('input',()=>{
+    S.act[t.dataset.wr]={...(S.act[t.dataset.wr]||{}), text:t.value}; }));
+  dr.querySelectorAll('[data-ck]').forEach(c=>c.addEventListener('change',()=>{
+    const [id,i]=c.dataset.ck.split(':'); const s=S.act[id]||{}; s.ck={...(s.ck||{}), [i]:c.checked}; S.act[id]=s; }));
+  dr.querySelectorAll('[data-ml]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,i]=b.dataset.ml.split(':'); S.act[id]={...(S.act[id]||{}), sel:+i, miss:null}; renderDrawer(); }));
+  dr.querySelectorAll('[data-mr]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,i]=b.dataset.mr.split(':'); const s=S.act[id]||{}; if(s.sel==null) return;
+    if(s.sel===+i){ s.done={...(s.done||{}), [i]:true}; s.sel=null; s.miss=null;
+      const a=findAct(item,id); if(Object.keys(s.done).length===a.pairs.length){ s.complete=true; S.progress.acts[id]=true; }
+    } else { s.miss=+i; setTimeout(()=>{ const q=S.act[id]||{}; q.miss=null; S.act[id]=q; renderDrawer(); },600); }
+    S.act[id]=s; save(); renderDrawer(); }));
+  dr.querySelectorAll('[data-mv]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,pos,dir]=b.dataset.mv.split(':'); const s=S.act[id]; const o=s.order;
+    const np=+pos+ +dir; [o[+pos],o[np]]=[o[np],o[+pos]]; s.checked=false; S.act[id]=s; renderDrawer(); }));
+  dr.querySelectorAll('[data-ordcheck]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.ordcheck, s=S.act[id]; s.checked=true;
+    if(s.order.every((v,i)=>v===i)) S.progress.acts[id]=true;
+    S.act[id]=s; save(); renderDrawer(); }));
+  const cc = dr.querySelector('#cc');
+  if(cc) cc.addEventListener('click',()=>completeModule(item, day));
+}
+function findAct(m,id){ return (m.activities||[]).find(a=>a.id===id); }
+
+function completeModule(item, day){
+  S.progress.mods[item.id]=true; save();
+  const p = learnerProg(), st = states();
+  toast('Module completed');
+  const next = day.items.find(i=>st.item[i.id]==='current');
+  if(next && next.id!==item.id){ S.view=day.id; openItem(next.id, day.id); render(); }
+  else { S.view=day.id; closeDrawer(); }
+}
+
+/* ===================== QUIZ ===================== */
+function quizHTML(cp, day, dayIdx){
+  const q = S.quiz, qs = cp.questions||[], cfg = cp.settings||{};
+  const prev = cpResult(cp);
+  const head = `<div class="dhead">
+    <button class="dclose" aria-label="Close checkpoint">${ico.x(16)}</button>
+    <div class="dcrumb">Day ${dayIdx} · ${cp.variant==='midday'?'Midday checkpoint':'End-of-day checkpoint'}</div>
+    <h2 id="dTitle">${esc(cp.title)}</h2>
+    <div class="dmeta"><span>${ico.diamond(13)} ${qs.length} questions</span><span>·</span>
+      <span>${cfg.attempts===0?'Unlimited attempts':cfg.attempts+' attempt'+(cfg.attempts>1?'s':'')}</span><span>·</span>
+      <span>${cfg.feedbackMode==='immediate'?'Immediate feedback':'Feedback after submission'}</span></div>
+  </div>`;
+
+  if(!qs.length) return head+`<div class="dbody"><div class="empty"><b>No questions configured</b>This checkpoint has no questions yet.</div></div>`;
+
+  if(q.submitted){
+    const score = qs.filter((x,i)=>q.answers[i]===x.correct).length;
+    const pct = Math.round(score/qs.length*100);
+    return head + `<div class="dbody"><div class="qres">
+      ${cfg.showScore?`<div class="big">${score} / ${qs.length}</div><div class="pct">${pct}%</div>`:`<div class="big">${ico.check(44)}</div>`}
+      <p>${cfg.showScore?`You answered ${score} of ${qs.length} questions correctly.`:'Your answers have been recorded.'}
+      ${cfg.passingScore==null?'<br><span class="tiny">Passing criteria: TBD. Completion is currently based on submission.</span>':''}</p>
+      </div>
+      ${q.review?`<div class="qrev">${qs.map((x,i)=>{
+        const ok=q.answers[i]===x.correct;
+        return `<div class="qrv"><div class="qt"><span style="color:${ok?'var(--ok)':'var(--danger)'}">${ok?ico.check(15):ico.x(14)}</span>${esc(x.prompt)}</div>
+          <div class="ans">Your answer: <span class="${ok?'yes':'no'}">${esc(x.options[q.answers[i]]!=null?x.options[q.answers[i]]:'No answer')}</span>
+          ${ok?'':`<br>Correct: <span class="yes">${esc(x.options[x.correct])}</span>`}
+          <br><span class="tiny">${esc(x.explain||'')}</span></div></div>`;}).join('')}</div>`:''}
+      </div>
+      <div class="dfoot">
+        <button class="btn ghost" id="qrev">${q.review?'Hide answers':'Review answers'}</button>
+        <span class="req"></span>
+        <button class="btn" id="qdone">Continue</button>
+      </div>`;
+  }
+
+  const cur = qs[q.idx], answered = q.answers[q.idx]!=null;
+  const showFb = cfg.feedbackMode==='immediate' && q.checked;
+  return head + `<div class="dbody">
+    <div class="qhead"><span class="qn">Question ${q.idx+1} of ${qs.length}</span>
+      <span class="bar"><i style="width:${Math.round((q.idx)/qs.length*100)}%"></i></span></div>
+    <h3 class="qq">${esc(cur.prompt)}</h3>
+    <div class="opts">${cur.options.map((o,i)=>{
+      let cls = q.answers[q.idx]===i?'sel':'';
+      if(showFb){ if(i===cur.correct) cls='right'; else if(q.answers[q.idx]===i) cls='wrong'; }
+      return `<button class="opt ${cls}" data-qo="${i}" ${showFb?'disabled':''}>
+        <span class="rd"></span><span style="color:var(--ink)">${esc(o)}</span></button>`;
+    }).join('')}</div>
+    ${showFb?`<div class="fb ${q.answers[q.idx]===cur.correct?'good':'bad'}">
+      <span class="fi">${q.answers[q.idx]===cur.correct?ico.check(16):ico.info(16)}</span>
+      <div><b>${q.answers[q.idx]===cur.correct?'Correct':'Not quite'}</b><p>${esc(cur.explain||'')}</p></div></div>`:''}
+    </div>
+    <div class="dfoot">
+      <span class="req">${qs.length-q.idx-1} remaining</span>
+      ${showFb || cfg.feedbackMode!=='immediate'
+        ? `<button class="btn" id="qnext" ${answered?'':'disabled'}>${q.idx===qs.length-1?'Submit checkpoint':'Next question'}</button>`
+        : `<button class="btn" id="qcheck" ${answered?'':'disabled'}>Check answer</button>`}
+    </div>`;
+}
+function bindQuiz(cp){
+  const dr = document.getElementById('drawer'), q=S.quiz, qs=cp.questions||[], cfg=cp.settings||{};
+  dr.querySelector('.dclose').addEventListener('click', closeDrawer);
+  dr.querySelectorAll('[data-qo]').forEach(b=>b.addEventListener('click',()=>{
+    q.answers[q.idx]=+b.dataset.qo; renderDrawer(); }));
+  const ck = dr.querySelector('#qcheck'); if(ck) ck.addEventListener('click',()=>{ q.checked=true; renderDrawer(); });
+  const nx = dr.querySelector('#qnext');
+  if(nx) nx.addEventListener('click',()=>{
+    if(q.idx===qs.length-1){
+      const score = qs.filter((x,i)=>q.answers[i]===x.correct).length;
+      S.progress.cps[cp.id]={submitted:true, score, total:qs.length, answers:{...q.answers}};
+      q.submitted=true; save(); toast('Checkpoint submitted');
+    } else { q.idx++; q.checked=false; }
+    renderDrawer();
+  });
+  const rv = dr.querySelector('#qrev'); if(rv) rv.addEventListener('click',()=>{ q.review=!q.review; renderDrawer(); });
+  const dn = dr.querySelector('#qdone'); if(dn) dn.addEventListener('click',()=>{
+    const f = findItem(learnerProg(), cp.id); closeDrawer();
+    if(f){ S.view=f.day.id; render(); }
+  });
+}
+
+/* ===================== SEARCH ===================== */
+function bindSearch(){
+  const inp=document.getElementById('q'), box=document.getElementById('qres');
+  const close=()=>box.innerHTML='';
+  inp.addEventListener('input',()=>{
+    const v=inp.value.trim().toLowerCase(); if(v.length<2) return close();
+    const p=learnerProg(), st=states(), hits=[];
+    p.days.forEach((d,di)=>d.items.forEach(it=>{
+      const hay=[it.title,it.description,it.objective,...(it.concepts||[]),...(it.materials||[]).map(m=>m.title)].join(' ').toLowerCase();
+      if(hay.includes(v)) hits.push({it,d,di,st:st.item[it.id]});
+    }));
+    box.innerHTML = hits.length ? `<div class="sresults">${hits.slice(0,8).map(h=>
+      `<button data-hit="${h.it.id}" data-hd="${h.d.id}">${esc(h.it.title)}
+        <span class="m">Day ${h.di+1} · ${h.st==='locked'?'Locked':h.st==='done'?'Completed':'Available'}</span></button>`).join('')}</div>`
+      : `<div class="sresults"><div class="empty" style="border:none;padding:14px">No matches. Search covers module titles, objectives, concepts and materials.</div></div>`;
+    box.querySelectorAll('[data-hit]').forEach(b=>b.addEventListener('click',()=>{
+      const id=b.dataset.hit, s=states();
+      inp.value=''; close();
+      if(s.item[id]==='locked'){ S.view=b.dataset.hd; render(); return toast('That module is locked. Complete the previous one to unlock.'); }
+      S.view=b.dataset.hd; render(); openItem(id, b.dataset.hd);
+    }));
+  });
+  inp.addEventListener('blur',()=>setTimeout(close,180));
+}
+
+/* ===================== TRAINER MODE ===================== */
+const METHODS = ['Trainer-led','Guided reading','Self-paced reading','Video','Live demo','Guided demo','Visual walkthrough',
+ 'Hands-on practice','Scenario practice','Case review','Call listening','Roleplay','Guided roleplay','Shadowing',
+ 'Writing practice','Process simulation','Decision-tree practice'];
+const ACT_TYPES = [['mcq','Multiple choice'],['scenario','Scenario decision'],['compare','Document comparison'],
+ ['match','Matching'],['order','Ordering'],['written','Written response'],['account','Account investigation'],
+ ['callreview','Call listening'],['roleplay','Roleplay (trainer-led)'],['shadow','Shadowing']];
+const MAT_TYPES = [['doc','Document'],['video','Video'],['slides','Slides'],['link','External link']];
+
+function viewTrainer(){
+  const p = S.draft;
+  return `
+  <div class="tbanner">
+    <span>${ico.wrench(17)}</span>
+    <span class="tb">Trainer mode — editing the ${S.dirty?'<b>draft</b>':'published'} program.
+      ${S.dirty?'You have unpublished changes.':'Draft matches what learners see.'}</span>
+    <button class="btn ghost sm" id="tPreview">Preview as learner</button>
+    <button class="btn sm" id="tPublish" ${S.dirty?'':'disabled'}>Publish changes</button>
+  </div>
+  <h1 class="h1">Program structure</h1>
+  <p class="lede">Drag to reorder, move modules between days, and edit any lesson. Learner progression is derived from this order, so rearranging here changes what unlocks next.</p>
+
+  <div style="margin-top:26px">
+    <div class="card tday">
+      <div class="tdayh"><span>${ico.wrench(16)}</span><span class="tn">${esc(p.setup.title)} — ${esc(p.setup.subtitle)}</span>
+        <span class="pill tbd">${p.setup.items.length} items</span></div>
+      <div class="tdayb">${p.setup.items.map(i=>`
+        <div class="trow" style="cursor:default"><span class="grip" style="opacity:.3">${ico.grip()}</span>
+          <span class="tt"><span class="tnm">${esc(i.label)}</span></span>
+          <span class="tac"><button class="iconbtn dg" data-delsetup="${i.id}" aria-label="Remove">${ico.trash()}</button></span></div>`).join('')}
+        <div class="addrow"><button class="btn sm ghost" id="addSetup">${ico.plus(14)} Add setup item</button></div>
+      </div>
+    </div>
+  </div>
+
+  ${p.days.map((d,di)=>`
+    <div class="card tday" data-dayzone="${d.id}">
+      <div class="tdayh">
+        <span class="pill brand">Day ${di+1}</span>
+        <span class="tn"><input type="text" value="${esc(d.title)}" data-daytitle="${d.id}" aria-label="Day title"></span>
+        <span class="pill tbd">${mods(d).length} modules</span>
+        <button class="iconbtn" data-daymv="${d.id}:-1" ${di===0?'disabled':''} aria-label="Move day up">${ico.up()}</button>
+        <button class="iconbtn" data-daymv="${d.id}:1" ${di===p.days.length-1?'disabled':''} aria-label="Move day down">${ico.down()}</button>
+        <button class="iconbtn dg" data-daydel="${d.id}" aria-label="Delete day">${ico.trash()}</button>
+      </div>
+      <div class="tdayb" data-drop="${d.id}">
+        ${d.items.map((it,ii)=>`
+          <div class="trow ${it.kind==='checkpoint'?'cp':''}" draggable="true" data-row="${it.id}" data-rowday="${d.id}">
+            <span class="grip">${ico.grip()}</span>
+            <span class="tt">
+              <span class="tnm">${it.kind==='checkpoint'?ico.diamond(13):''} ${esc(it.title)}
+                ${it.kind==='checkpoint'?`<span class="pill brand">${it.variant==='midday'?'Midday':'End of day'}</span>`:''}
+                ${it.required===false?'<span class="pill tbd">Optional</span>':''}</span>
+              <span class="tsub">${it.kind==='module'
+                ? esc(estLabel(it))+' · '+((it.materials||[]).length)+' materials · '+((it.activities||[]).length)+' activities'
+                : ((it.questions||[]).length)+' questions · '+(it.settings.attempts===0?'unlimited':it.settings.attempts)+' attempt(s) · '+(it.settings.passingScore==null?'passing TBD':it.settings.passingScore+'% to pass')}</span>
+            </span>
+            <span class="tac">
+              <button class="iconbtn" data-mvr="${it.id}:-1" ${ii===0?'disabled':''} aria-label="Move up">${ico.up()}</button>
+              <button class="iconbtn" data-mvr="${it.id}:1" ${ii===d.items.length-1?'disabled':''} aria-label="Move down">${ico.down()}</button>
+              <button class="iconbtn" data-edit="${it.id}" aria-label="Edit">${ico.pen(15)}</button>
+              <button class="iconbtn" data-dup="${it.id}" aria-label="Duplicate">${ico.copy()}</button>
+              <button class="iconbtn dg" data-del="${it.id}" aria-label="Delete">${ico.trash()}</button>
+            </span>
+          </div>`).join('')}
+        <div class="addrow">
+          <button class="btn sm ghost" data-addmod="${d.id}">${ico.plus(14)} Add module</button>
+          <button class="btn sm ghost" data-addcp="${d.id}">${ico.plus(14)} Add checkpoint</button>
+        </div>
+      </div>
+    </div>`).join('')}
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+    <button class="btn ghost" id="addDay">${ico.plus(15)} Add day</button>
+    <button class="btn ghost" id="resetDemo">Restore demo state</button>
+  </div>
+  <p class="tiny" style="margin-top:18px;max-width:64ch">Changes are held in this browser only. The draft and the published program are separate, so nothing reaches learners until you publish.</p>`;
+}
+
+function bindTrainer(){
+  const $ = s => document.querySelectorAll(s);
+  const touch = ()=>{ S.dirty=true; save(); render(); };
+
+  const pv=document.getElementById('tPreview'); if(pv) pv.addEventListener('click',()=>{
+    S.preview=true; S.mode='learner'; S.view='overview'; render(); toast('Previewing the draft. Learner progress is untouched.'); });
+  const pb=document.getElementById('tPublish'); if(pb) pb.addEventListener('click',()=>{
+    S.published = clone(S.draft); S.dirty=false; save(); render(); toast('Changes published'); });
+  const rd=document.getElementById('resetDemo'); if(rd) rd.addEventListener('click',()=>{
+    confirmModal('Restore demo state?','This resets the program, all edits and all learner progress.',()=>resetAll()); });
+  const ad=document.getElementById('addDay'); if(ad) ad.addEventListener('click',()=>{
+    S.draft.days.push({id:nid('d'), title:'New day', short:'New day', description:'', items:[]}); touch(); });
+  const asu=document.getElementById('addSetup'); if(asu) asu.addEventListener('click',()=>{
+    S.draft.setup.items.push({id:nid('s'), label:'New setup item'}); touch(); });
+
+  $('[data-delsetup]').forEach(b=>b.addEventListener('click',()=>{
+    S.draft.setup.items = S.draft.setup.items.filter(i=>i.id!==b.dataset.delsetup); touch(); }));
+  $('[data-daytitle]').forEach(i=>i.addEventListener('change',()=>{
+    const d=findDay(S.draft,i.dataset.daytitle); d.title=i.value; d.short=i.value.split(/[&,]/)[0].trim().slice(0,22); touch(); }));
+  $('[data-daymv]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,dir]=b.dataset.daymv.split(':'); const a=S.draft.days, i=a.findIndex(d=>d.id===id), j=i+ +dir;
+    if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; touch(); }));
+  $('[data-daydel]').forEach(b=>b.addEventListener('click',()=>{
+    const d=findDay(S.draft,b.dataset.daydel);
+    confirmModal('Delete '+d.title+'?', 'Its '+d.items.length+' items will be removed from the draft. Learners keep any progress until you publish.',
+      ()=>{ S.draft.days=S.draft.days.filter(x=>x.id!==d.id); touch(); }); }));
+
+  $('[data-mvr]').forEach(b=>b.addEventListener('click',()=>{
+    const [id,dir]=b.dataset.mvr.split(':'); const f=findItem(S.draft,id); const a=f.day.items;
+    const i=a.indexOf(f.item), j=i+ +dir; if(j<0||j>=a.length) return; [a[i],a[j]]=[a[j],a[i]]; touch(); }));
+  $('[data-dup]').forEach(b=>b.addEventListener('click',()=>{
+    const f=findItem(S.draft,b.dataset.dup); const c=clone(f.item);
+    c.id=nid(c.kind==='module'?'m':'cp'); c.title=c.title+' (copy)';
+    (c.materials||[]).forEach(m=>m.id=nid('r')); (c.activities||[]).forEach(a=>a.id=nid('a'));
+    f.day.items.splice(f.day.items.indexOf(f.item)+1,0,c); touch(); }));
+  $('[data-del]').forEach(b=>b.addEventListener('click',()=>{
+    const f=findItem(S.draft,b.dataset.del);
+    confirmModal('Delete "'+f.item.title+'"?','Removed from the draft only. Publish to apply it for learners.',
+      ()=>{ f.day.items=f.day.items.filter(x=>x.id!==f.item.id); touch(); }); }));
+  $('[data-edit]').forEach(b=>b.addEventListener('click',()=>{ S.editor={id:b.dataset.edit, open:{}}; renderEditor(); }));
+  $('[data-addmod]').forEach(b=>b.addEventListener('click',()=>{
+    const d=findDay(S.draft,b.dataset.addmod);
+    const m={id:nid('m'), kind:'module', required:true, title:'New module', est:null, description:'', objective:'',
+             concepts:[], methods:[], materials:[], activities:[]};
+    d.items.push(m); S.dirty=true; save(); render(); S.editor={id:m.id, open:{}}; renderEditor(); }));
+  $('[data-addcp]').forEach(b=>b.addEventListener('click',()=>{
+    const d=findDay(S.draft,b.dataset.addcp);
+    const c={id:nid('cp'), kind:'checkpoint', variant:'midday', required:true, title:'New checkpoint', description:'',
+             settings:{attempts:1, feedbackMode:'immediate', showScore:true, passingScore:null, requiredToProgress:true}, questions:[]};
+    d.items.push(c); S.dirty=true; save(); render(); S.editor={id:c.id, open:{}}; renderEditor(); }));
+
+  /* drag and drop */
+  let drag=null;
+  $('.trow[draggable]').forEach(r=>{
+    r.addEventListener('dragstart',e=>{ drag=r.dataset.row; r.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    r.addEventListener('dragend',()=>{ r.classList.remove('dragging'); document.querySelectorAll('.over').forEach(x=>x.classList.remove('over')); });
+    r.addEventListener('dragover',e=>{ e.preventDefault(); if(r.dataset.row!==drag) r.classList.add('over'); });
+    r.addEventListener('dragleave',()=>r.classList.remove('over'));
+    r.addEventListener('drop',e=>{ e.preventDefault(); r.classList.remove('over');
+      if(!drag||r.dataset.row===drag) return;
+      moveItem(drag, r.dataset.rowday, r.dataset.row); });
+  });
+  $('[data-drop]').forEach(z=>{
+    z.addEventListener('dragover',e=>e.preventDefault());
+    z.addEventListener('drop',e=>{ if(e.target.closest('.trow')) return; e.preventDefault(); if(drag) moveItem(drag, z.dataset.drop, null); });
+  });
+  function moveItem(itemId, toDayId, beforeId){
+    const f=findItem(S.draft,itemId); if(!f) return;
+    f.day.items = f.day.items.filter(x=>x.id!==itemId);
+    const d = findDay(S.draft,toDayId);
+    const idx = beforeId ? d.items.findIndex(x=>x.id===beforeId) : d.items.length;
+    d.items.splice(idx<0?d.items.length:idx, 0, f.item);
+    S.dirty=true; save(); render(); toast('Moved. Progression re-derived from the new order.');
+  }
+}
+
+/* ---------- modal helpers ---------- */
+function closeModal(){ document.getElementById('modal').classList.remove('on'); S.editor=null; }
+function confirmModal(title,body,onYes){
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="msheet" style="max-width:460px"><div class="mh"><h3>${esc(title)}</h3></div>
+    <div class="mb"><p class="muted" style="margin:0">${esc(body)}</p></div>
+    <div class="mf"><button class="btn ghost" id="cNo">Cancel</button><button class="btn danger" id="cYes">Delete</button></div></div>`;
+  m.classList.add('on');
+  m.querySelector('#cNo').addEventListener('click',()=>m.classList.remove('on'));
+  m.querySelector('#cYes').addEventListener('click',()=>{ m.classList.remove('on'); onYes(); });
+}
+
+/* ---------- module / checkpoint editor ---------- */
+function renderEditor(){
+  const f = findItem(S.draft, S.editor.id); if(!f) return closeModal();
+  const it = f.item, m = document.getElementById('modal');
+  m.innerHTML = `<div class="msheet">
+    <div class="mh"><h3>${it.kind==='module'?'Edit module':'Edit checkpoint'}</h3>
+      <span class="pill tbd">${esc(f.day.title)}</span>
+      <button class="iconbtn" id="eClose" aria-label="Close">${ico.x(15)}</button></div>
+    <div class="mb">${it.kind==='module'?modEditor(it,f.day):cpEditor(it)}</div>
+    <div class="mf">
+      ${it.kind==='module'?'<button class="btn ghost" id="ePreview">Preview learner lesson</button>':''}
+      <button class="btn" id="eDone">Done</button></div>
+  </div>`;
+  m.classList.add('on');
+  bindEditor(it, f.day);
+}
+function modEditor(m, day){
+  const dayOpts = S.draft.days.map((d,i)=>`<option value="${d.id}" ${d.id===day.id?'selected':''}>Day ${i+1} — ${esc(d.title)}</option>`).join('');
+  return `
+  <div class="fgrp"><label for="eTitle">Title</label><input type="text" id="eTitle" value="${esc(m.title)}"></div>
+  <div class="fgrp"><label for="eDesc">Short description (shown in the learning path)</label><textarea id="eDesc" style="min-height:56px">${esc(m.description||'')}</textarea></div>
+  <div class="fgrp"><label for="eObj">Learning objective (shown as "What you'll learn")</label><textarea id="eObj">${esc(m.objective||'')}</textarea></div>
+  <div class="f2">
+    <div class="fgrp"><label for="eEst">Estimated minutes</label>
+      <input type="number" id="eEst" min="0" step="5" value="${m.est==null?'':m.est}" placeholder="Leave blank for Time TBD">
+      <div class="hint">Blank shows "Time TBD". Estimates always render with a tilde.</div></div>
+    <div class="fgrp"><label for="eDay">Day</label><select id="eDay">${dayOpts}</select>
+      <div class="hint">Moving a module re-derives progression automatically.</div></div>
+  </div>
+  <div class="f2">
+    <div class="fgrp"><label for="eReq">Required for progression</label>
+      <select id="eReq"><option value="1" ${m.required!==false?'selected':''}>Required</option><option value="0" ${m.required===false?'selected':''}>Optional</option></select></div>
+    <div class="fgrp"><label for="eNote">Delivery note (optional)</label><input type="text" id="eNote" value="${esc(m.note||'')}"></div>
+  </div>
+
+  <div class="msec"><h4>Key concepts</h4>
+    <div class="chiprow">${(m.concepts||[]).map((c,i)=>`<span class="chip">${esc(c)}<button data-rmc="${i}" aria-label="Remove">${ico.x(12)}</button></span>`).join('')||'<span class="tiny">None yet</span>'}</div>
+    <div style="display:flex;gap:8px"><input type="text" id="eConcept" placeholder="Add a concept" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 11px">
+      <button class="btn sm ghost" id="eAddC">Add</button></div>
+  </div>
+
+  <div class="msec"><h4>Suggested learning methods</h4>
+    <div class="chiprow">${(m.methods||[]).map((c,i)=>`<span class="chip">${esc(c)}<button data-rmm="${i}" aria-label="Remove">${ico.x(12)}</button></span>`).join('')||'<span class="tiny">None yet</span>'}</div>
+    <div style="display:flex;gap:8px"><select id="eMethod" style="flex:1;border:1px solid var(--line);border-radius:9px;padding:8px 11px">
+      ${METHODS.map(x=>`<option>${x}</option>`).join('')}</select><button class="btn sm ghost" id="eAddM">Add</button></div>
+  </div>
+
+  <div class="msec"><h4>Materials <button class="btn sm ghost" id="eAddMat">${ico.plus(13)} Add</button></h4>
+    ${(m.materials||[]).map((r,i)=>`
+      <div class="minirow"><span class="grip" style="color:var(--ink-3)">${matIcon(r.type)}</span>
+        <span class="mt"><span class="mn">${esc(r.title)} ${reqPill(r.requirement)} ${r.sample?'<span class="pill sample">Demo</span>':''} ${r.pending?'<span class="pill tbd">In preparation</span>':''}</span>
+        <span class="ms">${esc(r.note||r.url||'')}</span></span>
+        <button class="iconbtn" data-mvmat="${i}:-1" ${i===0?'disabled':''} aria-label="Up">${ico.up(13)}</button>
+        <button class="iconbtn" data-mvmat="${i}:1" ${i===(m.materials.length-1)?'disabled':''} aria-label="Down">${ico.down(13)}</button>
+        <button class="iconbtn" data-emat="${i}" aria-label="Edit">${ico.pen(13)}</button>
+        <button class="iconbtn dg" data-dmat="${i}" aria-label="Remove">${ico.trash(13)}</button></div>
+      ${S.editor.open.mat===i?matForm(r,i):''}`).join('') || '<p class="tiny">No materials configured.</p>'}
+  </div>
+
+  <div class="msec"><h4>Practice & activities <button class="btn sm ghost" id="eAddAct">${ico.plus(13)} Add</button></h4>
+    ${(m.activities||[]).map((a,i)=>`
+      <div class="minirow"><span class="grip" style="color:var(--ink-3)">${ico.target(15)}</span>
+        <span class="mt"><span class="mn">${esc(a.title)} ${reqPill(a.requirement)} <span class="pill">${esc((ACT_TYPES.find(t=>t[0]===a.type)||[,a.type])[1])}</span></span>
+        <span class="ms">${esc((a.instructions||'').slice(0,70))}</span></span>
+        <button class="iconbtn" data-mvact="${i}:-1" ${i===0?'disabled':''} aria-label="Up">${ico.up(13)}</button>
+        <button class="iconbtn" data-mvact="${i}:1" ${i===(m.activities.length-1)?'disabled':''} aria-label="Down">${ico.down(13)}</button>
+        <button class="iconbtn" data-eact="${i}" aria-label="Edit">${ico.pen(13)}</button>
+        <button class="iconbtn dg" data-dact="${i}" aria-label="Remove">${ico.trash(13)}</button></div>
+      ${S.editor.open.act===i?actForm(a,i):''}`).join('') || '<p class="tiny">No activities configured. The learner sees a "Practice activity in development" state.</p>'}
+  </div>`;
+}
+function matForm(r,i){
+  return `<div style="border:1px solid var(--brand);border-radius:11px;padding:14px;margin:-3px 0 10px">
+    <div class="f2">
+      <div class="fgrp"><label>Title</label><input type="text" data-mf="title" value="${esc(r.title)}"></div>
+      <div class="fgrp"><label>Type</label><select data-mf="type">${MAT_TYPES.map(t=>`<option value="${t[0]}" ${r.type===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></div>
+    </div>
+    <div class="f2">
+      <div class="fgrp"><label>Requirement</label><select data-mf="requirement">
+        ${['required','optional','reference'].map(x=>`<option value="${x}" ${r.requirement===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>Status</label><select data-mf="pending">
+        <option value="" ${!r.pending?'selected':''}>Available</option><option value="1" ${r.pending?'selected':''}>In preparation</option></select></div>
+    </div>
+    <div class="fgrp"><label>Note</label><input type="text" data-mf="note" value="${esc(r.note||'')}"></div>
+    <div class="fgrp"><label>URL (for links)</label><input type="text" data-mf="url" value="${esc(r.url||'')}"></div>
+    <button class="btn sm" data-matsave="${i}">Save material</button>
+  </div>`;
+}
+function actForm(a,i){
+  const hasOpts = ['mcq','scenario','compare','account','callreview'].includes(a.type);
+  return `<div style="border:1px solid var(--brand);border-radius:11px;padding:14px;margin:-3px 0 10px">
+    <div class="f2">
+      <div class="fgrp"><label>Title</label><input type="text" data-af="title" value="${esc(a.title)}"></div>
+      <div class="fgrp"><label>Type</label><select data-af="type">${ACT_TYPES.map(t=>`<option value="${t[0]}" ${a.type===t[0]?'selected':''}>${t[1]}</option>`).join('')}</select></div>
+    </div>
+    <div class="fgrp"><label>Requirement</label><select data-af="requirement">
+      ${['required','optional','reference'].map(x=>`<option value="${x}" ${a.requirement===x?'selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>
+    <div class="fgrp"><label>Instructions</label><textarea data-af="instructions" style="min-height:56px">${esc(a.instructions||'')}</textarea></div>
+    <div class="fgrp"><label>Scenario (optional)</label><textarea data-af="scenario" style="min-height:56px">${esc(a.scenario||'')}</textarea></div>
+    ${hasOpts?`
+      <div class="fgrp"><label>Answer options (one per line)</label><textarea data-af="options">${esc((a.options||[]).join('\n'))}</textarea></div>
+      <div class="f2">
+        <div class="fgrp"><label>Correct option number</label><input type="number" data-af="correct" min="1" value="${(a.correct==null?1:a.correct+1)}"></div>
+        <div class="fgrp"><label>&nbsp;</label><div class="hint">Counting from 1, top to bottom.</div></div>
+      </div>
+      <div class="fgrp"><label>Explanation shown after answering</label><textarea data-af="explain">${esc(a.explain||'')}</textarea></div>`:''}
+    ${a.type==='written'?`<div class="fgrp"><label>Model answer</label><textarea data-af="model">${esc(a.model||'')}</textarea></div>`:''}
+    ${a.type==='order'?`<div class="fgrp"><label>Steps in correct order (one per line)</label><textarea data-af="steps">${esc((a.steps||[]).join('\n'))}</textarea></div>`:''}
+    ${a.type==='roleplay'?`<div class="fgrp"><label>Agent goal</label><textarea data-af="goal" style="min-height:56px">${esc(a.goal||'')}</textarea></div>
+      <div class="fgrp"><label>Skills (one per line)</label><textarea data-af="skills">${esc((a.skills||[]).join('\n'))}</textarea></div>`:''}
+    ${a.type==='shadow'?`<div class="fgrp"><label>Observation checklist (one per line)</label><textarea data-af="checklist">${esc((a.checklist||[]).join('\n'))}</textarea></div>`:''}
+    <button class="btn sm" data-actsave="${i}">Save activity</button>
+  </div>`;
+}
+function cpEditor(c){
+  const s=c.settings;
+  return `
+  <div class="fgrp"><label for="eTitle">Title</label><input type="text" id="eTitle" value="${esc(c.title)}"></div>
+  <div class="fgrp"><label for="eDesc">Description</label><textarea id="eDesc" style="min-height:56px">${esc(c.description||'')}</textarea></div>
+  <div class="f2">
+    <div class="fgrp"><label for="eVar">Position label</label><select id="eVar">
+      <option value="midday" ${c.variant==='midday'?'selected':''}>Midday checkpoint</option>
+      <option value="eod" ${c.variant==='eod'?'selected':''}>End-of-day checkpoint</option></select>
+      <div class="hint">Where it actually sits is set by its position in the day.</div></div>
+    <div class="fgrp"><label for="eAtt">Attempts</label><select id="eAtt">
+      <option value="1" ${s.attempts===1?'selected':''}>1 attempt</option>
+      <option value="3" ${s.attempts===3?'selected':''}>3 attempts</option>
+      <option value="0" ${s.attempts===0?'selected':''}>Unlimited</option></select></div>
+  </div>
+  <div class="f2">
+    <div class="fgrp"><label for="eFb">Feedback</label><select id="eFb">
+      <option value="immediate" ${s.feedbackMode==='immediate'?'selected':''}>Immediate</option>
+      <option value="end" ${s.feedbackMode==='end'?'selected':''}>After submission</option></select></div>
+    <div class="fgrp"><label for="eScore">Score visibility</label><select id="eScore">
+      <option value="1" ${s.showScore?'selected':''}>Visible</option><option value="0" ${!s.showScore?'selected':''}>Hidden</option></select></div>
+  </div>
+  <div class="f2">
+    <div class="fgrp"><label for="ePass">Passing score (%)</label>
+      <input type="number" id="ePass" min="0" max="100" value="${s.passingScore==null?'':s.passingScore}" placeholder="Blank = TBD">
+      <div class="hint">Left blank, completion is based on submission and the learner is told the criteria are TBD.</div></div>
+    <div class="fgrp"><label for="ePReq">Required to progress</label><select id="ePReq">
+      <option value="1" ${s.requiredToProgress?'selected':''}>Yes</option><option value="0" ${!s.requiredToProgress?'selected':''}>No</option></select></div>
+  </div>
+  <div class="msec"><h4>Questions <button class="btn sm ghost" id="eAddQ">${ico.plus(13)} Add question</button></h4>
+    ${(c.questions||[]).map((q,i)=>`
+      <div class="minirow"><span class="grip" style="color:var(--ink-3)">${i+1}</span>
+        <span class="mt"><span class="mn">${esc(q.prompt.slice(0,64))}${q.prompt.length>64?'…':''}</span>
+        <span class="ms">${(q.options||[]).length} options · correct: ${esc((q.options||[])[q.correct]||'—').slice(0,34)}</span></span>
+        <button class="iconbtn" data-mvq="${i}:-1" ${i===0?'disabled':''} aria-label="Up">${ico.up(13)}</button>
+        <button class="iconbtn" data-mvq="${i}:1" ${i===c.questions.length-1?'disabled':''} aria-label="Down">${ico.down(13)}</button>
+        <button class="iconbtn" data-eq="${i}" aria-label="Edit">${ico.pen(13)}</button>
+        <button class="iconbtn dg" data-dq="${i}" aria-label="Remove">${ico.trash(13)}</button></div>
+      ${S.editor.open.q===i?`<div style="border:1px solid var(--brand);border-radius:11px;padding:14px;margin:-3px 0 10px">
+        <div class="fgrp"><label>Question</label><textarea data-qf="prompt" style="min-height:56px">${esc(q.prompt)}</textarea></div>
+        <div class="fgrp"><label>Options (one per line)</label><textarea data-qf="options">${esc((q.options||[]).join('\n'))}</textarea></div>
+        <div class="f2"><div class="fgrp"><label>Correct option number</label><input type="number" data-qf="correct" min="1" value="${q.correct+1}"></div>
+        <div class="fgrp"><label>&nbsp;</label><div class="hint">Counting from 1.</div></div></div>
+        <div class="fgrp"><label>Explanation</label><textarea data-qf="explain">${esc(q.explain||'')}</textarea></div>
+        <button class="btn sm" data-qsave="${i}">Save question</button></div>`:''}`).join('') || '<p class="tiny">No questions yet.</p>'}
+  </div>`;
+}
+function bindEditor(it, day){
+  const m=document.getElementById('modal'), $=s=>m.querySelectorAll(s), $1=s=>m.querySelector(s);
+  const upd = ()=>{ S.dirty=true; save(); renderEditor(); render(); };
+  const val = id => { const e=$1(id); return e?e.value:''; };
+
+  $1('#eClose').addEventListener('click', closeModal);
+  $1('#eDone').addEventListener('click',()=>{ commit(); closeModal(); render(); });
+  const pv=$1('#ePreview'); if(pv) pv.addEventListener('click',()=>{
+    commit(); closeModal(); S.preview=true; S.mode='learner'; S.view=day.id; render(); openItem(it.id, day.id); });
+
+  function commit(){
+    if(it.kind==='module'){
+      it.title = val('#eTitle')||it.title;
+      it.description = val('#eDesc'); it.objective = val('#eObj'); it.note = val('#eNote')||undefined;
+      const e = val('#eEst'); it.est = e===''?null:+e; delete it.estMin; delete it.estMax;
+      it.required = val('#eReq')==='1';
+      const tgt = val('#eDay');
+      if(tgt && tgt!==day.id){
+        day.items = day.items.filter(x=>x.id!==it.id);
+        findDay(S.draft,tgt).items.push(it);
+      }
+    } else {
+      it.title = val('#eTitle')||it.title; it.description = val('#eDesc'); it.variant = val('#eVar');
+      const p = val('#ePass');
+      it.settings = {attempts:+val('#eAtt'), feedbackMode:val('#eFb'), showScore:val('#eScore')==='1',
+                     passingScore: p===''?null:+p, requiredToProgress: val('#ePReq')==='1'};
+    }
+    S.dirty=true; save();
+  }
+
+  const ac=$1('#eAddC'); if(ac) ac.addEventListener('click',()=>{
+    const v=$1('#eConcept').value.trim(); if(!v) return; commit(); it.concepts=[...(it.concepts||[]),v]; upd(); });
+  const am=$1('#eAddM'); if(am) am.addEventListener('click',()=>{
+    commit(); it.methods=[...(it.methods||[]), $1('#eMethod').value]; upd(); });
+  $('[data-rmc]').forEach(b=>b.addEventListener('click',()=>{ commit(); it.concepts.splice(+b.dataset.rmc,1); upd(); }));
+  $('[data-rmm]').forEach(b=>b.addEventListener('click',()=>{ commit(); it.methods.splice(+b.dataset.rmm,1); upd(); }));
+
+  const amat=$1('#eAddMat'); if(amat) amat.addEventListener('click',()=>{
+    commit(); it.materials=[...(it.materials||[]), {id:nid('r'), type:'doc', title:'New material', requirement:'required', note:'', sample:true}];
+    S.editor.open={mat:it.materials.length-1}; upd(); });
+  $('[data-emat]').forEach(b=>b.addEventListener('click',()=>{
+    commit(); S.editor.open = S.editor.open.mat===+b.dataset.emat?{}:{mat:+b.dataset.emat}; renderEditor(); }));
+  $('[data-dmat]').forEach(b=>b.addEventListener('click',()=>{ commit(); it.materials.splice(+b.dataset.dmat,1); S.editor.open={}; upd(); }));
+  $('[data-mvmat]').forEach(b=>b.addEventListener('click',()=>{
+    const [i,d]=b.dataset.mvmat.split(':').map(Number); const a=it.materials; const j=i+d;
+    if(j<0||j>=a.length) return; commit(); [a[i],a[j]]=[a[j],a[i]]; S.editor.open={}; upd(); }));
+  $('[data-matsave]').forEach(b=>b.addEventListener('click',()=>{
+    const r = it.materials[+b.dataset.matsave];
+    m.querySelectorAll('[data-mf]').forEach(f=>{
+      const k=f.dataset.mf; if(k==='pending') r.pending = f.value==='1'||undefined; else r[k]=f.value; });
+    commit(); S.editor.open={}; upd(); toast('Material saved'); }));
+
+  const aact=$1('#eAddAct'); if(aact) aact.addEventListener('click',()=>{
+    commit(); it.activities=[...(it.activities||[]),
+      {id:nid('a'), type:'mcq', title:'New activity', requirement:'required', instructions:'', options:['Option A','Option B'], correct:0, explain:'', sample:true}];
+    S.editor.open={act:it.activities.length-1}; upd(); });
+  $('[data-eact]').forEach(b=>b.addEventListener('click',()=>{
+    commit(); S.editor.open = S.editor.open.act===+b.dataset.eact?{}:{act:+b.dataset.eact}; renderEditor(); }));
+  $('[data-dact]').forEach(b=>b.addEventListener('click',()=>{ commit(); it.activities.splice(+b.dataset.dact,1); S.editor.open={}; upd(); }));
+  $('[data-mvact]').forEach(b=>b.addEventListener('click',()=>{
+    const [i,d]=b.dataset.mvact.split(':').map(Number); const a=it.activities; const j=i+d;
+    if(j<0||j>=a.length) return; commit(); [a[i],a[j]]=[a[j],a[i]]; S.editor.open={}; upd(); }));
+  $('[data-actsave]').forEach(b=>b.addEventListener('click',()=>{
+    const a = it.activities[+b.dataset.actsave];
+    m.querySelectorAll('[data-af]').forEach(f=>{
+      const k=f.dataset.af;
+      if(['options','steps','skills','checklist'].includes(k)) a[k]=f.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      else if(k==='correct') a.correct = Math.max(0,(+f.value||1)-1);
+      else a[k]=f.value;
+    });
+    commit(); S.editor.open={}; upd(); toast('Activity saved'); }));
+
+  const aq=$1('#eAddQ'); if(aq) aq.addEventListener('click',()=>{
+    commit(); it.questions=[...(it.questions||[]), {id:nid('q'), prompt:'New question', options:['Option A','Option B'], correct:0, explain:''}];
+    S.editor.open={q:it.questions.length-1}; upd(); });
+  $('[data-eq]').forEach(b=>b.addEventListener('click',()=>{
+    commit(); S.editor.open = S.editor.open.q===+b.dataset.eq?{}:{q:+b.dataset.eq}; renderEditor(); }));
+  $('[data-dq]').forEach(b=>b.addEventListener('click',()=>{ commit(); it.questions.splice(+b.dataset.dq,1); S.editor.open={}; upd(); }));
+  $('[data-mvq]').forEach(b=>b.addEventListener('click',()=>{
+    const [i,d]=b.dataset.mvq.split(':').map(Number); const a=it.questions; const j=i+d;
+    if(j<0||j>=a.length) return; commit(); [a[i],a[j]]=[a[j],a[i]]; S.editor.open={}; upd(); }));
+  $('[data-qsave]').forEach(b=>b.addEventListener('click',()=>{
+    const q = it.questions[+b.dataset.qsave];
+    m.querySelectorAll('[data-qf]').forEach(f=>{
+      const k=f.dataset.qf;
+      if(k==='options') q.options=f.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      else if(k==='correct') q.correct=Math.max(0,(+f.value||1)-1);
+      else q[k]=f.value; });
+    commit(); S.editor.open={}; upd(); toast('Question saved'); }));
+}
+
+/* ===================== RENDER ===================== */
+function render(){
+  document.getElementById('mLearner').setAttribute('aria-pressed', S.mode==='learner');
+  document.getElementById('mTrainer').setAttribute('aria-pressed', S.mode==='trainer');
+  const main = document.getElementById('main');
+  if(S.mode==='trainer'){
+    document.getElementById('nav').innerHTML = `<button class="navitem" aria-current="true"><span class="ico">${ico.sort()}</span>Program structure</button>`;
+    main.innerHTML = viewTrainer(); bindTrainer(); return;
+  }
+  renderNav();
+  const banner = S.preview ? `<div class="pvbanner"><span>${ico.eye(16)}</span>
+    <span class="tb">Previewing the draft. Locks are lifted and learner progress is not affected.</span>
+    <button class="btn sm ghost" id="exitPv" style="border-color:currentColor;color:inherit">Exit preview</button></div>` : '';
+  const v = S.view;
+  const body = v==='overview'?viewOverview() : v==='setup'?viewSetup() : v==='cert'?viewCert()
+    : (findDay(learnerProg(),v) ? viewDay(v) : viewOverview());
+  main.innerHTML = banner + body;
+
+  main.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.go, st=states();
+    if(id==='cert' && !st.certUnlocked) return toast('Complete Days 1 to 4 to unlock certification');
+    if(id!=='cert' && findDay(learnerProg(),id) && st.day[id]==='locked') return toast('Complete the previous day to unlock');
+    S.view=id; render(); window.scrollTo({top:0,behavior:'instant'});
+  }));
+  main.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>openItem(b.dataset.open, b.dataset.day)));
+  main.querySelectorAll('[data-setup]').forEach(c=>c.addEventListener('change',()=>{
+    S.progress.setup[c.dataset.setup]=c.checked; save(); render(); }));
+  const ex=document.getElementById('exitPv'); if(ex) ex.addEventListener('click',()=>{
+    S.preview=false; S.mode='trainer'; render(); });
+  if(S.drawer) renderDrawer();
+}
+
+/* ===================== BOOT ===================== */
+document.getElementById('mLearner').addEventListener('click',()=>{ S.mode='learner'; S.preview=false; S.view='overview'; render(); });
+document.getElementById('mTrainer').addEventListener('click',()=>{ S.mode='trainer'; S.preview=false; closeDrawer(); render(); });
+document.getElementById('scrim').addEventListener('click', closeDrawer);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){
+  const m=document.getElementById('modal'); if(m.classList.contains('on')) return m.classList.remove('on');
+  if(S.drawer) closeDrawer(); }});
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target.id==='modal') e.currentTarget.classList.remove('on'); });
+
+load(); bindSearch(); render();
+</script>
+</body>
+</html>

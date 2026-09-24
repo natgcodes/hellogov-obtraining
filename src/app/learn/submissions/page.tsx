@@ -16,7 +16,7 @@ export default async function LearnerSubmissionsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("full_name, email, role")
     .eq("id", user.id)
     .single();
 
@@ -27,6 +27,13 @@ export default async function LearnerSubmissionsPage() {
   if (profile.role === "trainer") {
     redirect("/trainer");
   }
+
+  // ---------------------------------------------------------
+  // Load submitted quiz attempts
+  //
+  // Checkpoints use the same quiz engine, so checkpoint
+  // submissions also appear here as quiz_attempts.
+  // ---------------------------------------------------------
 
   const { data: attempts, error } = await supabase
     .from("quiz_attempts")
@@ -45,10 +52,26 @@ export default async function LearnerSubmissionsPage() {
         title,
         passing_score,
         show_results,
+
         modules (
           id,
           title,
           day_id,
+
+          days (
+            id,
+            day_number,
+            title
+          )
+        ),
+
+        checkpoints (
+          id,
+          title,
+          checkpoint_type,
+          position,
+          day_id,
+
           days (
             id,
             day_number,
@@ -85,7 +108,11 @@ export default async function LearnerSubmissionsPage() {
   }
 
   return (
-    <AppShell role="learner">
+    <AppShell
+      role="learner"
+      userName={profile.full_name}
+      userEmail={profile.email}
+    >
       <div className="mx-auto max-w-6xl">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#e84545]">
@@ -97,8 +124,9 @@ export default async function LearnerSubmissionsPage() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Review your submitted assessments,
-            scores, feedback, and review status.
+            Review your submitted quizzes and
+            checkpoints, scores, feedback, and
+            review status.
           </p>
         </div>
 
@@ -146,20 +174,75 @@ export default async function LearnerSubmissionsPage() {
 
               if (!quiz) return null;
 
+              // ---------------------------------------------
+              // Normal quiz context
+              // ---------------------------------------------
+
               const moduleData = Array.isArray(
                 quiz.modules
               )
                 ? quiz.modules[0]
                 : quiz.modules;
 
-              const day =
-                moduleData?.days?.[0] ?? null;
+              const moduleDayRaw =
+                moduleData?.days;
+
+              const moduleDay = Array.isArray(
+                moduleDayRaw
+              )
+                ? moduleDayRaw[0]
+                : moduleDayRaw;
+
+              // ---------------------------------------------
+              // Checkpoint context
+              // ---------------------------------------------
+
+              const checkpointRaw =
+                quiz.checkpoints;
+
+              const checkpoint = Array.isArray(
+                checkpointRaw
+              )
+                ? checkpointRaw[0]
+                : checkpointRaw;
+
+              const checkpointDayRaw =
+                checkpoint?.days;
+
+              const checkpointDay =
+                Array.isArray(checkpointDayRaw)
+                  ? checkpointDayRaw[0]
+                  : checkpointDayRaw;
+
+              const isCheckpoint =
+                Boolean(checkpoint);
+
+              const day = isCheckpoint
+                ? checkpointDay
+                : moduleDay;
+
+              // ---------------------------------------------
+              // Status
+              // ---------------------------------------------
 
               const pending =
-                attempt.status === "needs_review";
+                attempt.status ===
+                "needs_review";
 
               const passed =
                 attempt.passed === true;
+
+              // ---------------------------------------------
+              // Assessment label
+              // ---------------------------------------------
+
+              const assessmentLabel =
+                isCheckpoint
+                  ? `Checkpoint ${
+                      checkpoint?.position ??
+                      ""
+                    }`.trim()
+                  : "Quiz";
 
               return (
                 <article
@@ -171,14 +254,29 @@ export default async function LearnerSubmissionsPage() {
                       <div className="flex flex-wrap items-center gap-2">
                         {day && (
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                            Day {day.day_number}
+                            Day{" "}
+                            {day.day_number}
                           </span>
                         )}
 
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                          Attempt{" "}
-                          {attempt.attempt_number}
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            isCheckpoint
+                              ? "bg-purple-50 text-purple-700"
+                              : "bg-blue-50 text-blue-700"
+                          }`}
+                        >
+                          {assessmentLabel}
                         </span>
+
+                        {!isCheckpoint && (
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                            Attempt{" "}
+                            {
+                              attempt.attempt_number
+                            }
+                          </span>
+                        )}
 
                         {pending ? (
                           <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -196,13 +294,31 @@ export default async function LearnerSubmissionsPage() {
                       </div>
 
                       <h2 className="mt-3 text-lg font-semibold text-slate-950">
-                        {quiz.title}
+                        {isCheckpoint
+                          ? checkpoint?.title ??
+                            quiz.title
+                          : quiz.title}
                       </h2>
 
-                      {moduleData && (
-                        <p className="mt-1 text-sm text-slate-500">
-                          {moduleData.title}
-                        </p>
+                      {isCheckpoint ? (
+                        checkpointDay && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            Day{" "}
+                            {
+                              checkpointDay.day_number
+                            }{" "}
+                            ·{" "}
+                            {
+                              checkpointDay.title
+                            }
+                          </p>
+                        )
+                      ) : (
+                        moduleData && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            {moduleData.title}
+                          </p>
+                        )
                       )}
 
                       <p className="mt-3 text-xs text-slate-400">

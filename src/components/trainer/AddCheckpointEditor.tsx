@@ -58,64 +58,32 @@ export default function AddCheckpointEditor({
     setErrorMessage(null);
 
     /*
-     * Every checkpoint uses the existing quiz engine internally.
-     * Checkpoint quizzes do not belong to a module, so module_id is null.
+     * Creates both records atomically:
+     *
+     * 1. Internal quiz used by the checkpoint
+     * 2. Checkpoint linked through checkpoints.quiz_id
+     *
+     * The database function handles both inserts in the
+     * same transaction, preventing orphan quizzes.
      */
-    const { data: quiz, error: quizError } = await supabase
-      .from("quizzes")
-      .insert({
-        module_id: null,
-        title: cleanTitle,
-        description: description.trim() || null,
-        instructions: null,
-        passing_score: parsedPassingScore ?? 0,
-        max_attempts: 1,
-        position: 0,
-        is_required: true,
-        is_published: true,
-        shuffle_questions: false,
-        show_results: true,
-      })
-      .select("id")
-      .single();
+    const { error } = await supabase.rpc(
+      "create_checkpoint_assessment",
+      {
+        target_day_id: dayId,
+        checkpoint_title: cleanTitle,
+        checkpoint_description:
+          description.trim() || null,
+        target_checkpoint_type: checkpointType,
+        target_passing_score: parsedPassingScore,
+        target_position: nextPosition,
+      }
+    );
 
-    if (quizError || !quiz) {
+    if (error) {
       console.error(
         "Error creating checkpoint assessment:",
-        quizError
+        error
       );
-
-      setErrorMessage(
-        "We couldn't create the checkpoint assessment. Please try again."
-      );
-
-      setIsSaving(false);
-      return;
-    }
-
-    const { error: checkpointError } = await supabase
-      .from("checkpoints")
-      .insert({
-        day_id: dayId,
-        quiz_id: quiz.id,
-        title: cleanTitle,
-        description: description.trim() || null,
-        checkpoint_type: checkpointType,
-        passing_score: parsedPassingScore,
-        position: nextPosition,
-      });
-
-    if (checkpointError) {
-      console.error(
-        "Error creating checkpoint:",
-        checkpointError
-      );
-
-      // Roll back the internal quiz so we do not leave orphan data.
-      await supabase
-        .from("quizzes")
-        .delete()
-        .eq("id", quiz.id);
 
       setErrorMessage(
         "We couldn't create this checkpoint. Please try again."

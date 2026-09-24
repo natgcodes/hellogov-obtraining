@@ -51,10 +51,18 @@ export default function AppShell({
           label: "Overview",
           href: "/learn",
         },
-        { label: "Checkpoints", href: "/learn/checkpoints" },
-        { label: "Submissions", href: "/learn/submissions" },
-        { label: "Certification", href: "/learn/certification" },
-        { label: "Next Steps", href: "/learn/post-training" },
+        {
+          label: "Submissions",
+          href: "/learn/submissions",
+        },
+        {
+          label: "Certification",
+          href: "/learn/certification",
+        },
+        {
+          label: "Next Steps",
+          href: "/learn/post-training",
+        },
       ];
 
   async function handleLogout() {
@@ -136,7 +144,9 @@ export default function AppShell({
 
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f3f5] text-sm font-semibold text-[#475467]">
-                {(userName || userEmail || "U").charAt(0).toUpperCase()}
+                {(userName || userEmail || "U")
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
               <div className="hidden max-w-[180px] sm:block">

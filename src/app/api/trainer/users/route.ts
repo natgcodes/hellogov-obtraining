@@ -273,3 +273,144 @@ const teamLead =
     );
   }
 }
+type DeleteUserBody = {
+  userId?: string;
+};
+
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "You must be signed in." },
+        { status: 401 }
+      );
+    }
+
+    const { data: trainerProfile, error: trainerProfileError } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+    if (
+      trainerProfileError ||
+      trainerProfile?.role !== "trainer"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "You do not have permission to delete users.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const body =
+      (await request.json()) as DeleteUserBody;
+
+    const userId = body.userId?.trim();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required." },
+        { status: 400 }
+      );
+    }
+
+    // Trainers cannot delete their own account.
+    if (userId === user.id) {
+      return NextResponse.json(
+        {
+          error:
+            "You cannot delete your own account.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const admin = createAdminClient();
+
+    // A trainer who created a program cannot be deleted while
+    // programs.created_by still references their profile.
+    const {
+      data: createdProgram,
+      error: programCheckError,
+    } = await admin
+      .from("programs")
+      .select("id")
+      .eq("created_by", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (programCheckError) {
+      console.error(
+        "Unable to check program ownership:",
+        programCheckError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't verify whether this user can be deleted.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (createdProgram) {
+      return NextResponse.json(
+        {
+          error:
+            "This trainer cannot be deleted because they are the creator of a program.",
+        },
+        { status: 409 }
+      );
+    }
+
+    // Deleting the Auth user removes the matching profile.
+    // Learner-related records are removed through the
+    // database's ON DELETE CASCADE relationships.
+    const { error: deleteError } =
+      await admin.auth.admin.deleteUser(userId);
+
+    if (deleteError) {
+      console.error(
+        "Unable to delete user:",
+        deleteError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "We couldn't delete this account. Please try again.",
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error(
+      "Unexpected delete-user error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Something went wrong while deleting the account.",
+      },
+      { status: 500 }
+    );
+  }
+}

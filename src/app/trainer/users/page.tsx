@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import AddUserModal from "@/components/trainer/AddUserModal";
+import DeleteUserButton from "@/components/trainer/DeleteUserButton";
 import { createClient } from "@/lib/supabase/server";
 
 type UserProfile = {
@@ -96,8 +97,6 @@ export default async function TrainerUsersPage() {
             </p>
           </div>
 
-          {/* ADD USER */}
-
           <AddUserModal />
         </div>
 
@@ -148,7 +147,7 @@ export default async function TrainerUsersPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left">
+              <table className="w-full min-w-[860px] text-left">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-6 py-3">
@@ -165,6 +164,10 @@ export default async function TrainerUsersPage() {
 
                     <th className="px-6 py-3">
                       Access
+                    </th>
+
+                    <th className="px-6 py-3 text-right">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -214,6 +217,20 @@ export default async function TrainerUsersPage() {
                         <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                           Active
                         </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <DeleteUserButton
+                          userId={profile.id}
+                          userName={
+                            profile.full_name ||
+                            profile.email ||
+                            "this user"
+                          }
+                          isCurrentUser={
+                            profile.id === user.id
+                          }
+                        />
                       </td>
                     </tr>
                   ))}

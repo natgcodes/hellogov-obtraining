@@ -24,21 +24,131 @@ export default function SetupPasswordPage() {
     useState("");
 
   useEffect(() => {
-    async function checkSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    let mounted = true;
 
-      if (!session) {
-        setError(
-          "This invitation link is invalid or has expired. Please request a new invitation."
+    async function initializeInvitation() {
+      setError("");
+
+      try {
+        // ---------------------------------------------------
+        // PKCE / query-param flow
+        // ---------------------------------------------------
+
+        const searchParams =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const code =
+          searchParams.get("code");
+
+        if (code) {
+          const {
+            error: exchangeError,
+          } =
+            await supabase.auth.exchangeCodeForSession(
+              code
+            );
+
+          if (exchangeError) {
+            console.error(
+              "Unable to exchange invitation code:",
+              exchangeError
+            );
+          }
+        }
+
+        // ---------------------------------------------------
+        // IMPLICIT / HASH FLOW
+        //
+        // Supabase invitation links may return access_token
+        // and refresh_token in the URL hash.
+        // ---------------------------------------------------
+
+        const hashParams =
+          new URLSearchParams(
+            window.location.hash.substring(1)
+          );
+
+        const accessToken =
+          hashParams.get("access_token");
+
+        const refreshToken =
+          hashParams.get("refresh_token");
+
+        if (
+          accessToken &&
+          refreshToken
+        ) {
+          const {
+            error: sessionError,
+          } =
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+
+          if (sessionError) {
+            console.error(
+              "Unable to establish invitation session:",
+              sessionError
+            );
+          }
+
+          // Remove tokens from the visible URL after
+          // Supabase has stored the session.
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        }
+
+        // ---------------------------------------------------
+        // VERIFY SESSION
+        // ---------------------------------------------------
+
+        const {
+          data: { session },
+          error: sessionError,
+        } =
+          await supabase.auth.getSession();
+
+        if (!mounted) {
+          return;
+        }
+
+        if (
+          sessionError ||
+          !session
+        ) {
+          setError(
+            "This invitation link is invalid or has expired. Please request a new invitation."
+          );
+        }
+      } catch (initializationError) {
+        console.error(
+          "Unable to initialize invitation:",
+          initializationError
         );
-      }
 
-      setCheckingSession(false);
+        if (mounted) {
+          setError(
+            "This invitation link is invalid or has expired. Please request a new invitation."
+          );
+        }
+      } finally {
+        if (mounted) {
+          setCheckingSession(false);
+        }
+      }
     }
 
-    checkSession();
+    initializeInvitation();
+
+    return () => {
+      mounted = false;
+    };
   }, [supabase]);
 
   async function handleSubmit(
@@ -59,7 +169,10 @@ export default function SetupPasswordPage() {
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (
+      password !==
+      confirmPassword
+    ) {
       setError(
         "The passwords do not match."
       );
@@ -71,9 +184,13 @@ export default function SetupPasswordPage() {
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } =
+      await supabase.auth.getUser();
 
-    if (userError || !user) {
+    if (
+      userError ||
+      !user
+    ) {
       setError(
         "Your invitation session could not be verified. Please open the invitation link again."
       );
@@ -81,7 +198,9 @@ export default function SetupPasswordPage() {
       return;
     }
 
-    const { error: updateError } =
+    const {
+      error: updateError,
+    } =
       await supabase.auth.updateUser({
         password,
       });
@@ -102,13 +221,17 @@ export default function SetupPasswordPage() {
     const {
       data: profile,
       error: profileError,
-    } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    } =
+      await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
 
-    if (profileError || !profile) {
+    if (
+      profileError ||
+      !profile
+    ) {
       console.error(
         "Unable to load profile:",
         profileError
@@ -121,7 +244,9 @@ export default function SetupPasswordPage() {
       return;
     }
 
-    if (profile.role === "trainer") {
+    if (
+      profile.role === "trainer"
+    ) {
       router.replace("/trainer");
     } else {
       router.replace("/learn");
@@ -225,7 +350,8 @@ export default function SetupPasswordPage() {
               type="submit"
               disabled={
                 loading ||
-                checkingSession
+                checkingSession ||
+                Boolean(error)
               }
               className="w-full rounded-xl bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >

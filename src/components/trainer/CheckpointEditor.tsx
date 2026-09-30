@@ -16,7 +16,7 @@ type Checkpoint = {
   checkpoint_type: string;
   passing_score: number | null;
   position: number;
-  quizzes: Quiz | null;
+  quizzes: Quiz[]
 };
 
 type CheckpointEditorProps = {
@@ -68,8 +68,8 @@ export default function CheckpointEditor({
     null
   );
 
-  const quiz = checkpoint.quizzes;
-  const questions = quiz?.quiz_questions ?? [];
+  const quiz = checkpoint.quizzes?.[0] ?? null;
+const questions = quiz?.quiz_questions ?? [];
 
   useEffect(() => {
     setTitle(checkpoint.title);

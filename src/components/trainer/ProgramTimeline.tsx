@@ -49,7 +49,7 @@ type SupabaseCheckpoint = {
   checkpoint_type: string;
   passing_score: number | null;
   position: number;
-  quizzes: Quiz | null;
+  quizzes: Quiz[];
 };
 
 type SupabaseDay = {

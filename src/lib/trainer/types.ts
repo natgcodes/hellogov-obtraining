@@ -56,3 +56,12 @@ export type ReviewQueueItem = {
   score?: number | null;
   pending_answers: number;
 };
+
+export type TrainerLearner = {
+  learner_id?: string;
+  full_name?: string | null;
+  email?: string | null;
+  enrollment_status: string | null;
+  progress_percent: number | null;
+  needs_review: number | null;
+};

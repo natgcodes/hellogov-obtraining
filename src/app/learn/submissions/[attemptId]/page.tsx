@@ -140,6 +140,7 @@ export default async function LearnerSubmissionPage({
           id,
           title,
           day_id,
+
           days (
             id,
             day_number,
@@ -155,6 +156,7 @@ export default async function LearnerSubmissionPage({
           passing_score,
           position,
           day_id,
+
           days (
             id,
             day_number,
@@ -266,9 +268,7 @@ export default async function LearnerSubmissionPage({
           row.correct_option_text,
 
         selectedOptions: [],
-
         correctOptions: [],
-
         matches: [],
       };
 
@@ -469,14 +469,29 @@ export default async function LearnerSubmissionPage({
     checkpoint
   );
 
-  const moduleDay =
-    moduleData?.days?.[0] ?? null;
+  /*
+   * Supabase nested relations may be returned
+   * as either an object or an array depending
+   * on the inferred relationship.
+   */
 
-  const checkpointDay = checkpoint
-    ? Array.isArray(checkpoint.days)
-      ? checkpoint.days[0]
-      : checkpoint.days
-    : null;
+  const moduleDayRaw =
+    moduleData?.days;
+
+  const moduleDay = Array.isArray(
+    moduleDayRaw
+  )
+    ? moduleDayRaw[0] ?? null
+    : moduleDayRaw ?? null;
+
+  const checkpointDayRaw =
+    checkpoint?.days;
+
+  const checkpointDay = Array.isArray(
+    checkpointDayRaw
+  )
+    ? checkpointDayRaw[0] ?? null
+    : checkpointDayRaw ?? null;
 
   const day =
     checkpointDay ??
@@ -573,9 +588,9 @@ export default async function LearnerSubmissionPage({
    * UI
    */
 
-  return (
+return (
     <AppShell role="learner">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-5xl px-5 pb-8 pt-6 sm:px-7 lg:px-8">
         <Link
           href="/learn/submissions"
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
@@ -763,6 +778,8 @@ export default async function LearnerSubmissionPage({
                           </h3>
                         </div>
 
+                        {/* GRADING STATUS */}
+
                         <div className="shrink-0">
                           {awaitingReview ? (
                             <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">
@@ -793,6 +810,8 @@ export default async function LearnerSubmissionPage({
                           Your answer
                         </p>
 
+                        {/* SINGLE CHOICE / TRUE FALSE */}
+
                         {(answer.questionType ===
                           "single_choice" ||
                           answer.questionType ===
@@ -802,6 +821,8 @@ export default async function LearnerSubmissionPage({
                               "No answer recorded"}
                           </p>
                         )}
+
+                        {/* MULTIPLE CHOICE */}
 
                         {answer.questionType ===
                           "multiple_choice" && (
@@ -829,6 +850,8 @@ export default async function LearnerSubmissionPage({
                             )}
                           </div>
                         )}
+
+                        {/* MATCHING / MATCH CARDS */}
 
                         {(answer.questionType ===
                           "matching" ||
@@ -868,6 +891,8 @@ export default async function LearnerSubmissionPage({
                           </div>
                         )}
 
+                        {/* OPEN TEXT */}
+
                         {answer.questionType ===
                           "open_text" && (
                           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
@@ -875,6 +900,8 @@ export default async function LearnerSubmissionPage({
                               "No response"}
                           </p>
                         )}
+
+                        {/* FILE UPLOAD */}
 
                         {answer.questionType ===
                           "file_upload" && (
@@ -921,7 +948,7 @@ export default async function LearnerSubmissionPage({
                         )}
                       </div>
 
-                      {/* CORRECT ANSWER */}
+                      {/* SINGLE CHOICE / TRUE FALSE CORRECT ANSWER */}
 
                       {showCorrectAnswer &&
                         (answer.questionType ===

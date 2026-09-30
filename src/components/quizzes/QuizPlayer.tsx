@@ -42,17 +42,23 @@ export default function QuizPlayer({
   const [result, setResult] =
     useState<QuizSubmissionResult | null>(null);
 
+  // ---------------------------------------------------------
+  // QUESTIONS
+  // ---------------------------------------------------------
+
   const questions = useMemo(() => {
     if (!quiz.shuffle_questions) {
       return quiz.questions;
     }
 
-    // Stable enough for this mounted attempt:
-    // shuffle once during memo creation.
     return [...quiz.questions].sort(
       () => Math.random() - 0.5
     );
   }, [quiz.questions, quiz.shuffle_questions]);
+
+  // ---------------------------------------------------------
+  // ANSWER STATE
+  // ---------------------------------------------------------
 
   function updateAnswer(
     questionId: string,
@@ -64,127 +70,160 @@ export default function QuizPlayer({
     }));
   }
 
+  // ---------------------------------------------------------
+  // SAVE INDIVIDUAL QUESTION
+  // ---------------------------------------------------------
+
   async function saveQuestion(
     question: LearnerQuizQuestion
   ) {
     const answer = answers[question.id];
 
-    if (!answer) return true;
+    if (!answer) {
+      return true;
+    }
 
     setSavingQuestion(question.id);
     setError(null);
 
-    let rpcError: { message: string } | null =
-      null;
+    try {
+      let rpcError: { message: string } | null =
+        null;
 
-    if (
-      question.question_type ===
-        "single_choice" ||
-      question.question_type === "true_false"
-    ) {
-      const { error } = await supabase.rpc(
-        "save_quiz_answer",
-        {
-          target_attempt_id: attemptId,
-          target_question_id: question.id,
-          target_option_id:
-            answer.optionId ?? null,
-          target_answer_text: null,
-        }
+      if (
+        question.question_type ===
+          "single_choice" ||
+        question.question_type === "true_false"
+      ) {
+        const { error } = await supabase.rpc(
+          "save_quiz_answer",
+          {
+            target_attempt_id: attemptId,
+            target_question_id: question.id,
+            target_option_id:
+              answer.optionId ?? null,
+            target_answer_text: null,
+          }
+        );
+
+        rpcError = error;
+      }
+
+      if (
+        question.question_type ===
+        "multiple_choice"
+      ) {
+        const { error } = await supabase.rpc(
+          "save_multiple_choice_answer",
+          {
+            target_attempt_id: attemptId,
+            target_question_id: question.id,
+            target_option_ids:
+              answer.optionIds ?? [],
+          }
+        );
+
+        rpcError = error;
+      }
+
+      if (
+        question.question_type === "matching" ||
+        question.question_type === "match_cards"
+      ) {
+        const matches = answer.matches ?? {};
+
+        const leftIds = Object.keys(matches);
+        const rightIds = Object.values(matches);
+
+        const { error } = await supabase.rpc(
+          "save_matching_answer",
+          {
+            target_attempt_id: attemptId,
+            target_question_id: question.id,
+            left_pair_ids: leftIds,
+            selected_right_public_ids:
+              rightIds,
+          }
+        );
+
+        rpcError = error;
+      }
+
+      if (
+        question.question_type === "open_text"
+      ) {
+        const { error } = await supabase.rpc(
+          "save_quiz_answer",
+          {
+            target_attempt_id: attemptId,
+            target_question_id: question.id,
+            target_option_id: null,
+            target_answer_text:
+              answer.text ?? "",
+          }
+        );
+
+        rpcError = error;
+      }
+
+      // File uploads are saved immediately by
+      // FileUploadQuestion.
+
+      if (rpcError) {
+        setError(rpcError.message);
+        return false;
+      }
+
+      return true;
+    } catch (saveError) {
+      console.error(
+        "Unable to save quiz answer:",
+        saveError
       );
 
-      rpcError = error;
-    }
-
-    if (
-      question.question_type ===
-      "multiple_choice"
-    ) {
-      const { error } = await supabase.rpc(
-        "save_multiple_choice_answer",
-        {
-          target_attempt_id: attemptId,
-          target_question_id: question.id,
-          target_option_ids:
-            answer.optionIds ?? [],
-        }
+      setError(
+        "Unable to save your answer. Please try again."
       );
 
-      rpcError = error;
-    }
-
-    if (
-      question.question_type === "matching" ||
-      question.question_type === "match_cards"
-    ) {
-      const matches = answer.matches ?? {};
-
-      const leftIds = Object.keys(matches);
-      const rightIds = Object.values(matches);
-
-      const { error } = await supabase.rpc(
-        "save_matching_answer",
-        {
-          target_attempt_id: attemptId,
-          target_question_id: question.id,
-          left_pair_ids: leftIds,
-          selected_right_public_ids:
-            rightIds,
-        }
-      );
-
-      rpcError = error;
-    }
-
-    if (
-      question.question_type === "open_text"
-    ) {
-      const { error } = await supabase.rpc(
-        "save_quiz_answer",
-        {
-          target_attempt_id: attemptId,
-          target_question_id: question.id,
-          target_option_id: null,
-          target_answer_text:
-            answer.text ?? "",
-        }
-      );
-
-      rpcError = error;
-    }
-
-    // File upload is saved immediately
-    // by FileUploadQuestion.
-
-    setSavingQuestion(null);
-
-    if (rpcError) {
-      setError(rpcError.message);
       return false;
+    } finally {
+      setSavingQuestion(null);
     }
-
-    return true;
   }
+
+  // ---------------------------------------------------------
+  // SAVE ALL ANSWERS
+  // ---------------------------------------------------------
 
   async function saveAllAnswers() {
     for (const question of questions) {
       const success =
         await saveQuestion(question);
 
-      if (!success) return false;
+      if (!success) {
+        return false;
+      }
     }
 
     return true;
   }
 
+  // ---------------------------------------------------------
+  // REQUIRED ANSWER VALIDATION
+  // ---------------------------------------------------------
+
   function hasRequiredAnswer(
     question: LearnerQuizQuestion
   ) {
-    if (!question.is_required) return true;
+    if (!question.is_required) {
+      return true;
+    }
 
     const answer = answers[question.id];
 
-    if (!answer) return false;
+    if (!answer) {
+      return false;
+    }
 
     switch (question.question_type) {
       case "single_choice":
@@ -223,6 +262,10 @@ export default function QuizPlayer({
     }
   }
 
+  // ---------------------------------------------------------
+  // SUBMIT QUIZ / CHECKPOINT
+  // ---------------------------------------------------------
+
   async function submitQuiz() {
     setError(null);
 
@@ -250,61 +293,101 @@ export default function QuizPlayer({
 
     setSubmitting(true);
 
-    const saved = await saveAllAnswers();
+    try {
+      // Save all locally-entered answers before
+      // finalizing the attempt.
+      const saved = await saveAllAnswers();
 
-    if (!saved) {
-      setSubmitting(false);
-      return;
-    }
+      if (!saved) {
+        return;
+      }
 
-    const { data, error: submitError } =
-      await supabase.rpc(
+      const {
+        data,
+        error: submitError,
+      } = await supabase.rpc(
         "submit_quiz_attempt",
         {
           target_attempt_id: attemptId,
         }
       );
 
-    if (submitError) {
-      setError(submitError.message);
-      setSubmitting(false);
-      return;
-    }
+      if (submitError) {
+        setError(submitError.message);
+        return;
+      }
 
-    const submission =
-      Array.isArray(data)
-        ? data[0]
-        : data;
+      const submission =
+        Array.isArray(data)
+          ? data[0]
+          : data;
 
-    if (!submission) {
-      setError(
-        "The quiz was submitted but no result was returned."
+      if (!submission) {
+        setError(
+          "The assessment was submitted but no result was returned."
+        );
+        return;
+      }
+
+      const finalResult: QuizSubmissionResult = {
+        attempt_id: submission.attempt_id,
+        score: Number(
+          submission.score ?? 0
+        ),
+        passed: submission.passed,
+        status: submission.status,
+      };
+
+      // -----------------------------------------------------
+      // NORMAL MODULE QUIZ
+      //
+      // Only module quizzes should recalculate module
+      // progress here.
+      //
+      // Checkpoint quizzes have module_id = null and are
+      // synchronized through the checkpoint result flow.
+      // -----------------------------------------------------
+
+      if (quiz.module_id) {
+        const {
+          error: moduleProgressError,
+        } = await supabase.rpc(
+          "recalculate_module_progress",
+          {
+            target_module_id:
+              quiz.module_id,
+          }
+        );
+
+        if (moduleProgressError) {
+          console.error(
+            "Unable to recalculate module progress:",
+            moduleProgressError
+          );
+        }
+      }
+
+      // The submission itself succeeded, so always show the
+      // learner the result even if a secondary progress
+      // recalculation failed.
+      setResult(finalResult);
+    } catch (submitException) {
+      console.error(
+        "Unable to submit assessment:",
+        submitException
       );
+
+      setError(
+        "Unable to submit this assessment. Please try again."
+      );
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    const finalResult: QuizSubmissionResult = {
-      attempt_id: submission.attempt_id,
-      score: Number(submission.score ?? 0),
-      passed: submission.passed,
-      status: submission.status,
-    };
-
-    setResult(finalResult);
-
-// Recalculate the module after grading.
-// Do NOT refresh this page after submission.
-// The learner must remain on the submitted result screen.
-await supabase.rpc(
-  "recalculate_module_progress",
-  {
-    target_module_id: quiz.module_id,
   }
-);
 
-setSubmitting(false);
-  }
+  // ---------------------------------------------------------
+  // RESULTS
+  // ---------------------------------------------------------
 
   if (result) {
     return (
@@ -316,6 +399,10 @@ setSubmitting(false);
       />
     );
   }
+
+  // ---------------------------------------------------------
+  // QUIZ PLAYER
+  // ---------------------------------------------------------
 
   return (
     <div>
@@ -343,14 +430,18 @@ setSubmitting(false);
 
                     {question.instructions && (
                       <p className="mt-2 text-sm leading-6 text-slate-500">
-                        {question.instructions}
+                        {
+                          question.instructions
+                        }
                       </p>
                     )}
                   </div>
 
                   <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
                     {question.points}{" "}
-                    {Number(question.points) === 1
+                    {Number(
+                      question.points
+                    ) === 1
                       ? "pt"
                       : "pts"}
                   </span>
@@ -528,7 +619,8 @@ setSubmitting(false);
                           question.id,
                           {
                             text:
-                              event.target.value,
+                              event.target
+                                .value,
                           }
                         )
                       }
@@ -541,7 +633,9 @@ setSubmitting(false);
                     "file_upload" && (
                     <FileUploadQuestion
                       attemptId={attemptId}
-                      questionId={question.id}
+                      questionId={
+                        question.id
+                      }
                       currentFileName={
                         answer.fileName
                       }

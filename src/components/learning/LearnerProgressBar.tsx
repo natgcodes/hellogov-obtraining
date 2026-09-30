@@ -2,8 +2,19 @@ type Props = {
   value: number;
 };
 
-export default function LearnerProgressBar({ value }: Props) {
-  const safeValue = Math.min(100, Math.max(0, value));
+export default function LearnerProgressBar({
+  value,
+}: Props) {
+  const normalizedValue = Number.isFinite(value)
+    ? value
+    : 0;
+
+  const safeValue = Math.min(
+    100,
+    Math.max(0, normalizedValue)
+  );
+
+  const displayValue = Math.round(safeValue);
 
   return (
     <div>
@@ -13,14 +24,23 @@ export default function LearnerProgressBar({ value }: Props) {
         </span>
 
         <span className="font-semibold text-slate-900">
-          {Math.round(safeValue)}%
+          {displayValue}%
         </span>
       </div>
 
-      <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="h-2.5 overflow-hidden rounded-full bg-slate-200"
+        role="progressbar"
+        aria-label="Overall training progress"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={displayValue}
+      >
         <div
           className="h-full rounded-full bg-[#e84545] transition-all duration-300"
-          style={{ width: `${safeValue}%` }}
+          style={{
+            width: `${safeValue}%`,
+          }}
         />
       </div>
     </div>

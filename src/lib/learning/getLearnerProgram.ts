@@ -3,9 +3,21 @@ import type { LearnerProgram } from "./types";
 import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 
 export async function getLearnerProgram(): Promise<LearnerProgram | null> {
+  const totalStart = performance.now();
+
   const supabase = await createClient();
 
-  const { data: programs, error } = await supabase
+  // ---------------------------------------------------------
+  // LOAD ONLY THE DATA REQUIRED BY /learn
+  //
+  // The overview does NOT need materials, activities,
+  // quizzes, objectives, etc. Those are loaded by the
+  // individual day page when the learner opens a day.
+  // ---------------------------------------------------------
+
+  const queryStart = performance.now();
+
+  const { data: program, error } = await supabase
     .from("programs")
     .select(`
       id,
@@ -31,94 +43,98 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
 
         modules (
           id,
-          title,
-          description,
-          objective,
           duration_minutes,
           position,
-          is_required,
-
-          materials (
-            id,
-            title,
-            description,
-            material_type,
-            url,
-            is_required,
-            position
-          ),
-
-          activities (
-            id,
-            title,
-            description,
-            instructions,
-            activity_type,
-            duration_minutes,
-            is_required,
-            position
-          ),
-
-          quizzes (
-            id,
-            title,
-            description,
-            instructions,
-            passing_score,
-            max_attempts,
-            position,
-            is_required,
-            is_published,
-            show_results
-          )
+          is_required
         )
       )
     `)
     .eq("id", HELLOGOV_PROGRAM_ID)
     .eq("status", "published")
-    .limit(1);
+    .maybeSingle();
+
+  console.log(
+    `[PROGRAM PERF] overview program query: ${Math.round(
+      performance.now() - queryStart
+    )}ms`
+  );
 
   if (error) {
-    console.error("Error loading learner program:", error);
+    console.error(
+      "Error loading learner program:",
+      error
+    );
+
     return null;
   }
 
-  const program = programs?.[0];
+  if (!program) {
+    return null;
+  }
 
-  if (!program) return null;
+  // ---------------------------------------------------------
+  // NORMALIZE
+  // ---------------------------------------------------------
 
   const normalized = {
-    ...program,
+    id: program.id,
+    title: program.title,
+    description: program.description,
+    status: program.status,
 
-    setup_items: [...(program.setup_items ?? [])].sort(
-      (a, b) => a.position - b.position
+    setup_items: [
+      ...(program.setup_items ?? []),
+    ].sort(
+      (a, b) =>
+        a.position - b.position
     ),
 
     days: [...(program.days ?? [])]
       .filter((day) => day.is_published)
-      .sort((a, b) => a.position - b.position)
+      .sort(
+        (a, b) =>
+          a.position - b.position
+      )
       .map((day) => ({
-        ...day,
+        id: day.id,
+        day_number: day.day_number,
+        title: day.title,
+        description: day.description,
+        position: day.position,
+        is_published: day.is_published,
 
         modules: [...(day.modules ?? [])]
-          .sort((a, b) => a.position - b.position)
+          .sort(
+            (a, b) =>
+              a.position - b.position
+          )
           .map((module) => ({
-            ...module,
+            id: module.id,
+            title: "",
+            description: null,
+            objective: null,
+            duration_minutes:
+              module.duration_minutes,
+            position: module.position,
+            is_required:
+              module.is_required,
 
-            materials: [...(module.materials ?? [])].sort(
-              (a, b) => a.position - b.position
-            ),
-
-            activities: [...(module.activities ?? [])].sort(
-              (a, b) => a.position - b.position
-            ),
-
-            quizzes: [...(module.quizzes ?? [])]
-              .filter((quiz) => quiz.is_published)
-              .sort((a, b) => a.position - b.position),
+            // The overview does not need these.
+            // They remain present so LearnerProgram keeps
+            // its existing shape and other code does not
+            // break.
+            materials: [],
+            activities: [],
+            quizzes: [],
           })),
       })),
-  };
+  } satisfies LearnerProgram;
 
-  return normalized as LearnerProgram;
+  console.log(
+    `[PROGRAM PERF] TOTAL getLearnerProgram: ${Math.round(
+      performance.now() - totalStart
+    )}ms`
+  );
+
+  return normalized;
 }

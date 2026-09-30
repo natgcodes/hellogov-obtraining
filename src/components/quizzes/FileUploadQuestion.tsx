@@ -14,6 +14,8 @@ type Props = {
   ) => void;
 };
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 export default function FileUploadQuestion({
   attemptId,
   questionId,
@@ -32,77 +34,115 @@ export default function FileUploadQuestion({
   async function uploadFile(
     file: File | undefined
   ) {
-    if (!file || disabled) return;
+    if (!file || disabled || uploading) {
+      return;
+    }
 
-    setUploading(true);
     setError(null);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setError("Your session has expired.");
-      setUploading(false);
+    if (file.size > MAX_FILE_SIZE) {
+      setError(
+        "This file is larger than the 10 MB limit."
+      );
       return;
     }
 
-    const safeName = file.name.replace(
-      /[^a-zA-Z0-9._-]/g,
-      "_"
-    );
+    setUploading(true);
 
-    const path =
-      `${user.id}/${attemptId}/${questionId}/` +
-      `${Date.now()}-${safeName}`;
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    const { error: uploadError } =
-      await supabase.storage
-        .from("quiz-submissions")
-        .upload(path, file, {
-          upsert: false,
-        });
+      if (userError || !user) {
+        setError(
+          "Your session has expired. Please sign in again."
+        );
+        return;
+      }
 
-    if (uploadError) {
-      setError(uploadError.message);
-      setUploading(false);
-      return;
-    }
-
-    const { error: saveError } =
-      await supabase.rpc(
-        "save_file_answer",
-        {
-          target_attempt_id: attemptId,
-          target_question_id: questionId,
-          target_file_path: path,
-          target_file_name: file.name,
-        }
+      const safeName = file.name.replace(
+        /[^a-zA-Z0-9._-]/g,
+        "_"
       );
 
-    if (saveError) {
-      await supabase.storage
-        .from("quiz-submissions")
-        .remove([path]);
+      const path =
+        `${user.id}/${attemptId}/${questionId}/` +
+        `${Date.now()}-${safeName}`;
 
-      setError(saveError.message);
+      const { error: uploadError } =
+        await supabase.storage
+          .from("quiz-submissions")
+          .upload(path, file, {
+            upsert: false,
+          });
+
+      if (uploadError) {
+        setError(uploadError.message);
+        return;
+      }
+
+      const { error: saveError } =
+        await supabase.rpc(
+          "save_file_answer",
+          {
+            target_attempt_id: attemptId,
+            target_question_id: questionId,
+            target_file_path: path,
+            target_file_name: file.name,
+          }
+        );
+
+      if (saveError) {
+        const { error: cleanupError } =
+          await supabase.storage
+            .from("quiz-submissions")
+            .remove([path]);
+
+        if (cleanupError) {
+          console.error(
+            "Unable to remove failed quiz upload:",
+            cleanupError
+          );
+        }
+
+        setError(saveError.message);
+        return;
+      }
+
+      onUploaded(path, file.name);
+    } catch (uploadError) {
+      console.error(
+        "Unexpected file upload error:",
+        uploadError
+      );
+
+      setError(
+        "Something went wrong while uploading the file. Please try again."
+      );
+    } finally {
       setUploading(false);
-      return;
     }
-
-    onUploaded(path, file.name);
-    setUploading(false);
   }
 
   return (
     <div>
-      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-300">
+      <label
+        className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition ${
+          disabled || uploading
+            ? "cursor-not-allowed opacity-60"
+            : "cursor-pointer hover:border-slate-300"
+        }`}
+      >
         <span className="text-2xl">↑</span>
 
         <span className="mt-2 font-medium text-slate-900">
           {uploading
             ? "Uploading..."
-            : "Upload a file"}
+            : currentFileName
+              ? "Upload another file"
+              : "Upload a file"}
         </span>
 
         <span className="mt-1 text-xs text-slate-500">
@@ -112,11 +152,16 @@ export default function FileUploadQuestion({
         <input
           type="file"
           disabled={disabled || uploading}
-          onChange={(event) =>
-            uploadFile(
-              event.target.files?.[0]
-            )
-          }
+          onChange={(event) => {
+            const file =
+              event.target.files?.[0];
+
+            void uploadFile(file);
+
+            // Allows selecting the same file again
+            // after an upload error.
+            event.target.value = "";
+          }}
           className="hidden"
         />
       </label>

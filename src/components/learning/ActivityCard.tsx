@@ -11,6 +11,61 @@ type Props = {
   moduleId: string;
 };
 
+function getActivityLabel(type: string) {
+  if (!type) {
+    return "Activity";
+  }
+
+  return type
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (character) =>
+      character.toUpperCase()
+    );
+}
+
+function getActivityIcon(type: string) {
+  const normalized = type
+    .toLowerCase()
+    .trim();
+
+  if (
+    normalized.includes("roleplay") ||
+    normalized.includes("role_play") ||
+    normalized.includes("role play")
+  ) {
+    return "◎";
+  }
+
+  if (
+    normalized.includes("mock") ||
+    normalized.includes("call")
+  ) {
+    return "◖";
+  }
+
+  if (
+    normalized.includes("practice") ||
+    normalized.includes("exercise")
+  ) {
+    return "✦";
+  }
+
+  if (
+    normalized.includes("discussion") ||
+    normalized.includes("group")
+  ) {
+    return "◌";
+  }
+
+  if (
+    normalized.includes("shadow")
+  ) {
+    return "◉";
+  }
+
+  return "✦";
+}
+
 export default function ActivityCard({
   activity,
   status,
@@ -19,92 +74,229 @@ export default function ActivityCard({
   const router = useRouter();
   const supabase = createClient();
 
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] =
+    useState(false);
 
-  const completed = status === "completed";
+  const completed =
+    status === "completed";
 
-  async function toggleComplete() {
-    setSaving(true);
-
-    const { error } = await supabase.rpc(
-      "set_activity_status",
-      {
-        target_activity_id: activity.id,
-        target_status: completed
-          ? "not_started"
-          : "completed",
-        target_notes: null,
-      }
+  const activityLabel =
+    getActivityLabel(
+      activity.activity_type
     );
 
-    if (!error) {
-      await supabase.rpc("recalculate_module_progress", {
-        target_module_id: moduleId,
-      });
-    }
+  const activityIcon =
+    getActivityIcon(
+      activity.activity_type
+    );
 
-    setSaving(false);
+  // ---------------------------------------------------------
+  // ACTIVITY COMPLETION
+  // ---------------------------------------------------------
 
-    if (error) {
-      alert(error.message);
+  async function toggleComplete() {
+    if (saving) {
       return;
     }
 
-    router.refresh();
+    setSaving(true);
+
+    try {
+      const nextStatus = completed
+        ? "not_started"
+        : "completed";
+
+      const {
+        error: activityError,
+      } = await supabase.rpc(
+        "set_activity_status",
+        {
+          target_activity_id:
+            activity.id,
+          target_status: nextStatus,
+          target_notes: null,
+        }
+      );
+
+      if (activityError) {
+        console.error(
+          "Unable to update activity:",
+          activityError
+        );
+
+        alert(activityError.message);
+        return;
+      }
+
+      const {
+        error: moduleError,
+      } = await supabase.rpc(
+        "recalculate_module_progress",
+        {
+          target_module_id: moduleId,
+        }
+      );
+
+      if (moduleError) {
+        console.error(
+          "Unable to recalculate module progress:",
+          moduleError
+        );
+
+        alert(
+          "The activity was updated, but module progress could not be recalculated."
+        );
+      }
+
+      router.refresh();
+    } catch (error) {
+      console.error(
+        "Unexpected error updating activity:",
+        error
+      );
+
+      alert(
+        "Unable to update this activity. Please try again."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
+  // ---------------------------------------------------------
+  // RENDER
+  // ---------------------------------------------------------
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex flex-wrap gap-2">
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-              {activity.activity_type}
+    <div
+      className={`rounded-[14px] border px-4 py-4 transition ${
+        completed
+          ? "border-[var(--teal-border)] bg-[var(--teal-soft)]/40"
+          : "border-[var(--border)] bg-white hover:border-[var(--teal-border)]"
+      }`}
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {/* =================================================
+            ICON
+        ================================================= */}
+
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[14px] font-semibold ${
+            completed
+              ? "bg-[var(--teal)] text-white"
+              : "bg-[var(--teal-soft)] text-[var(--teal-deep)]"
+          }`}
+        >
+          {completed
+            ? "✓"
+            : activityIcon}
+        </div>
+
+        {/* =================================================
+            CONTENT
+        ================================================= */}
+
+        <div className="min-w-0 flex-1">
+          {/* Metadata */}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--teal-deep)]">
+              {activityLabel}
             </span>
 
-            {activity.duration_minutes && (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
-                {activity.duration_minutes} min
-              </span>
+            {activity.duration_minutes !==
+              null && (
+              <>
+                <span className="text-[var(--border)]">
+                  ·
+                </span>
+
+                <span className="text-[10px] font-medium text-[var(--text-muted)]">
+                  {
+                    activity.duration_minutes
+                  }{" "}
+                  min
+                </span>
+              </>
+            )}
+
+            {activity.is_required && (
+              <>
+                <span className="text-[var(--border)]">
+                  ·
+                </span>
+
+                <span className="text-[10px] font-semibold text-[var(--teal-deep)]">
+                  Required
+                </span>
+              </>
+            )}
+
+            {completed && (
+              <>
+                <span className="text-[var(--border)]">
+                  ·
+                </span>
+
+                <span className="text-[10px] font-semibold text-[var(--success)]">
+                  Complete
+                </span>
+              </>
             )}
           </div>
 
-          <h4 className="font-semibold text-slate-900">
+          {/* Title */}
+
+          <h4 className="mt-1 text-[13px] font-semibold leading-5 text-[var(--text-primary)]">
             {activity.title}
           </h4>
 
+          {/* Description */}
+
           {activity.description && (
-            <p className="mt-1 text-sm leading-6 text-slate-500">
+            <p className="mt-1 max-w-2xl text-[12px] leading-5 text-[var(--text-secondary)]">
               {activity.description}
             </p>
           )}
 
+          {/* Instructions */}
+
           {activity.instructions && (
-            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">
-              {activity.instructions}
+            <div className="mt-3 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                Instructions
+              </p>
+
+              <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                {activity.instructions}
+              </p>
             </div>
           )}
         </div>
 
-        {completed && (
-          <span className="shrink-0 text-sm font-semibold text-emerald-600">
-            ✓ Complete
-          </span>
-        )}
-      </div>
+        {/* =================================================
+            ACTION
+        ================================================= */}
 
-      <button
-        type="button"
-        disabled={saving}
-        onClick={toggleComplete}
-        className="mt-4 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-      >
-        {saving
-          ? "Saving..."
-          : completed
-            ? "Mark incomplete"
-            : "Complete activity"}
-      </button>
+        <div className="shrink-0 sm:pt-0.5">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={toggleComplete}
+            className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              completed
+                ? "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
+                : "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
+            }`}
+          >
+            {saving
+              ? "Saving..."
+              : completed
+                ? "Mark incomplete"
+                : "Complete activity"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

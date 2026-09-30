@@ -6,6 +6,7 @@ type Props = {
   passingScore: number;
   showResults: boolean;
   dayId?: string;
+  isCheckpoint?: boolean;
 };
 
 export default function QuizResults({
@@ -13,15 +14,20 @@ export default function QuizResults({
   passingScore,
   showResults,
   dayId,
+  isCheckpoint = false,
 }: Props) {
   const needsReview =
     result.status === "needs_review";
+
+  const assessmentLabel = isCheckpoint
+    ? "checkpoint"
+    : "quiz";
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
       {needsReview ? (
         <>
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-2xl">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-2xl text-amber-600">
             ◷
           </div>
 
@@ -30,17 +36,26 @@ export default function QuizResults({
           </h2>
 
           <p className="mx-auto mt-2 max-w-lg text-slate-500">
-            Your submission contains answers that
-            need to be reviewed by a trainer.
+            Your {assessmentLabel} contains answers
+            that need to be reviewed by a trainer.
+            Your final result will be available after
+            the review is completed.
           </p>
 
           {showResults && (
-            <p className="mt-4 text-sm text-slate-500">
-              Automatically graded portion:{" "}
-              <strong className="text-slate-900">
+            <div className="mt-5">
+              <p className="text-sm text-slate-500">
+                Automatically graded portion
+              </p>
+
+              <div className="mt-1 text-3xl font-semibold tracking-tight text-slate-950">
                 {Number(result.score).toFixed(2)}%
-              </strong>
-            </p>
+              </div>
+
+              <p className="mt-2 text-xs text-slate-400">
+                This is not your final score.
+              </p>
+            </div>
           )}
         </>
       ) : (
@@ -57,8 +72,12 @@ export default function QuizResults({
 
           <h2 className="mt-4 text-2xl font-semibold text-slate-950">
             {result.passed
-              ? "Quiz passed"
-              : "Quiz not passed"}
+              ? isCheckpoint
+                ? "Checkpoint passed"
+                : "Quiz passed"
+              : isCheckpoint
+                ? "Checkpoint not passed"
+                : "Quiz not passed"}
           </h2>
 
           {showResults && (
@@ -82,9 +101,11 @@ export default function QuizResults({
               ? `/learn/day/${dayId}`
               : "/learn"
           }
-          className="inline-flex rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white"
+          className="inline-flex rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          Continue training
+          {dayId
+            ? "Back to training day"
+            : "Continue training"}
         </Link>
       </div>
     </div>

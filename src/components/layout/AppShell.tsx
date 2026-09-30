@@ -41,6 +41,7 @@ type IconName =
   | "dashboard"
   | "program"
   | "learners"
+  | "users"
   | "review"
   | "check"
   | "current"
@@ -126,6 +127,16 @@ function Icon({
           <path d="M17 14c2.1.5 3.2 2 3.5 4" />
         </svg>
       );
+
+      case "users":
+  return (
+    <svg {...commonProps}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" />
+      <path d="M17 8v6" />
+      <path d="M14 11h6" />
+    </svg>
+  );
 
     case "review":
     case "check":
@@ -275,15 +286,20 @@ export default function AppShell({
       icon: "program",
     },
     {
-      label: "Learners",
-      href: "/trainer/learners",
-      icon: "learners",
-    },
-    {
-      label: "Review",
-      href: "/trainer/review",
-      icon: "review",
-    },
+  label: "Learners",
+  href: "/trainer/learners",
+  icon: "learners",
+},
+{
+  label: "Users",
+  href: "/trainer/users",
+  icon: "users",
+},
+{
+  label: "Review",
+  href: "/trainer/review",
+  icon: "review",
+},
   ];
 
   const fallbackLearnerNavigation: NavigationItem[] =

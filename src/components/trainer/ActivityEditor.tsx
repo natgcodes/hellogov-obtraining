@@ -9,6 +9,7 @@ type EditableActivity = {
   title: string;
   description: string | null;
   instructions: string | null;
+  resource_url: string | null;
   activity_type: string;
   duration_minutes: number | null;
   is_required: boolean;
@@ -34,6 +35,9 @@ export default function ActivityEditor({
   const [instructions, setInstructions] = useState(
     activity.instructions ?? ""
   );
+  const [resourceUrl, setResourceUrl] = useState(
+    activity.resource_url ?? ""
+  );
   const [activityType, setActivityType] = useState(
     activity.activity_type
   );
@@ -56,6 +60,7 @@ export default function ActivityEditor({
     setTitle(activity.title);
     setDescription(activity.description ?? "");
     setInstructions(activity.instructions ?? "");
+    setResourceUrl(activity.resource_url ?? "");
     setActivityType(activity.activity_type);
     setDuration(activity.duration_minutes?.toString() ?? "");
     setIsRequired(activity.is_required);
@@ -91,6 +96,7 @@ export default function ActivityEditor({
         title: cleanTitle,
         description: description.trim() || null,
         instructions: instructions.trim() || null,
+        resource_url: resourceUrl.trim() || null,
         activity_type: activityType,
         duration_minutes: parsedDuration,
         is_required: isRequired,
@@ -219,6 +225,32 @@ export default function ActivityEditor({
               className="w-full resize-none rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm leading-6 text-[#172033] outline-none transition focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/10 disabled:bg-[#f9fafb]"
               placeholder="Explain what the learner needs to do."
             />
+          </div>
+
+          <div>
+            <label
+              htmlFor="activity-resource-url"
+              className="mb-1.5 block text-sm font-medium text-[#344054]"
+            >
+              Practice resource link
+            </label>
+
+            <input
+              id="activity-resource-url"
+              type="url"
+              value={resourceUrl}
+              onChange={(event) =>
+                setResourceUrl(event.target.value)
+              }
+              disabled={isBusy}
+              placeholder="https://..."
+              className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm text-[#172033] outline-none transition focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/10 disabled:bg-[#f9fafb]"
+            />
+
+            <p className="mt-1.5 text-xs leading-5 text-[#98a2b3]">
+              Optional. Add a link to a document, form, tool, video,
+              or other resource the learner needs for this practice.
+            </p>
           </div>
 
           <div>

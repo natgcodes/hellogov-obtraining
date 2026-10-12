@@ -34,6 +34,7 @@ type SupabaseActivity = {
   instructions: string | null;
   activity_type: string;
   duration_minutes: number | null;
+  resource_url: string | null;
   is_required: boolean;
   position: number;
 };

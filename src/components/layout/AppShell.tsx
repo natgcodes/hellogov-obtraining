@@ -1,15 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import {
-  usePathname,
-  useRouter,
-} from "next/navigation";
-import {
-  ReactNode,
-  useState,
-} from "react";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { ReactNode, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import LearnerHelpBox from "@/components/learning/LearnerHelpBox";
 
 export type LearnerJourneyDay = {
   id: string;
@@ -105,13 +101,7 @@ function Icon({
     case "program":
       return (
         <svg {...commonProps}>
-          <rect
-            x="4"
-            y="4"
-            width="16"
-            height="16"
-            rx="2"
-          />
+          <rect x="4" y="4" width="16" height="16" rx="2" />
           <path d="M8 8h8" />
           <path d="M8 12h8" />
           <path d="M8 16h5" />
@@ -128,15 +118,15 @@ function Icon({
         </svg>
       );
 
-      case "users":
-  return (
-    <svg {...commonProps}>
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" />
-      <path d="M17 8v6" />
-      <path d="M14 11h6" />
-    </svg>
-  );
+    case "users":
+      return (
+        <svg {...commonProps}>
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" />
+          <path d="M17 8v6" />
+          <path d="M14 11h6" />
+        </svg>
+      );
 
     case "review":
     case "check":
@@ -163,13 +153,7 @@ function Icon({
     case "lock":
       return (
         <svg {...commonProps}>
-          <rect
-            x="6"
-            y="10"
-            width="12"
-            height="10"
-            rx="2"
-          />
+          <rect x="6" y="10" width="12" height="10" rx="2" />
           <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" />
         </svg>
       );
@@ -226,9 +210,7 @@ function Icon({
   }
 }
 
-function getDayShortTitle(
-  day: LearnerJourneyDay
-) {
+function getDayShortTitle(day: LearnerJourneyDay) {
   if (day.shortTitle) {
     return day.shortTitle;
   }
@@ -240,10 +222,7 @@ function getDayShortTitle(
     4: "Exceptions",
   };
 
-  return (
-    fallbacks[day.dayNumber] ??
-    day.title
-  );
+  return fallbacks[day.dayNumber] ?? day.title;
 }
 
 export default function AppShell({
@@ -257,20 +236,11 @@ export default function AppShell({
   const router = useRouter();
   const supabase = createClient();
 
-  const [loggingOut, setLoggingOut] =
-    useState(false);
-
-  const [logoutError, setLogoutError] =
-    useState<string | null>(null);
-
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
-
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
-
-    const [userMenuOpen, setUserMenuOpen] =
-  useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const isTrainer = role === "trainer";
 
@@ -286,45 +256,49 @@ export default function AppShell({
       icon: "program",
     },
     {
-  label: "Learners",
-  href: "/trainer/learners",
-  icon: "learners",
-},
-{
-  label: "Users",
-  href: "/trainer/users",
-  icon: "users",
-},
-{
-  label: "Review",
-  href: "/trainer/review",
-  icon: "review",
+      label: "Learners",
+      href: "/trainer/learners",
+      icon: "learners",
+    },
+    {
+      label: "Users",
+      href: "/trainer/users",
+      icon: "users",
+    },
+    {
+      label: "Review",
+      href: "/trainer/review",
+      icon: "review",
+    },
+    {
+  label: "Q&A",
+  href: "/trainer/questions",
+  icon: "submissions",
 },
   ];
 
-  const fallbackLearnerNavigation: NavigationItem[] =
-    [
-      {
-        label: "Overview",
-        href: "/learn",
-        icon: "home",
-      },
-      {
-        label: "Submissions",
-        href: "/learn/submissions",
-        icon: "submissions",
-      },
-      {
-        label: "Certification",
-        href: "/learn/certification",
-        icon: "certificate",
-      },
-      {
-        label: "Next Steps",
-        href: "/learn/post-training",
-        icon: "arrow",
-      },
-    ];
+  const fallbackLearnerNavigation: NavigationItem[] = [
+    {
+      label: "Overview",
+      href: "/learn",
+      icon: "home",
+    },
+    {
+      label: "Submissions",
+      href: "/learn/submissions",
+      icon: "submissions",
+    },
+    {
+      label: "Certification",
+      href: "/learn/certification",
+      icon: "certificate",
+    },
+    {
+      label: "Next Steps",
+      href: "/learn/post-training",
+      icon: "arrow",
+    },
+  ];
 
   function isActive(href: string) {
     if (href === "/trainer") {
@@ -344,14 +318,10 @@ export default function AppShell({
     setLoggingOut(true);
     setLogoutError(null);
 
-    const { error } =
-      await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
     if (error) {
-      setLogoutError(
-        "Could not sign out. Please try again."
-      );
-
+      setLogoutError("Could not sign out. Please try again.");
       setLoggingOut(false);
       return;
     }
@@ -360,29 +330,21 @@ export default function AppShell({
     router.refresh();
   }
 
-  const displayName =
-    userName || "HelloGov User";
+  const displayName = userName || "HelloGov User";
 
-  const initial = (
-    userName ||
-    userEmail ||
-    "U"
-  )
+  const initial = (userName || userEmail || "U")
     .charAt(0)
     .toUpperCase();
 
   const currentDayId =
     learnerJourney?.days.find(
-      (day) =>
-        day.unlocked &&
-        !day.completed
+      (day) => day.unlocked && !day.completed
     )?.id ?? null;
 
   const setupComplete =
     Boolean(learnerJourney) &&
     learnerJourney!.setupTotal > 0 &&
-    learnerJourney!.setupCompleted >=
-      learnerJourney!.setupTotal;
+    learnerJourney!.setupCompleted >= learnerJourney!.setupTotal;
 
   // ---------------------------------------------------------
   // STANDARD NAV ITEM
@@ -393,23 +355,16 @@ export default function AppShell({
     mobile = false
   ) {
     const active = isActive(item.href);
-
-    const collapsed =
-      !mobile && sidebarCollapsed;
+    const collapsed = !mobile && sidebarCollapsed;
 
     return (
       <Link
         key={item.href}
         href={item.href}
-        title={
-          collapsed
-            ? item.label
-            : undefined
-        }
+        title={collapsed ? item.label : undefined}
         onClick={
           mobile
-            ? () =>
-                setMobileMenuOpen(false)
+            ? () => setMobileMenuOpen(false)
             : undefined
         }
         className={`flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
@@ -432,9 +387,7 @@ export default function AppShell({
           <Icon name={item.icon} />
         </span>
 
-        {!collapsed && (
-          <span>{item.label}</span>
-        )}
+        {!collapsed && <span>{item.label}</span>}
       </Link>
     );
   }
@@ -443,21 +396,14 @@ export default function AppShell({
   // LEARNER NAVIGATION
   // ---------------------------------------------------------
 
-  function renderJourneyNavigation(
-    mobile = false
-  ) {
-    const collapsed =
-      !mobile && sidebarCollapsed;
+  function renderJourneyNavigation(mobile = false) {
+    const collapsed = !mobile && sidebarCollapsed;
 
     if (!learnerJourney) {
       return (
         <nav className="space-y-1">
-          {fallbackLearnerNavigation.map(
-            (item) =>
-              renderStandardNavItem(
-                item,
-                mobile
-              )
+          {fallbackLearnerNavigation.map((item) =>
+            renderStandardNavItem(item, mobile)
           )}
         </nav>
       );
@@ -539,111 +485,101 @@ export default function AppShell({
 
         {/* DAYS */}
 
-        {learnerJourney.days.map(
-          (day) => {
-            const current =
-              day.id === currentDayId;
+        {learnerJourney.days.map((day) => {
+          const current = day.id === currentDayId;
 
-            const active =
-              pathname.startsWith(
-                `/learn/day/${day.id}`
-              );
+          const active = pathname.startsWith(
+            `/learn/day/${day.id}`
+          );
 
-            const accessible =
-              day.unlocked ||
-              day.completed;
+          const accessible = day.unlocked || day.completed;
+          const shortTitle = getDayShortTitle(day);
 
-            const shortTitle =
-              getDayShortTitle(day);
-
-            return (
-              <Link
-                key={day.id}
-                href={
-                  accessible
-                    ? `/learn/day/${day.id}`
-                    : "/learn"
+          return (
+            <Link
+              key={day.id}
+              href={
+                accessible
+                  ? `/learn/day/${day.id}`
+                  : "/learn"
+              }
+              title={
+                collapsed
+                  ? `Day ${day.dayNumber} · ${shortTitle}`
+                  : day.title
+              }
+              onClick={(event) => {
+                if (!accessible) {
+                  event.preventDefault();
+                  return;
                 }
-                title={
-                  collapsed
-                    ? `Day ${day.dayNumber} · ${shortTitle}`
-                    : day.title
-                }
-                onClick={(event) => {
-                  if (!accessible) {
-                    event.preventDefault();
-                    return;
-                  }
 
-                  if (mobile) {
-                    setMobileMenuOpen(
-                      false
-                    );
-                  }
-                }}
-                aria-disabled={!accessible}
-                className={`flex min-h-10 items-center rounded-[10px] text-[14px] transition-colors ${
-                  collapsed
-                    ? "justify-center px-2"
-                    : "gap-3 px-3"
-                } ${
-                  active
-                    ? "bg-[var(--teal-soft)]"
-                    : accessible
-                      ? "hover:bg-[var(--surface-soft)]"
-                      : "cursor-default"
+                if (mobile) {
+                  setMobileMenuOpen(false);
+                }
+              }}
+              aria-disabled={!accessible}
+              className={`flex min-h-10 items-center rounded-[10px] text-[14px] transition-colors ${
+                collapsed
+                  ? "justify-center px-2"
+                  : "gap-3 px-3"
+              } ${
+                active
+                  ? "bg-[var(--teal-soft)]"
+                  : accessible
+                    ? "hover:bg-[var(--surface-soft)]"
+                    : "cursor-default"
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 shrink-0 items-center justify-center ${
+                  day.completed
+                    ? "text-[var(--success)]"
+                    : current
+                      ? "text-[var(--teal)]"
+                      : "text-[var(--text-muted)]"
                 }`}
               >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center ${
-                    day.completed
-                      ? "text-[var(--success)]"
-                      : current
-                        ? "text-[var(--teal)]"
-                        : "text-[var(--text-muted)]"
-                  }`}
-                >
-                  {day.completed ? (
-                    <Icon name="check" />
-                  ) : current ? (
-                    <Icon name="current" />
-                  ) : (
-                    <Icon
-                      name="lock"
-                      className="h-[15px] w-[15px]"
-                    />
-                  )}
-                </span>
-
-                {!collapsed && (
-                  <>
-                    <span
-                      className={`shrink-0 font-medium ${
-                        active || current
-                          ? "text-[var(--teal-deep)]"
-                          : accessible
-                            ? "text-[var(--text-secondary)]"
-                            : "text-[var(--text-muted)]"
-                      }`}
-                    >
-                      Day {day.dayNumber}
-                    </span>
-
-                    <span
-                      className={`ml-auto max-w-[110px] truncate text-right text-[11px] ${
-                        current
-                          ? "text-[var(--teal-deep)]"
-                          : "text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {shortTitle}
-                    </span>
-                  </>
+                {day.completed ? (
+                  <Icon name="check" />
+                ) : current ? (
+                  <Icon name="current" />
+                ) : (
+                  <Icon
+                    name="lock"
+                    className="h-[15px] w-[15px]"
+                  />
                 )}
-              </Link>
-            );
-          }
-        )}
+              </span>
+
+              {!collapsed && (
+                <>
+                  <span
+                    className={`shrink-0 font-medium ${
+                      active || current
+                        ? "text-[var(--teal-deep)]"
+                        : accessible
+                          ? "text-[var(--text-secondary)]"
+                          : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    Day {day.dayNumber}
+                  </span>
+
+                  <span
+                    className={`ml-auto max-w-[110px] truncate text-right text-[11px] ${
+                      current
+                        ? "text-[var(--teal-deep)]"
+                        : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {shortTitle}
+                  </span>
+                </>
+              )}
+            </Link>
+          );
+        })}
 
         {/* CERTIFICATION */}
 
@@ -653,15 +589,9 @@ export default function AppShell({
               ? "/learn/certification"
               : "/learn"
           }
-          title={
-            collapsed
-              ? "Certification"
-              : undefined
-          }
+          title={collapsed ? "Certification" : undefined}
           onClick={(event) => {
-            if (
-              !learnerJourney.certificationUnlocked
-            ) {
+            if (!learnerJourney.certificationUnlocked) {
               event.preventDefault();
               return;
             }
@@ -670,17 +600,13 @@ export default function AppShell({
               setMobileMenuOpen(false);
             }
           }}
-          aria-disabled={
-            !learnerJourney.certificationUnlocked
-          }
+          aria-disabled={!learnerJourney.certificationUnlocked}
           className={`mt-2 flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
             collapsed
               ? "justify-center px-2"
               : "gap-3 px-3"
           } ${
-            pathname.startsWith(
-              "/learn/certification"
-            )
+            pathname.startsWith("/learn/certification")
               ? "bg-[var(--teal-soft)] text-[var(--teal-deep)]"
               : learnerJourney.certificationUnlocked
                 ? "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
@@ -698,9 +624,7 @@ export default function AppShell({
             )}
           </span>
 
-          {!collapsed && (
-            <span>Certification</span>
-          )}
+          {!collapsed && <span>Certification</span>}
         </Link>
 
         {renderStandardNavItem(
@@ -719,17 +643,11 @@ export default function AppShell({
   // TRAINER NAVIGATION
   // ---------------------------------------------------------
 
-  function renderTrainerNavigation(
-    mobile = false
-  ) {
+  function renderTrainerNavigation(mobile = false) {
     return (
       <nav className="space-y-1">
-        {trainerNavigation.map(
-          (item) =>
-            renderStandardNavItem(
-              item,
-              mobile
-            )
+        {trainerNavigation.map((item) =>
+          renderStandardNavItem(item, mobile)
         )}
       </nav>
     );
@@ -758,30 +676,31 @@ export default function AppShell({
           }`}
         >
           <Link
-            href={
-              isTrainer
-                ? "/trainer"
-                : "/learn"
-            }
-            title={
-              sidebarCollapsed
-                ? "HelloGov"
-                : undefined
-            }
+            href={isTrainer ? "/trainer" : "/learn"}
+            title={sidebarCollapsed ? "HelloGov" : undefined}
             className="flex min-w-0 items-center gap-3"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] text-xs font-bold text-white">
-              HG
-            </div>
-
-            {!sidebarCollapsed && (
+            {sidebarCollapsed ? (
+              <Image
+                src="/hellogov-logo-transparent.png"
+                alt="HelloGov"
+                width={42}
+                height={22}
+                className="h-auto w-[42px] object-contain"
+              />
+            ) : (
               <div className="min-w-0">
-                <div className="text-[17px] font-bold tracking-[-0.025em] text-[var(--text-primary)]">
-                  HelloGov
-                </div>
+                <Image
+                  src="/hellogov-logo-transparent.png"
+                  alt="HelloGov"
+                  width={125}
+                  height={42}
+                  priority
+                  className="h-auto w-[118px] object-contain"
+                />
 
                 {isTrainer && (
-                  <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
+                  <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                     Training Admin
                   </div>
                 )}
@@ -792,9 +711,7 @@ export default function AppShell({
           {!sidebarCollapsed && (
             <button
               type="button"
-              onClick={() =>
-                setSidebarCollapsed(true)
-              }
+              onClick={() => setSidebarCollapsed(true)}
               className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
@@ -813,9 +730,7 @@ export default function AppShell({
           <div className="px-2 pt-3">
             <button
               type="button"
-              onClick={() =>
-                setSidebarCollapsed(false)
-              }
+              onClick={() => setSidebarCollapsed(false)}
               className="flex h-9 w-full items-center justify-center rounded-[9px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
               title="Expand sidebar"
               aria-label="Expand sidebar"
@@ -851,21 +766,23 @@ export default function AppShell({
               : renderJourneyNavigation()}
           </div>
 
+          {/* BOTTOM HELP / TRAINER WORKSPACE */}
+
           {!sidebarCollapsed && (
             <div className="mt-auto p-4">
-              <div className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-soft)] p-4">
-                <p className="text-[12px] font-semibold text-[var(--text-primary)]">
-                  {isTrainer
-                    ? "Training workspace"
-                    : "Need help?"}
-                </p>
+              {isTrainer ? (
+                <div className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-soft)] p-4">
+                  <p className="text-[12px] font-semibold text-[var(--text-primary)]">
+                    Training workspace
+                  </p>
 
-                <p className="mt-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
-                  {isTrainer
-                    ? "Manage onboarding content, learners, and submissions."
-                    : "Ask your trainer, or revisit any completed module at any time."}
-                </p>
-              </div>
+                  <p className="mt-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
+                    Manage onboarding content, learners, and submissions.
+                  </p>
+                </div>
+              ) : (
+                <LearnerHelpBox />
+              )}
             </div>
           )}
         </div>
@@ -922,170 +839,165 @@ export default function AppShell({
               </div>
             </div>
 
-          {/* USER */}
+            {/* USER */}
 
-<div className="relative ml-auto flex items-center gap-3">
-  {isTrainer && (
-    <span className="hidden rounded-full bg-[var(--teal-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--teal-deep)] md:inline-flex">
-      Trainer
-    </span>
-  )}
+            <div className="relative ml-auto flex items-center gap-3">
+              {isTrainer && (
+                <span className="hidden rounded-full bg-[var(--teal-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--teal-deep)] md:inline-flex">
+                  Trainer
+                </span>
+              )}
 
-  <div className="hidden h-7 w-px bg-[var(--border-soft)] sm:block" />
+              <div className="hidden h-7 w-px bg-[var(--border-soft)] sm:block" />
 
-  <button
-    type="button"
-    onClick={() =>
-      setUserMenuOpen(
-        (current) => !current
-      )
-    }
-    className={`flex items-center gap-2.5 rounded-[10px] px-2 py-1.5 transition-colors ${
-      userMenuOpen
-        ? "bg-[var(--surface-soft)]"
-        : "hover:bg-[var(--surface-soft)]"
-    }`}
-    aria-expanded={userMenuOpen}
-    aria-haspopup="menu"
-  >
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--teal-soft)] text-[11px] font-semibold text-[var(--teal-deep)]">
-      {initial}
-    </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setUserMenuOpen(
+                    (current) => !current
+                  )
+                }
+                className={`flex items-center gap-2.5 rounded-[10px] px-2 py-1.5 transition-colors ${
+                  userMenuOpen
+                    ? "bg-[var(--surface-soft)]"
+                    : "hover:bg-[var(--surface-soft)]"
+                }`}
+                aria-expanded={userMenuOpen}
+                aria-haspopup="menu"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--teal-soft)] text-[11px] font-semibold text-[var(--teal-deep)]">
+                  {initial}
+                </div>
 
-    <div className="hidden max-w-[160px] text-left xl:block">
-      <p className="truncate text-[12px] font-medium text-[var(--text-secondary)]">
-        {displayName}
-      </p>
-    </div>
+                <div className="hidden max-w-[160px] text-left xl:block">
+                  <p className="truncate text-[12px] font-medium text-[var(--text-secondary)]">
+                    {displayName}
+                  </p>
+                </div>
 
-    <svg
-      className={`hidden h-3.5 w-3.5 text-[var(--text-muted)] transition-transform sm:block ${
-        userMenuOpen
-          ? "rotate-180"
-          : ""
-      }`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  </button>
+                <svg
+                  className={`hidden h-3.5 w-3.5 text-[var(--text-muted)] transition-transform sm:block ${
+                    userMenuOpen
+                      ? "rotate-180"
+                      : ""
+                  }`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
 
-  {/* USER DROPDOWN */}
+              {/* USER DROPDOWN */}
 
-  {userMenuOpen && (
-    <>
-      <button
-        type="button"
-        aria-label="Close account menu"
-        onClick={() =>
-          setUserMenuOpen(false)
-        }
-        className="fixed inset-0 z-40 cursor-default"
-      />
+              {userMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close account menu"
+                    onClick={() =>
+                      setUserMenuOpen(false)
+                    }
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
 
-      <div
-        role="menu"
-        className="absolute right-0 top-[calc(100%+8px)] z-50 w-[240px] overflow-hidden rounded-[12px] border border-[var(--border)] bg-white shadow-[var(--shadow-lg)]"
-      >
-        {/* ACCOUNT INFO */}
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-[calc(100%+8px)] z-50 w-[240px] overflow-hidden rounded-[12px] border border-[var(--border)] bg-white shadow-[var(--shadow-lg)]"
+                  >
+                    <div className="border-b border-[var(--border-soft)] px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--teal-soft)] text-[12px] font-semibold text-[var(--teal-deep)]">
+                          {initial}
+                        </div>
 
-        <div className="border-b border-[var(--border-soft)] px-4 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--teal-soft)] text-[12px] font-semibold text-[var(--teal-deep)]">
-              {initial}
-            </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                            {displayName}
+                          </p>
 
-            <div className="min-w-0">
-              <p className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
-                {displayName}
-              </p>
+                          {userEmail && (
+                            <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+                              {userEmail}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-              {userEmail && (
-                <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-                  {userEmail}
-                </p>
+                    <div className="p-1.5">
+                      {!isTrainer && (
+                        <Link
+                          href="/learn/profile"
+                          role="menuitem"
+                          onClick={() =>
+                            setUserMenuOpen(false)
+                          }
+                          className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+                        >
+                          <svg
+                            className="h-4 w-4 text-[var(--text-muted)]"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <circle
+                              cx="12"
+                              cy="8"
+                              r="3.5"
+                            />
+                            <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
+                          </svg>
+
+                          <span>Profile</span>
+                        </Link>
+                      )}
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          handleLogout();
+                        }}
+                        disabled={loggingOut}
+                        className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-left text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)] disabled:opacity-50"
+                      >
+                        <svg
+                          className="h-4 w-4 text-[var(--text-muted)]"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M10 5H5v14h5" />
+                          <path d="M14 8l4 4-4 4" />
+                          <path d="M18 12H9" />
+                        </svg>
+
+                        <span>
+                          {loggingOut
+                            ? "Signing out..."
+                            : "Log out"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* ACTIONS */}
-
-        <div className="p-1.5">
-          {!isTrainer && (
-            <Link
-              href="/learn/profile"
-              role="menuitem"
-              onClick={() =>
-                setUserMenuOpen(false)
-              }
-              className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
-            >
-              <svg
-                className="h-4 w-4 text-[var(--text-muted)]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="12"
-                  cy="8"
-                  r="3.5"
-                />
-                <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
-              </svg>
-
-              <span>Profile</span>
-            </Link>
-          )}
-
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setUserMenuOpen(false);
-              handleLogout();
-            }}
-            disabled={loggingOut}
-            className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-left text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <svg
-              className="h-4 w-4 text-[var(--text-muted)]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M10 5H5v14h5" />
-              <path d="M14 8l4 4-4 4" />
-              <path d="M18 12H9" />
-            </svg>
-
-            <span>
-              {loggingOut
-                ? "Signing out..."
-                : "Log out"}
-            </span>
-          </button>
-        </div>
-      </div>
-    </>
-  )}
-</div>
-
           </div>
 
           {logoutError && (
@@ -1123,13 +1035,14 @@ export default function AppShell({
                   }
                   className="flex items-center gap-3"
                 >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[var(--teal)] text-xs font-bold text-white">
-                    HG
-                  </div>
-
-                  <span className="text-[17px] font-bold tracking-[-0.025em]">
-                    HelloGov
-                  </span>
+                  <Image
+                    src="/hellogov-logo-transparent.png"
+                    alt="HelloGov"
+                    width={125}
+                    height={42}
+                    priority
+                    className="h-auto w-[118px] object-contain"
+                  />
                 </Link>
 
                 <button
@@ -1152,12 +1065,8 @@ export default function AppShell({
                 </p>
 
                 {isTrainer
-                  ? renderTrainerNavigation(
-                      true
-                    )
-                  : renderJourneyNavigation(
-                      true
-                    )}
+                  ? renderTrainerNavigation(true)
+                  : renderJourneyNavigation(true)}
               </div>
 
               <div className="mt-auto border-t border-[var(--border-soft)] p-4">

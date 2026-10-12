@@ -13,6 +13,7 @@ export type LearnerActivity = {
   title: string;
   description: string | null;
   instructions: string | null;
+  resource_url: string | null;
   activity_type: string;
   duration_minutes: number | null;
   is_required: boolean;

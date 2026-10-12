@@ -29,7 +29,7 @@ export default function LearnerProgressBar({
       </div>
 
       <div
-        className="h-2.5 overflow-hidden rounded-full bg-slate-200"
+        className="h-2.5 overflow-hidden rounded-full bg-[#e8eef0]"
         role="progressbar"
         aria-label="Overall training progress"
         aria-valuemin={0}
@@ -37,7 +37,7 @@ export default function LearnerProgressBar({
         aria-valuenow={displayValue}
       >
         <div
-          className="h-full rounded-full bg-[#e84545] transition-all duration-300"
+          className="h-full rounded-full bg-[#08A9C1] transition-all duration-300"
           style={{
             width: `${safeValue}%`,
           }}

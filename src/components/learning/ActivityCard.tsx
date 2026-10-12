@@ -57,9 +57,7 @@ function getActivityIcon(type: string) {
     return "◌";
   }
 
-  if (
-    normalized.includes("shadow")
-  ) {
+  if (normalized.includes("shadow")) {
     return "◉";
   }
 
@@ -270,6 +268,21 @@ export default function ActivityCard({
               <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
                 {activity.instructions}
               </p>
+            </div>
+          )}
+
+          {/* Practice Resource */}
+
+          {activity.resource_url && (
+            <div className="mt-3">
+              <a
+                href={activity.resource_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-9 items-center justify-center rounded-[9px] border border-[var(--teal-border)] bg-[var(--teal-soft)] px-3.5 text-[12px] font-semibold text-[var(--teal-deep)] transition hover:bg-[var(--teal-border)]"
+              >
+                Open Practice Resource ↗
+              </a>
             </div>
           )}
         </div>

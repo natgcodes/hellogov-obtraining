@@ -33,15 +33,16 @@ export async function getDays() {
         ),
 
         activities (
-          id,
-          title,
-          description,
-          instructions,
-          activity_type,
-          duration_minutes,
-          is_required,
-          position
-        ),
+  id,
+  title,
+  description,
+  instructions,
+  resource_url,
+  activity_type,
+  duration_minutes,
+  is_required,
+  position
+),
 
         quizzes (
           id,

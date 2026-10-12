@@ -28,7 +28,6 @@ export default async function LearnPage() {
     promise: PromiseLike<T>
   ): Promise<T> => {
     const start = performance.now();
-
     const result = await promise;
 
     logPerf(label, start);
@@ -138,10 +137,6 @@ export default async function LearnPage() {
 
   // ---------------------------------------------------------
   // PROGRESS + JOURNEY
-  //
-  // IMPORTANT:
-  // Both functions receive the authenticated learner ID.
-  // This avoids another auth.getUser() inside the helpers.
   // ---------------------------------------------------------
 
   const progressStart = performance.now();
@@ -199,32 +194,31 @@ export default async function LearnPage() {
   // ---------------------------------------------------------
 
   const requiredSetupItems =
-  program.setup_items.filter(
-    (item) => item.is_required
-  );
+    program.setup_items.filter(
+      (item) => item.is_required
+    );
 
-const setupTotal =
-  requiredSetupItems.length;
+  const setupTotal =
+    requiredSetupItems.length;
 
-const setupCompleted =
-  requiredSetupItems.filter(
-    (item) =>
-      progress.setup[item.id] === true
-  ).length;
+  const setupCompleted =
+    requiredSetupItems.filter(
+      (item) =>
+        progress.setup[item.id] === true
+    ).length;
 
-const setupIsComplete =
-  setupTotal === 0 ||
-  setupCompleted >= setupTotal;
+  const setupIsComplete =
+    setupTotal === 0 ||
+    setupCompleted >= setupTotal;
 
-const learnerJourneyWithSetup =
-  learnerJourney
-    ? {
-        ...learnerJourney,
-        setupCompleted,
-        setupTotal,
-      }
-    : undefined;
-
+  const learnerJourneyWithSetup =
+    learnerJourney
+      ? {
+          ...learnerJourney,
+          setupCompleted,
+          setupTotal,
+        }
+      : undefined;
 
   const completedDays =
     dayStates.filter(
@@ -280,13 +274,14 @@ const learnerJourneyWithSetup =
 
   return (
     <AppShell
-  role="learner"
-  userName={profile.full_name}
-  userEmail={profile.email}
-  learnerJourney={learnerJourneyWithSetup}
->
+      role="learner"
+      userName={profile.full_name}
+      userEmail={profile.email}
+      learnerJourney={learnerJourneyWithSetup}
+    >
       <div className="px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
         <div className="mx-auto max-w-[1180px]">
+
           {/* =================================================
               PAGE INTRO
           ================================================= */}
@@ -307,17 +302,187 @@ const learnerJourneyWithSetup =
           </section>
 
           {/* =================================================
+              JOURNEY SUMMARY
+          ================================================= */}
+
+          <section className="mt-7">
+            <div className="overflow-hidden rounded-[16px] border border-[var(--border)] bg-white px-5 py-5 shadow-[var(--shadow-xs)] sm:px-7 sm:py-6">
+              <div className="flex items-start">
+
+                {dayStates.map(
+                  (
+                    {
+                      day,
+                      unlocked,
+                      completed,
+                    },
+                    index
+                  ) => {
+                    const isCurrent =
+                      currentDayState?.day.id ===
+                      day.id;
+
+                    const shortTitles:
+                      Record<number, string> = {
+                      1: "Foundations",
+                      2: "Platform & Tools",
+                      3: "Support Actions",
+                      4: "Exceptions",
+                    };
+
+                    const shortTitle =
+                      shortTitles[
+                        day.day_number
+                      ] ?? day.title;
+
+                    return (
+                      <div
+                        key={day.id}
+                        className="relative flex min-w-0 flex-1 flex-col items-center"
+                      >
+                        {index > 0 && (
+                          <div
+                            className={`absolute right-1/2 top-[14px] h-[2px] w-full ${
+                              completed ||
+                              isCurrent
+                                ? "bg-[#08A9C1]"
+                                : "bg-[#dce7ea]"
+                            }`}
+                          />
+                        )}
+
+                        <div
+                          className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-bold ${
+                            completed
+                              ? "border-[#15966A] bg-[#15966A] text-white"
+                              : isCurrent
+                                ? "border-[#08A9C1] bg-white text-[#08A9C1] shadow-[0_0_0_4px_rgba(8,169,193,0.10)]"
+                                : unlocked
+                                  ? "border-[#08A9C1] bg-white text-[#08A9C1]"
+                                  : "border-[#d7e3e7] bg-white text-[#9bb0b8]"
+                          }`}
+                        >
+                          {completed ? (
+                            "✓"
+                          ) : isCurrent ? (
+                            <span className="h-2.5 w-2.5 rounded-full bg-[#08A9C1]" />
+                          ) : unlocked ? (
+                            day.day_number
+                          ) : (
+                            <svg
+                              className="h-3 w-3"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <rect
+                                x="6"
+                                y="10"
+                                width="12"
+                                height="9"
+                                rx="2"
+                              />
+
+                              <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" />
+                            </svg>
+                          )}
+                        </div>
+
+                        <p
+                          className={`mt-2 text-center text-[11px] font-semibold ${
+                            isCurrent
+                              ? "text-[#07879B]"
+                              : completed
+                                ? "text-[var(--text-primary)]"
+                                : "text-[var(--text-muted)]"
+                          }`}
+                        >
+                          Day {day.day_number}
+                        </p>
+
+                        <p className="mt-0.5 max-w-[120px] truncate text-center text-[10px] text-[var(--text-muted)]">
+                          {shortTitle}
+                        </p>
+                      </div>
+                    );
+                  }
+                )}
+
+                {/* CERTIFICATION */}
+
+                <div className="relative flex min-w-0 flex-1 flex-col items-center">
+                  <div
+                    className={`absolute right-1/2 top-[14px] h-[2px] w-full ${
+                      allDaysComplete
+                        ? "bg-[#08A9C1]"
+                        : "bg-[#dce7ea]"
+                    }`}
+                  />
+
+                  <div
+                    className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 ${
+                      learnerJourney?.certificationUnlocked
+                        ? "border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]"
+                        : "border-[#d7e3e7] bg-white text-[#9bb0b8]"
+                    }`}
+                  >
+                    {learnerJourney?.certificationUnlocked ? (
+                      <span className="text-[11px]">
+                        ◇
+                      </span>
+                    ) : (
+                      <svg
+                        className="h-3 w-3"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <rect
+                          x="6"
+                          y="10"
+                          width="12"
+                          height="9"
+                          rx="2"
+                        />
+
+                        <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" />
+                      </svg>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-center text-[11px] font-semibold text-[var(--text-muted)]">
+                    Certification
+                  </p>
+
+                  <p className="mt-0.5 text-center text-[10px] text-[var(--text-muted)]">
+                    Final Assessment
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* =================================================
               TOP OVERVIEW
           ================================================= */}
 
-          <section className="mt-7 grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]">
+          <section className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]">
+
             {/* CONTINUE LEARNING */}
 
             <div className="overflow-hidden rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
               <div className="border-b border-[var(--border-soft)] px-5 py-4 sm:px-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--teal)]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#07879B]">
                       Continue Learning
                     </p>
 
@@ -331,7 +496,7 @@ const learnerJourneyWithSetup =
                   </div>
 
                   {currentDayState && (
-                    <span className="rounded-full bg-[var(--teal-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--teal-deep)]">
+                    <span className="rounded-full bg-[#EAF8FA] px-3 py-1.5 text-[11px] font-semibold text-[#07879B]">
                       Current day
                     </span>
                   )}
@@ -391,14 +556,11 @@ const learnerJourneyWithSetup =
                       <Link
                         href={`/learn/day/${currentDayState.day.id}`}
                         prefetch
-                        className="inline-flex min-h-10 items-center justify-center rounded-[10px] bg-[var(--teal)] px-4 text-[13px] font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+                        className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#08A9C1] px-4 text-[13px] font-semibold !text-white shadow-[0_4px_12px_rgba(8,169,193,0.16)] transition hover:bg-[#0795AA] hover:!text-white"
                       >
                         Continue training
 
-                        <span
-                          className="ml-2"
-                          aria-hidden="true"
-                        >
+                        <span aria-hidden="true">
                           →
                         </span>
                       </Link>
@@ -418,14 +580,11 @@ const learnerJourneyWithSetup =
                         <Link
                           href="/learn/certification"
                           prefetch
-                          className="inline-flex min-h-10 items-center justify-center rounded-[10px] bg-[var(--teal)] px-4 text-[13px] font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#08A9C1] px-4 text-[13px] font-semibold !text-white shadow-[0_4px_12px_rgba(8,169,193,0.16)] transition hover:bg-[#0795AA] hover:!text-white"
                         >
                           View certification
 
-                          <span
-                            className="ml-2"
-                            aria-hidden="true"
-                          >
+                          <span aria-hidden="true">
                             →
                           </span>
                         </Link>
@@ -441,7 +600,7 @@ const learnerJourneyWithSetup =
                     </p>
 
                     <div className="mt-4 flex items-center gap-2 text-[12px] font-medium text-[var(--text-secondary)]">
-                      <span className="text-[var(--teal)]">
+                      <span className="text-[#08A9C1]">
                         {setupCompleted}
                       </span>
 
@@ -472,7 +631,7 @@ const learnerJourneyWithSetup =
                   </p>
                 </div>
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[var(--teal-soft)] text-[16px] font-semibold text-[var(--teal)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[#EAF8FA] text-[16px] font-semibold text-[#08A9C1]">
                   ↗
                 </div>
               </div>
@@ -603,7 +762,7 @@ const learnerJourneyWithSetup =
                           : ""
                       } ${
                         isCurrent
-                          ? "bg-[var(--teal-soft)]/40"
+                          ? "bg-[#EAF8FA]/50"
                           : ""
                       }`}
                     >
@@ -614,9 +773,9 @@ const learnerJourneyWithSetup =
                               completed
                                 ? "border-[var(--success)] bg-[var(--success)] text-white"
                                 : isCurrent
-                                  ? "border-[var(--teal)] bg-[var(--teal)] text-white"
+                                  ? "border-[#08A9C1] bg-[#08A9C1] text-white"
                                   : accessible
-                                    ? "border-[var(--teal)] bg-white text-[var(--teal)]"
+                                    ? "border-[#08A9C1] bg-white text-[#08A9C1]"
                                     : "border-[var(--border)] bg-[var(--surface-soft)] text-[var(--text-muted)]"
                             }`}
                           >
@@ -631,7 +790,7 @@ const learnerJourneyWithSetup =
                             <p
                               className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${
                                 isCurrent
-                                  ? "text-[var(--teal)]"
+                                  ? "text-[#07879B]"
                                   : "text-[var(--text-muted)]"
                               }`}
                             >
@@ -639,7 +798,7 @@ const learnerJourneyWithSetup =
                             </p>
 
                             {isCurrent && (
-                              <span className="rounded-full bg-[var(--teal-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--teal-deep)]">
+                              <span className="rounded-full bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-semibold text-[#07879B]">
                                 Current
                               </span>
                             )}
@@ -710,7 +869,7 @@ const learnerJourneyWithSetup =
                             prefetch
                             className={`inline-flex min-h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition ${
                               isCurrent
-                                ? "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
+                                ? "bg-[#08A9C1] !text-white hover:bg-[#0795AA] hover:!text-white"
                                 : "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
                             }`}
                           >
@@ -744,7 +903,7 @@ const learnerJourneyWithSetup =
                   <div
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] ${
                       learnerJourney?.certificationUnlocked
-                        ? "border-[var(--teal)] bg-[var(--teal-soft)] text-[var(--teal-deep)]"
+                        ? "border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]"
                         : "border-[var(--border)] bg-white text-[var(--text-muted)]"
                     }`}
                   >
@@ -772,7 +931,7 @@ const learnerJourneyWithSetup =
                     <Link
                       href="/learn/certification"
                       prefetch
-                      className="inline-flex min-h-9 items-center justify-center rounded-[9px] bg-[var(--teal)] px-3.5 text-[12px] font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+                      className="inline-flex min-h-9 items-center justify-center rounded-[9px] bg-[#08A9C1] px-3.5 text-[12px] font-semibold !text-white transition hover:bg-[#0795AA] hover:!text-white"
                     >
                       Open
                     </Link>

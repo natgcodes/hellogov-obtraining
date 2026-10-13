@@ -9,27 +9,30 @@ type Props = {
   items: SetupItem[];
   progress: Record<string, boolean>;
   programId: string;
+  title?: string | null;
+  description?: string | null;
+  instructions?: string | null;
+  readOnly?: boolean;
 };
 
 export default function SetupChecklist({
   items,
   progress,
   programId,
+  title,
+  description,
+  instructions,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
   // ---------------------------------------------------------
   // LOCAL / OPTIMISTIC STATE
-  //
-  // Update the checklist immediately while the database
-  // operation continues in the background.
   // ---------------------------------------------------------
 
   const [localProgress, setLocalProgress] =
-    useState<Record<string, boolean>>(
-      progress
-    );
+    useState<Record<string, boolean>>(progress);
 
   const [savingItems, setSavingItems] =
     useState<Set<string>>(new Set());
@@ -38,9 +41,11 @@ export default function SetupChecklist({
   // TOGGLE SETUP ITEM
   // ---------------------------------------------------------
 
-  async function toggleItem(
-    itemId: string
-  ) {
+  async function toggleItem(itemId: string) {
+    if (readOnly) {
+      return;
+    }
+
     if (savingItems.has(itemId)) {
       return;
     }
@@ -85,8 +90,6 @@ export default function SetupChecklist({
 
       // -----------------------------------------------------
       // 3. RECALCULATE PROGRAM ENROLLMENT
-      //
-      // This may affect day unlocking and overall progress.
       // -----------------------------------------------------
 
       const { error: enrollmentError } =
@@ -106,10 +109,6 @@ export default function SetupChecklist({
 
       // -----------------------------------------------------
       // 4. REFRESH SERVER COMPONENTS
-      //
-      // The checkbox already changed instantly through the
-      // optimistic state above. This refresh synchronizes
-      // AppShell, journey state, progress, and day unlocking.
       // -----------------------------------------------------
 
       router.refresh();
@@ -118,11 +117,6 @@ export default function SetupChecklist({
         "Unable to update setup item:",
         error
       );
-
-      // -----------------------------------------------------
-      // SAVE FAILED:
-      // Restore the previous visual state.
-      // -----------------------------------------------------
 
       setLocalProgress((current) => ({
         ...current,
@@ -158,6 +152,16 @@ export default function SetupChecklist({
     totalCount > 0 &&
     completedCount === totalCount;
 
+  const displayTitle =
+    title?.trim() || "Tool Setup";
+
+  const displayDescription =
+    description?.trim() ||
+    "Complete the recommended setup before beginning training.";
+
+  const displayInstructions =
+    instructions?.trim() || "";
+
   // ---------------------------------------------------------
   // RENDER
   // ---------------------------------------------------------
@@ -168,40 +172,83 @@ export default function SetupChecklist({
           HEADER
       =================================================== */}
 
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 py-5 sm:px-6">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--teal)]">
-            Before Day 1
-          </p>
+      <div className="px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--teal)]">
+              Before Day 1
+            </p>
 
-          <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.025em] text-[var(--text-primary)]">
-            Tool Setup
-          </h2>
+            <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.025em] text-[var(--text-primary)]">
+              {displayTitle}
+            </h2>
 
-          <p className="mt-1 text-[13px] leading-5 text-[var(--text-secondary)]">
-            Complete the recommended setup before
-            beginning training.
-          </p>
-        </div>
+            <p className="mt-1 max-w-3xl text-[13px] leading-5 text-[var(--text-secondary)]">
+              {displayDescription}
+            </p>
+          </div>
 
-        <div
-          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold ${
-            allComplete
-              ? "bg-[var(--success-soft)] text-[var(--success)]"
-              : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
-          }`}
-        >
-          {allComplete && (
-            <span aria-hidden="true">
-              ✓
+          <div
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-semibold ${
+              allComplete
+                ? "bg-[var(--success-soft)] text-[var(--success)]"
+                : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
+            }`}
+          >
+            {allComplete && (
+              <span aria-hidden="true">
+                ✓
+              </span>
+            )}
+
+            <span>
+              {completedCount} of {totalCount}{" "}
+              complete
             </span>
-          )}
-
-          <span>
-            {completedCount} of {totalCount}{" "}
-            complete
-          </span>
+          </div>
         </div>
+
+        {/* =================================================
+            INSTRUCTIONS
+        ================================================= */}
+
+        {displayInstructions && (
+          <div className="mt-5 rounded-[14px] border border-[#08A9C1]/20 bg-[#F2FBFC] px-4 py-4 sm:px-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[#E2F6F8] text-[#07879B]">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="9"
+                  />
+
+                  <path d="M12 11v5" />
+                  <path d="M12 8h.01" />
+                </svg>
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold text-[#086F80]">
+                  Instructions
+                </p>
+
+                <p className="mt-1 whitespace-pre-line text-[12px] leading-5 text-[var(--text-secondary)]">
+                  {displayInstructions}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ===================================================
@@ -223,16 +270,20 @@ export default function SetupChecklist({
               onClick={() =>
                 toggleItem(item.id)
               }
-              disabled={isSaving}
+              disabled={
+                isSaving || readOnly
+              }
               aria-pressed={completed}
               className={`group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors sm:px-6 ${
                 index !== 0
                   ? "border-t border-[var(--border-soft)]"
                   : ""
               } ${
-                isSaving
-                  ? "cursor-wait"
-                  : "cursor-pointer hover:bg-[var(--surface-soft)]/70"
+                readOnly
+                  ? "cursor-default"
+                  : isSaving
+                    ? "cursor-wait"
+                    : "cursor-pointer hover:bg-[var(--surface-soft)]/70"
               }`}
             >
               {/* STATUS */}
@@ -287,7 +338,9 @@ export default function SetupChecklist({
                 >
                   {completed
                     ? "Complete"
-                    : "Mark complete"}
+                    : readOnly
+                      ? "Incomplete"
+                      : "Mark complete"}
                 </span>
               </div>
             </button>

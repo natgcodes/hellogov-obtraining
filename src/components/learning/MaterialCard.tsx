@@ -9,6 +9,7 @@ type Props = {
   material: LearnerMaterial;
   completed: boolean;
   moduleId: string;
+  readOnly?: boolean;
 };
 
 function getMaterialIcon(type: string) {
@@ -64,6 +65,7 @@ export default function MaterialCard({
   material,
   completed,
   moduleId,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -78,7 +80,7 @@ export default function MaterialCard({
   async function setComplete(
     value: boolean
   ) {
-    if (saving) {
+    if (readOnly || saving) {
       return;
     }
 
@@ -164,9 +166,7 @@ export default function MaterialCard({
       }`}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        {/* =================================================
-            ICON
-        ================================================= */}
+        {/* ICON */}
 
         <div
           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[14px] font-semibold ${
@@ -180,9 +180,7 @@ export default function MaterialCard({
             : materialIcon}
         </div>
 
-        {/* =================================================
-            CONTENT
-        ================================================= */}
+        {/* CONTENT */}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -226,9 +224,7 @@ export default function MaterialCard({
           )}
         </div>
 
-        {/* =================================================
-            ACTIONS
-        ================================================= */}
+        {/* ACTIONS */}
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
           {material.url && (
@@ -245,24 +241,38 @@ export default function MaterialCard({
             </a>
           )}
 
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() =>
-              setComplete(!completed)
-            }
-            className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-              completed
-                ? "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
-                : "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
-            }`}
-          >
-            {saving
-              ? "Saving..."
-              : completed
-                ? "Mark incomplete"
-                : "Mark complete"}
-          </button>
+          {readOnly ? (
+            <span
+              className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold ${
+                completed
+                  ? "border border-[var(--success)]/20 bg-[var(--success-soft)] text-[var(--success)]"
+                  : "border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]"
+              }`}
+            >
+              {completed
+                ? "Complete"
+                : "Incomplete"}
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() =>
+                setComplete(!completed)
+              }
+              className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                completed
+                  ? "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
+                  : "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
+              }`}
+            >
+              {saving
+                ? "Saving..."
+                : completed
+                  ? "Mark incomplete"
+                  : "Mark complete"}
+            </button>
+          )}
         </div>
       </div>
     </div>

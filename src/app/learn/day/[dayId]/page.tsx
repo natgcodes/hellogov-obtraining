@@ -5,6 +5,7 @@ import {
 } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import LearnerModuleCard from "@/components/learning/LearnerModuleCard";
+import ModuleNotes from "@/components/learning/ModuleNotes";
 import { createClient } from "@/lib/supabase/server";
 import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
 import type {
@@ -766,10 +767,16 @@ export default async function LearnerDayPage({
                       </span>
                     </div>
 
-                    <LearnerModuleCard
-                      module={module}
-                      progress={progress}
-                    />
+                                        <div className="overflow-hidden rounded-[18px]">
+                      <LearnerModuleCard
+                        module={module}
+                        progress={progress}
+                      />
+
+                      <ModuleNotes
+                        moduleId={module.id}
+                      />
+                    </div>
                   </div>
                 )
               )}

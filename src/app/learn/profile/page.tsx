@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+
 import AppShell from "@/components/layout/AppShell";
+import ChangePasswordForm from "@/components/profile/ChangePasswordForm";
 import ProfileForm from "@/components/profile/ProfileForm";
-import { createClient } from "@/lib/supabase/server";
 import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LearnerProfilePage() {
   const supabase = await createClient();
@@ -74,9 +76,6 @@ export default async function LearnerProfilePage() {
 
   // ---------------------------------------------------------
   // JOURNEY
-  //
-  // Keeps the learner sidebar consistent with the rest
-  // of the Learning Center.
   // ---------------------------------------------------------
 
   const learnerJourney =
@@ -109,8 +108,9 @@ export default async function LearnerProfilePage() {
             </h1>
 
             <p className="mt-2 max-w-[680px] text-[14px] leading-6 text-[var(--text-secondary)]">
-              Manage your personal information and
-              review your account details.
+              Manage your personal information,
+              account details, and security
+              settings.
             </p>
           </section>
 
@@ -153,6 +153,12 @@ export default async function LearnerProfilePage() {
               teamLeadName={teamLeadName}
             />
           </section>
+
+          {/* =================================================
+              SECURITY
+          ================================================= */}
+
+          <ChangePasswordForm />
         </div>
       </div>
     </AppShell>

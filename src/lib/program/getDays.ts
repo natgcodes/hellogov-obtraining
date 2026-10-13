@@ -13,6 +13,13 @@ export async function getDays() {
       position,
       is_published,
 
+      day_content (
+        id,
+        content_type,
+        content_id,
+        position
+      ),
+
       modules (
         id,
         title,
@@ -33,16 +40,16 @@ export async function getDays() {
         ),
 
         activities (
-  id,
-  title,
-  description,
-  instructions,
-  resource_url,
-  activity_type,
-  duration_minutes,
-  is_required,
-  position
-),
+          id,
+          title,
+          description,
+          instructions,
+          resource_url,
+          activity_type,
+          duration_minutes,
+          is_required,
+          position
+        ),
 
         quizzes (
           id,
@@ -94,6 +101,10 @@ export async function getDays() {
         checkpoint_type,
         passing_score,
         position,
+        is_required,
+        meeting_url,
+        scheduled_at,
+        duration_minutes,
 
         quizzes (
           id,
@@ -141,6 +152,10 @@ export async function getDays() {
       ascending: true,
     })
     .order("position", {
+      referencedTable: "day_content",
+      ascending: true,
+    })
+    .order("position", {
       referencedTable: "modules",
       ascending: true,
     })
@@ -157,7 +172,8 @@ export async function getDays() {
       ascending: true,
     })
     .order("position", {
-      referencedTable: "modules.quizzes.quiz_questions",
+      referencedTable:
+        "modules.quizzes.quiz_questions",
       ascending: true,
     })
     .order("position", {
@@ -175,7 +191,8 @@ export async function getDays() {
       ascending: true,
     })
     .order("position", {
-      referencedTable: "checkpoints.quizzes.quiz_questions",
+      referencedTable:
+        "checkpoints.quizzes.quiz_questions",
       ascending: true,
     })
     .order("position", {

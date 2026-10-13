@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/client";
 
 type EnrollmentStatus =
@@ -150,32 +151,40 @@ export default function LearnerManagementPanel({
   }
 
   return (
-    <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
       {/* HEADER */}
 
-      <div className="border-b border-slate-200 px-6 py-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#e84545]">
-          Training Management
-        </p>
+      <div className="border-b border-[var(--border-soft)] px-5 py-5 sm:px-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--teal)]">
+              Training Management
+            </p>
 
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">
-          Trainee information
-        </h2>
+            <h2 className="mt-1 text-[16px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+              Trainee information
+            </h2>
 
-        <p className="mt-1 text-sm text-slate-500">
-          Manage the trainee&apos;s account and
-          onboarding information.
-        </p>
+            <p className="mt-1 text-[11px] leading-5 text-[var(--text-muted)]">
+              Manage the trainee&apos;s account and
+              onboarding information.
+            </p>
+          </div>
+
+          <span className="inline-flex rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
+            Trainee
+          </span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid gap-5 px-6 py-6 md:grid-cols-2">
+        <div className="grid gap-x-5 gap-y-5 px-5 py-5 sm:px-6 md:grid-cols-2">
           {/* FULL NAME */}
 
           <div>
             <label
               htmlFor="trainee-full-name"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
+              className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]"
             >
               Full name
             </label>
@@ -187,10 +196,10 @@ export default function LearnerManagementPanel({
               type="text"
               defaultValue={fullName ?? ""}
               placeholder="Enter full name"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50"
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
             />
 
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
               The name displayed throughout the
               Learning Center.
             </p>
@@ -201,7 +210,7 @@ export default function LearnerManagementPanel({
           <div>
             <label
               htmlFor="trainee-team-lead"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
+              className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]"
             >
               Team Lead
             </label>
@@ -213,10 +222,10 @@ export default function LearnerManagementPanel({
               type="text"
               defaultValue={teamLead ?? ""}
               placeholder="Enter Team Lead"
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50"
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
             />
 
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
               Assigned operational Team Lead.
             </p>
           </div>
@@ -224,15 +233,17 @@ export default function LearnerManagementPanel({
           {/* EMAIL */}
 
           <div>
-            <p className="mb-1.5 text-sm font-medium text-slate-700">
+            <p className="mb-1.5 text-[11px] font-semibold text-[var(--text-secondary)]">
               Email address
             </p>
 
-            <div className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-sm text-slate-600">
-              {email || "No email available"}
+            <div className="flex min-h-10 items-center rounded-[10px] border border-[var(--border)] bg-[#F8FAFB] px-3.5 text-[12px] text-[var(--text-secondary)]">
+              <span className="truncate">
+                {email || "No email available"}
+              </span>
             </div>
 
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
               Email addresses cannot be changed
               from Training Management.
             </p>
@@ -241,17 +252,17 @@ export default function LearnerManagementPanel({
           {/* ROLE */}
 
           <div>
-            <p className="mb-1.5 text-sm font-medium text-slate-700">
+            <p className="mb-1.5 text-[11px] font-semibold text-[var(--text-secondary)]">
               Role
             </p>
 
-            <div className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-slate-50 px-3.5">
-              <span className="inline-flex rounded-full bg-[#e84545]/10 px-2.5 py-1 text-xs font-semibold text-[#e84545]">
+            <div className="flex min-h-10 items-center rounded-[10px] border border-[var(--border)] bg-[#F8FAFB] px-3.5">
+              <span className="inline-flex rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
                 Trainee
               </span>
             </div>
 
-            <p className="mt-1.5 text-xs text-slate-400">
+            <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
               Account roles are managed by the
               Training team.
             </p>
@@ -262,7 +273,7 @@ export default function LearnerManagementPanel({
           <div className="md:col-span-2">
             <label
               htmlFor="enrollment-status"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
+              className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]"
             >
               Enrollment status
             </label>
@@ -279,7 +290,7 @@ export default function LearnerManagementPanel({
                 setError(null);
                 setSuccess(false);
               }}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50 md:max-w-sm"
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 md:max-w-sm"
             >
               <option value="not_started">
                 Not started
@@ -294,7 +305,7 @@ export default function LearnerManagementPanel({
               </option>
             </select>
 
-            <p className="mt-1.5 max-w-2xl text-xs leading-5 text-slate-400">
+            <p className="mt-1.5 max-w-2xl text-[10px] leading-4 text-[var(--text-muted)]">
               Controls the trainee&apos;s overall
               onboarding enrollment status. Changing
               this status does not reset modules,
@@ -307,15 +318,15 @@ export default function LearnerManagementPanel({
         {/* FEEDBACK */}
 
         {(error || success) && (
-          <div className="px-6 pb-5">
+          <div className="px-5 pb-5 sm:px-6">
             {error && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="rounded-[10px] border border-red-200 bg-red-50 px-4 py-3 text-[11px] font-medium text-red-700">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+              <div className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-medium text-emerald-700">
                 Trainee information updated
                 successfully.
               </div>
@@ -325,11 +336,16 @@ export default function LearnerManagementPanel({
 
         {/* ACTION BAR */}
 
-        <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-soft)] bg-[#FAFBFC] px-5 py-4 sm:px-6">
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Changes are saved to the shared
+            training profile.
+          </p>
+
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-9 items-center justify-center rounded-[9px] bg-[#101828] px-4 text-[11px] font-semibold text-white transition hover:bg-[#1D2939] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving
               ? "Saving..."

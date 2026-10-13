@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
 import AppShell from "@/components/layout/AppShell";
 import { createClient } from "@/lib/supabase/server";
 import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
@@ -30,11 +31,11 @@ export default async function TrainerLearnersPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("full_name, email, role")
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "trainer") {
+  if (!profile || profile.role !== "trainer") {
     redirect("/learn");
   }
 
@@ -42,10 +43,24 @@ export default async function TrainerLearnersPage() {
 
   if (!program) {
     return (
-      <AppShell role="trainer">
-        <main className="mx-auto max-w-7xl px-6 py-10">
-          <p>No program found.</p>
-        </main>
+      <AppShell
+        role="trainer"
+        userName={profile.full_name}
+        userEmail={profile.email}
+      >
+        <div className="px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
+          <main className="mx-auto w-full max-w-[1440px]">
+            <div className="rounded-[18px] border border-[var(--border)] bg-white p-6 shadow-[var(--shadow-xs)]">
+              <h1 className="text-[16px] font-semibold text-[var(--text-primary)]">
+                Program unavailable
+              </h1>
+
+              <p className="mt-2 text-[13px] text-[var(--text-secondary)]">
+                No onboarding program could be found.
+              </p>
+            </div>
+          </main>
+        </div>
       </AppShell>
     );
   }
@@ -83,213 +98,325 @@ export default async function TrainerLearnersPage() {
       : 0;
 
   return (
-    <AppShell role="trainer">
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#e84545]">
-              Training Operations
-            </p>
+    <AppShell
+      role="trainer"
+      userName={profile.full_name}
+      userEmail={profile.email}
+    >
+      <div className="px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[1440px]">
+          {/* HEADER */}
 
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-              Learners
-            </h1>
+          <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--teal)]">
+                Training Operations
+              </p>
 
-            <p className="mt-2 text-slate-500">
-              Track onboarding progress, assessments and certification.
-            </p>
-          </div>
+              <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[30px]">
+                Trainees
+              </h1>
 
-          <Link
-            href="/trainer/review"
-            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold !text-white transition hover:bg-slate-800"
-          >
-            Review Center
-            {needsReview > 0 ? ` (${needsReview})` : ""}
-          </Link>
-        </div>
-
-        {error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error.message}
-          </div>
-        )}
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric
-            label="Learners"
-            value={totalLearners}
-          />
-
-          <Metric
-            label="Average progress"
-            value={`${Math.round(averageProgress)}%`}
-          />
-
-          <Metric
-            label="Completed"
-            value={completed}
-          />
-
-          <Metric
-            label="Needs review"
-            value={needsReview}
-          />
-        </div>
-
-        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 px-6 py-5">
-            <h2 className="font-semibold text-slate-950">
-              Onboarding roster
-            </h2>
-          </div>
-
-          {learners.length === 0 ? (
-            <div className="p-10 text-center text-sm text-slate-500">
-              No learners have started this program yet.
+              <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">
+                Track onboarding progress,
+                assessments and certification
+                status for every trainee.
+              </p>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-6 py-3">
-                      Learner
-                    </th>
 
-                    <th className="px-4 py-3">
-                      Progress
-                    </th>
+            <Link
+              href="/trainer/review"
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-[10px] bg-[#101828] px-4 text-[12px] font-semibold !text-white transition hover:bg-[#1D2939]"
+            >
+              Review Center
+              {needsReview > 0
+                ? ` (${needsReview})`
+                : ""}
+            </Link>
+          </section>
 
-                    <th className="px-4 py-3">
-                      Modules
-                    </th>
+          {/* ERROR */}
 
-                    <th className="px-4 py-3">
-                      Quizzes
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Review
-                    </th>
-
-                    <th className="px-4 py-3">
-                      Status
-                    </th>
-
-                    <th className="px-6 py-3" />
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {learners.map((learner) => {
-                    const progress = Number(
-                      learner.progress_percent ?? 0
-                    );
-
-                    return (
-                      <tr
-                        key={learner.learner_id}
-                        className="hover:bg-slate-50/70"
-                      >
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-slate-900">
-                            {learner.full_name || "Learner"}
-                          </p>
-
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {learner.email || "—"}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <div className="w-36">
-                            <div className="mb-1 flex justify-between text-xs">
-                              <span className="text-slate-500">
-                                Progress
-                              </span>
-
-                              <span className="font-semibold text-slate-800">
-                                {Math.round(progress)}%
-                              </span>
-                            </div>
-
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                              <div
-                                className="h-full rounded-full bg-[#e84545]"
-                                style={{
-                                  width: `${Math.max(
-                                    0,
-                                    Math.min(100, progress)
-                                  )}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-4 py-4 text-sm text-slate-600">
-                          {Number(
-                            learner.completed_modules ?? 0
-                          )}
-                          /
-                          {Number(
-                            learner.total_modules ?? 0
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4 text-sm text-slate-600">
-                          {Number(
-                            learner.passed_quizzes ?? 0
-                          )}
-                          /
-                          {Number(
-                            learner.total_quizzes ?? 0
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {Number(
-                            learner.needs_review ?? 0
-                          ) > 0 ? (
-                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                              {Number(
-                                learner.needs_review
-                              )}{" "}
-                              pending
-                            </span>
-                          ) : (
-                            <span className="text-sm text-slate-400">
-                              —
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <StatusBadge
-                            status={
-                              learner.enrollment_status
-                            }
-                          />
-                        </td>
-
-                        <td className="px-6 py-4 text-right">
-                          <Link
-                            href={`/trainer/learners/${learner.learner_id}`}
-                            className="text-sm font-semibold text-slate-900 transition hover:text-[#e84545]"
-                          >
-                            View →
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {error && (
+            <div className="mt-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-medium text-red-700">
+              {error.message}
             </div>
           )}
-        </section>
-      </main>
+
+          {/* METRICS */}
+
+          <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Metric
+              label="Trainees"
+              value={totalLearners}
+              helper="Enrolled in onboarding"
+            />
+
+            <Metric
+              label="Average progress"
+              value={`${Math.round(
+                averageProgress
+              )}%`}
+              helper="Across all trainees"
+            />
+
+            <Metric
+              label="Completed"
+              value={completed}
+              helper="Onboarding completions"
+            />
+
+            <Metric
+              label="Needs review"
+              value={needsReview}
+              helper="Assessments awaiting action"
+            />
+          </section>
+
+          {/* ROSTER */}
+
+          <section className="mt-7 overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-5 py-5 sm:px-6">
+              <div>
+                <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                  Onboarding roster
+                </h2>
+
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  {totalLearners}{" "}
+                  {totalLearners === 1
+                    ? "trainee"
+                    : "trainees"}{" "}
+                  enrolled
+                </p>
+              </div>
+            </div>
+
+            {learners.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#EAF8FA] text-[#07879B]">
+                  <svg
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="9"
+                      cy="8"
+                      r="3"
+                    />
+                    <path d="M3.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" />
+                    <path d="M16 6.5a2.5 2.5 0 0 1 0 5" />
+                    <path d="M17 14c2.1.5 3.2 2 3.5 4" />
+                  </svg>
+                </div>
+
+                <p className="mt-3 text-[13px] font-semibold text-[var(--text-primary)]">
+                  No trainees yet
+                </p>
+
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  No trainees have started this
+                  program yet.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left">
+                  <thead className="bg-[#FAFBFC]">
+                    <tr className="border-b border-[var(--border-soft)]">
+                      <th className="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Trainee
+                      </th>
+
+                      <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Progress
+                      </th>
+
+                      <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Modules
+                      </th>
+
+                      <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Quizzes
+                      </th>
+
+                      <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Review
+                      </th>
+
+                      <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                        Status
+                      </th>
+
+                      <th className="px-6 py-3" />
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-[var(--border-soft)]">
+                    {learners.map((learner) => {
+                      const progress = Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          Number(
+                            learner.progress_percent ??
+                              0
+                          )
+                        )
+                      );
+
+                      const pendingReviews =
+                        Number(
+                          learner.needs_review ?? 0
+                        );
+
+                      return (
+                        <tr
+                          key={learner.learner_id}
+                          className="transition-colors hover:bg-[#FAFCFC]"
+                        >
+                          {/* TRAINEE */}
+
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF8FA] text-[11px] font-semibold text-[#07879B]">
+                                {getInitials(
+                                  learner.full_name,
+                                  learner.email
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="max-w-[220px] truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                                  {learner.full_name ||
+                                    "Trainee"}
+                                </p>
+
+                                <p className="mt-0.5 max-w-[220px] truncate text-[11px] text-[var(--text-muted)]">
+                                  {learner.email ||
+                                    "—"}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* PROGRESS */}
+
+                          <td className="px-4 py-4">
+                            <div className="w-36">
+                              <div className="mb-1.5 flex items-center justify-between gap-3">
+                                <span className="text-[10px] text-[var(--text-muted)]">
+                                  Progress
+                                </span>
+
+                                <span className="text-[11px] font-semibold text-[var(--text-primary)]">
+                                  {Math.round(
+                                    progress
+                                  )}
+                                  %
+                                </span>
+                              </div>
+
+                              <div className="h-1.5 overflow-hidden rounded-full bg-[#EEF2F4]">
+                                <div
+                                  className="h-full rounded-full bg-[#08A9C1] transition-[width]"
+                                  style={{
+                                    width: `${progress}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* MODULES */}
+
+                          <td className="px-4 py-4">
+                            <p className="text-[12px] font-medium text-[var(--text-secondary)]">
+                              {Number(
+                                learner.completed_modules ??
+                                  0
+                              )}
+                              <span className="mx-1 text-[var(--text-muted)]">
+                                /
+                              </span>
+                              {Number(
+                                learner.total_modules ??
+                                  0
+                              )}
+                            </p>
+                          </td>
+
+                          {/* QUIZZES */}
+
+                          <td className="px-4 py-4">
+                            <p className="text-[12px] font-medium text-[var(--text-secondary)]">
+                              {Number(
+                                learner.passed_quizzes ??
+                                  0
+                              )}
+                              <span className="mx-1 text-[var(--text-muted)]">
+                                /
+                              </span>
+                              {Number(
+                                learner.total_quizzes ??
+                                  0
+                              )}
+                            </p>
+                          </td>
+
+                          {/* REVIEW */}
+
+                          <td className="px-4 py-4">
+                            {pendingReviews > 0 ? (
+                              <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                                {pendingReviews}{" "}
+                                {pendingReviews === 1
+                                  ? "pending"
+                                  : "pending"}
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-[var(--text-muted)]">
+                                —
+                              </span>
+                            )}
+                          </td>
+
+                          {/* STATUS */}
+
+                          <td className="px-4 py-4">
+                            <StatusBadge
+                              status={
+                                learner.enrollment_status
+                              }
+                            />
+                          </td>
+
+                          {/* ACTION */}
+
+                          <td className="px-6 py-4 text-right">
+                            <Link
+                              href={`/trainer/learners/${learner.learner_id}`}
+                              className="inline-flex min-h-8 items-center justify-center rounded-[8px] px-2.5 text-[11px] font-semibold !text-[#07879B] transition hover:bg-[#EAF8FA]"
+                            >
+                              View →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
     </AppShell>
   );
 }
@@ -297,18 +424,24 @@ export default async function TrainerLearnersPage() {
 function Metric({
   label,
   value,
+  helper,
 }: {
   label: string;
   value: string | number;
+  helper: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm text-slate-500">
+    <div className="rounded-[18px] border border-[var(--border)] bg-white px-5 py-5 shadow-[var(--shadow-xs)]">
+      <p className="text-[12px] font-medium text-[var(--text-secondary)]">
         {label}
       </p>
 
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+      <p className="mt-2 text-[30px] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
         {value}
+      </p>
+
+      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+        {helper}
       </p>
     </div>
   );
@@ -323,8 +456,8 @@ function StatusBadge({
     status === "completed"
       ? "bg-emerald-50 text-emerald-700"
       : status === "in_progress"
-        ? "bg-blue-50 text-blue-700"
-        : "bg-slate-100 text-slate-600";
+        ? "bg-[#EAF8FA] text-[#07879B]"
+        : "bg-[#F2F4F7] text-[var(--text-secondary)]";
 
   const label = status
     .replaceAll("_", " ")
@@ -334,9 +467,33 @@ function StatusBadge({
 
   return (
     <span
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles}`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${styles}`}
     >
       {label}
     </span>
   );
+}
+
+function getInitials(
+  fullName: string | null,
+  email: string | null
+) {
+  const source =
+    fullName?.trim() ||
+    email?.trim() ||
+    "Trainee";
+
+  if (fullName?.trim()) {
+    return fullName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part: string) =>
+        part.charAt(0).toUpperCase()
+      )
+      .join("");
+  }
+
+  return source.charAt(0).toUpperCase();
 }

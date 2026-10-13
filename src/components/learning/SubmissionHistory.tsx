@@ -19,28 +19,23 @@ export type SubmissionItem = {
   id: string;
   title: string;
   subtitle: string | null;
-
   dayNumber: number | null;
-
   type: "quiz" | "checkpoint";
   assessmentLabel: string;
-
   attemptNumber: number;
-
   score: number | null;
   passingScore: number;
-
   status:
     | "passed"
     | "not_passed"
     | "pending";
-
   submittedAt: string | null;
   gradedAt: string | null;
 };
 
 type Props = {
   submissions: SubmissionItem[];
+  basePath?: string;
 };
 
 function formatDate(value: string | null) {
@@ -57,6 +52,7 @@ function formatDate(value: string | null) {
 
 export default function SubmissionHistory({
   submissions,
+  basePath = "/learn/submissions",
 }: Props) {
   const [typeFilter, setTypeFilter] =
     useState<SubmissionFilter>("all");
@@ -82,10 +78,6 @@ export default function SubmissionHistory({
 
   return (
     <>
-      {/* ===============================================
-          FILTERS
-      =============================================== */}
-
       <div className="mt-5">
         <SubmissionFilters
           typeFilter={typeFilter}
@@ -94,10 +86,6 @@ export default function SubmissionHistory({
           onStatusChange={setStatusFilter}
         />
       </div>
-
-      {/* ===============================================
-          EMPTY FILTER RESULT
-      =============================================== */}
 
       {filteredSubmissions.length === 0 ? (
         <div className="mt-4 rounded-[16px] border border-dashed border-[var(--border)] bg-white px-6 py-12 text-center">
@@ -126,10 +114,6 @@ export default function SubmissionHistory({
           </button>
         </div>
       ) : (
-        /* =============================================
-           SUBMISSION LIST
-        ============================================= */
-
         <div className="mt-4 overflow-hidden rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
           {filteredSubmissions.map(
             (submission, index) => {
@@ -148,10 +132,6 @@ export default function SubmissionHistory({
                       : ""
                   }`}
                 >
-                  {/* =================================
-                      LEFT
-                  ================================= */}
-
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {submission.dayNumber !==
@@ -248,10 +228,6 @@ export default function SubmissionHistory({
                     </div>
                   </div>
 
-                  {/* =================================
-                      SCORE
-                  ================================= */}
-
                   <div className="flex shrink-0 items-center gap-6 border-t border-[var(--border-soft)] pt-4 sm:min-w-[245px] sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
                     <div className="min-w-[74px] text-left sm:text-right">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
@@ -279,7 +255,7 @@ export default function SubmissionHistory({
                     </div>
 
                     <Link
-                      href={`/learn/submissions/${submission.id}`}
+                      href={`${basePath}/${submission.id}`}
                       className="ml-auto inline-flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-[var(--text-primary)] transition hover:text-[var(--teal)]"
                     >
                       View details

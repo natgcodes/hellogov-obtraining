@@ -406,7 +406,7 @@ export default function QuizPlayer({
 
   return (
     <div>
-      <div className="space-y-5">
+      <div className="space-y-4">
         {questions.map(
           (question, index) => {
             const answer =
@@ -416,43 +416,57 @@ export default function QuizPlayer({
               <section
                 id={`question-${question.id}`}
                 key={question.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="overflow-hidden rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Question {index + 1}
-                    </p>
+                {/* QUESTION HEADER */}
 
-                    <h2 className="mt-2 text-lg font-semibold leading-7 text-slate-950">
-                      {question.question_text}
-                    </h2>
+                <div className="border-b border-[var(--border-soft)] px-5 py-5 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#07879B]">
+                          Question {index + 1}
+                        </p>
 
-                    {question.instructions && (
-                      <p className="mt-2 text-sm leading-6 text-slate-500">
-                        {
-                          question.instructions
-                        }
-                      </p>
-                    )}
+                        {question.is_required && (
+                          <span className="rounded-full bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-semibold text-[#07879B]">
+                            Required
+                          </span>
+                        )}
+                      </div>
+
+                      <h2 className="mt-2 whitespace-pre-wrap text-[16px] font-semibold leading-7 tracking-[-0.01em] text-[var(--text-primary)]">
+                        {question.question_text}
+                      </h2>
+
+                      {question.instructions && (
+                        <div className="mt-3 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
+                          <p className="whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)]">
+                            {question.instructions}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    <span className="shrink-0 rounded-full bg-[var(--surface-muted)] px-3 py-1.5 text-[11px] font-semibold text-[var(--text-secondary)]">
+                      {question.points}{" "}
+                      {Number(
+                        question.points
+                      ) === 1
+                        ? "pt"
+                        : "pts"}
+                    </span>
                   </div>
-
-                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                    {question.points}{" "}
-                    {Number(
-                      question.points
-                    ) === 1
-                      ? "pt"
-                      : "pts"}
-                  </span>
                 </div>
 
-                <div className="mt-5">
+                {/* ANSWER AREA */}
+
+                <div className="px-5 py-5 sm:px-6">
                   {(question.question_type ===
                     "single_choice" ||
                     question.question_type ===
                       "true_false") && (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {question.options.map(
                         (option) => {
                           const selected =
@@ -474,25 +488,31 @@ export default function QuizPlayer({
                                   }
                                 )
                               }
-                              className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
+                              className={`flex w-full items-center gap-3 rounded-[12px] border px-4 py-3.5 text-left transition ${
                                 selected
-                                  ? "border-purple-500 bg-purple-50"
-                                  : "border-slate-200 bg-white hover:border-slate-300"
+                                  ? "border-[#08A9C1] bg-[#EAF8FA]"
+                                  : "border-[var(--border)] bg-white hover:border-[#08A9C1]/50 hover:bg-[#F8FCFD]"
                               }`}
                             >
                               <span
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
                                   selected
-                                    ? "border-purple-600"
-                                    : "border-slate-300"
+                                    ? "border-[#08A9C1]"
+                                    : "border-[var(--border)]"
                                 }`}
                               >
                                 {selected && (
-                                  <span className="h-2.5 w-2.5 rounded-full bg-purple-600" />
+                                  <span className="h-2.5 w-2.5 rounded-full bg-[#08A9C1]" />
                                 )}
                               </span>
 
-                              <span className="text-sm font-medium text-slate-800">
+                              <span
+                                className={`whitespace-pre-wrap text-[13px] leading-5 ${
+                                  selected
+                                    ? "font-semibold text-[var(--text-primary)]"
+                                    : "font-medium text-[var(--text-secondary)]"
+                                }`}
+                              >
                                 {
                                   option.option_text
                                 }
@@ -506,70 +526,82 @@ export default function QuizPlayer({
 
                   {question.question_type ===
                     "multiple_choice" && (
-                    <div className="space-y-2">
-                      {question.options.map(
-                        (option) => {
-                          const selected =
-                            (
-                              answer.optionIds ??
-                              []
-                            ).includes(
-                              option.option_id
-                            );
+                    <div>
+                      <p className="mb-3 text-[11px] text-[var(--text-muted)]">
+                        Select all that apply.
+                      </p>
 
-                          return (
-                            <button
-                              key={
+                      <div className="space-y-2.5">
+                        {question.options.map(
+                          (option) => {
+                            const selected =
+                              (
+                                answer.optionIds ??
+                                []
+                              ).includes(
                                 option.option_id
-                              }
-                              type="button"
-                              onClick={() => {
-                                const current =
-                                  answer.optionIds ??
-                                  [];
+                              );
 
-                                updateAnswer(
-                                  question.id,
-                                  {
-                                    optionIds:
-                                      selected
-                                        ? current.filter(
-                                            (id) =>
-                                              id !==
-                                              option.option_id
-                                          )
-                                        : [
-                                            ...current,
-                                            option.option_id,
-                                          ],
-                                  }
-                                );
-                              }}
-                              className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                                selected
-                                  ? "border-purple-500 bg-purple-50"
-                                  : "border-slate-200 bg-white hover:border-slate-300"
-                              }`}
-                            >
-                              <span
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-xs ${
+                            return (
+                              <button
+                                key={
+                                  option.option_id
+                                }
+                                type="button"
+                                onClick={() => {
+                                  const current =
+                                    answer.optionIds ??
+                                    [];
+
+                                  updateAnswer(
+                                    question.id,
+                                    {
+                                      optionIds:
+                                        selected
+                                          ? current.filter(
+                                              (id) =>
+                                                id !==
+                                                option.option_id
+                                            )
+                                          : [
+                                              ...current,
+                                              option.option_id,
+                                            ],
+                                    }
+                                  );
+                                }}
+                                className={`flex w-full items-center gap-3 rounded-[12px] border px-4 py-3.5 text-left transition ${
                                   selected
-                                    ? "border-purple-600 bg-purple-600 text-white"
-                                    : "border-slate-300 text-transparent"
+                                    ? "border-[#08A9C1] bg-[#EAF8FA]"
+                                    : "border-[var(--border)] bg-white hover:border-[#08A9C1]/50 hover:bg-[#F8FCFD]"
                                 }`}
                               >
-                                ✓
-                              </span>
+                                <span
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border text-[11px] transition ${
+                                    selected
+                                      ? "border-[#08A9C1] bg-[#08A9C1] text-white"
+                                      : "border-[var(--border)] text-transparent"
+                                  }`}
+                                >
+                                  ✓
+                                </span>
 
-                              <span className="text-sm font-medium text-slate-800">
-                                {
-                                  option.option_text
-                                }
-                              </span>
-                            </button>
-                          );
-                        }
-                      )}
+                                <span
+                                  className={`whitespace-pre-wrap text-[13px] leading-5 ${
+                                    selected
+                                      ? "font-semibold text-[var(--text-primary)]"
+                                      : "font-medium text-[var(--text-secondary)]"
+                                  }`}
+                                >
+                                  {
+                                    option.option_text
+                                  }
+                                </span>
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -611,22 +643,29 @@ export default function QuizPlayer({
 
                   {question.question_type ===
                     "open_text" && (
-                    <textarea
-                      rows={5}
-                      value={answer.text ?? ""}
-                      onChange={(event) =>
-                        updateAnswer(
-                          question.id,
-                          {
-                            text:
-                              event.target
-                                .value,
-                          }
-                        )
-                      }
-                      placeholder="Write your answer..."
-                      className="w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-purple-400"
-                    />
+                    <div>
+                      <textarea
+                        rows={5}
+                        value={answer.text ?? ""}
+                        onChange={(event) =>
+                          updateAnswer(
+                            question.id,
+                            {
+                              text:
+                                event.target
+                                  .value,
+                            }
+                          )
+                        }
+                        placeholder="Write your answer..."
+                        className="w-full resize-y rounded-[12px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] leading-6 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
+                      />
+
+                      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                        Write your response in the
+                        field above.
+                      </p>
+                    </div>
                   )}
 
                   {question.question_type ===
@@ -653,46 +692,67 @@ export default function QuizPlayer({
                       }
                     />
                   )}
-                </div>
 
-                {savingQuestion ===
-                  question.id && (
-                  <p className="mt-3 text-xs text-slate-400">
-                    Saving...
-                  </p>
-                )}
+                  {savingQuestion ===
+                    question.id && (
+                    <div className="mt-4 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-[#08A9C1]" />
+                      Saving...
+                    </div>
+                  )}
+                </div>
               </section>
             );
           }
         )}
       </div>
 
+      {/* ERROR */}
+
       {error && (
-        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mt-5 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] leading-5 text-red-700">
           {error}
         </div>
       )}
 
-      <div className="sticky bottom-4 mt-8 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="text-sm text-slate-500">
-            {questions.length}{" "}
-            {questions.length === 1
-              ? "question"
-              : "questions"}{" "}
-            · Passing score{" "}
-            {quiz.passing_score}%
-          </p>
+      {/* SUBMIT BAR */}
+
+      <div className="sticky bottom-4 z-20 mt-6 overflow-hidden rounded-[14px] border border-[var(--border)] bg-white/95 shadow-[0_10px_30px_rgba(15,23,42,0.10)] backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
+          <div>
+            <p className="text-[12px] font-semibold text-[var(--text-primary)]">
+              Ready to submit?
+            </p>
+
+            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+              {questions.length}{" "}
+              {questions.length === 1
+                ? "question"
+                : "questions"}{" "}
+              · Passing score{" "}
+              {quiz.passing_score}%
+            </p>
+          </div>
 
           <button
             type="button"
             disabled={submitting}
             onClick={submitQuiz}
-            className="rounded-xl bg-[#e84545] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#08A9C1] px-5 text-[13px] font-semibold text-white shadow-[0_4px_12px_rgba(8,169,193,0.16)] transition hover:bg-[#0795AA] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting
-              ? "Submitting..."
-              : "Submit quiz"}
+            {submitting ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                Submit quiz
+                <span aria-hidden="true">
+                  →
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -25,6 +25,14 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
       description,
       status,
 
+      setup_sections (
+        id,
+        program_id,
+        title,
+        description,
+        instructions
+      ),
+
       setup_items (
         id,
         title,
@@ -73,6 +81,23 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
   }
 
   // ---------------------------------------------------------
+  // NORMALIZE SETUP SECTION
+  //
+  // setup_sections is one-to-one through the unique
+  // program_id constraint. Depending on Supabase's generated
+  // relationship shape, normalize either object or array.
+  // ---------------------------------------------------------
+
+  const rawSetupSection =
+    program.setup_sections;
+
+  const setupSection = Array.isArray(
+    rawSetupSection
+  )
+    ? rawSetupSection[0] ?? null
+    : rawSetupSection ?? null;
+
+  // ---------------------------------------------------------
   // NORMALIZE
   // ---------------------------------------------------------
 
@@ -81,6 +106,19 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
     title: program.title,
     description: program.description,
     status: program.status,
+
+    setup_section: setupSection
+      ? {
+          id: setupSection.id,
+          program_id:
+            setupSection.program_id,
+          title: setupSection.title,
+          description:
+            setupSection.description,
+          instructions:
+            setupSection.instructions,
+        }
+      : null,
 
     setup_items: [
       ...(program.setup_items ?? []),

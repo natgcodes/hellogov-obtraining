@@ -33,17 +33,12 @@ export default function MatchingQuestion({
   ) {
     const nextValue = { ...value };
 
-    // If the learner clears the selection,
-    // remove this match entirely.
     if (!rightId) {
       delete nextValue[leftId];
       onChange(nextValue);
       return;
     }
 
-    // Matching is one-to-one.
-    // Remove this right-side item from any
-    // previous left-side assignment.
     for (const [
       existingLeftId,
       existingRightId,
@@ -74,53 +69,68 @@ export default function MatchingQuestion({
 
   return (
     <div className="space-y-3">
-      {leftItems.map((left) => (
-        <div
-          key={left.item_id}
-          className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto_1fr] md:items-center"
-        >
-          <div className="font-medium text-slate-900">
-            {left.item_text}
-          </div>
+      {leftItems.map((left, index) => {
+        const selected =
+          Boolean(value[left.item_id]);
 
+        return (
           <div
-            className="hidden text-slate-300 md:block"
-            aria-hidden="true"
+            key={left.item_id}
+            className={`grid gap-3 rounded-[14px] border p-4 transition md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] md:items-center ${
+              selected
+                ? "border-[#08A9C1]/25 bg-[#F5FCFD]"
+                : "border-[var(--border)] bg-white"
+            }`}
           >
-            →
-          </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                Item {index + 1}
+              </p>
 
-          <select
-            disabled={disabled}
-            value={value[left.item_id] ?? ""}
-            onChange={(event) =>
-              updateMatch(
-                left.item_id,
-                event.target.value
-              )
-            }
-            aria-label={`Select a match for ${left.item_text}`}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-purple-400 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
-          >
-            <option value="">
-              Select a match...
-            </option>
+              <p className="mt-1 whitespace-pre-wrap text-[13px] font-semibold leading-5 text-[var(--text-primary)]">
+                {left.item_text}
+              </p>
+            </div>
 
-            {rightItems.map((right) => (
-              <option
-                key={right.item_id}
-                value={right.item_id}
-                disabled={isRightItemUsed(
-                  right.item_id,
-                  left.item_id
-                )}
-              >
-                {right.item_text}
+            <div
+              className="hidden text-center text-[var(--text-muted)] md:block"
+              aria-hidden="true"
+            >
+              →
+            </div>
+
+            <select
+              disabled={disabled}
+              value={value[left.item_id] ?? ""}
+              onChange={(event) =>
+                updateMatch(
+                  left.item_id,
+                  event.target.value
+                )
+              }
+              aria-label={`Select a match for ${left.item_text}`}
+              className="w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 py-2.5 text-[13px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:cursor-not-allowed disabled:bg-[var(--surface-soft)] disabled:text-[var(--text-muted)]"
+            >
+              <option value="">
+                Select a match...
               </option>
-            ))}
-          </select>
-        </div>
-      ))}
+
+              {rightItems.map((right) => (
+                <option
+                  key={right.item_id}
+                  value={right.item_id}
+                  disabled={isRightItemUsed(
+                    right.item_id,
+                    left.item_id
+                  )}
+                >
+                  {right.item_text}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      })}
     </div>
   );
 }

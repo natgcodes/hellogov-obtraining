@@ -129,15 +129,30 @@ export default function FileUploadQuestion({
   return (
     <div>
       <label
-        className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition ${
+        className={`flex flex-col items-center justify-center rounded-[14px] border border-dashed px-6 py-8 text-center transition ${
           disabled || uploading
-            ? "cursor-not-allowed opacity-60"
-            : "cursor-pointer hover:border-slate-300"
+            ? "cursor-not-allowed border-[var(--border)] bg-[var(--surface-soft)] opacity-60"
+            : "cursor-pointer border-[#08A9C1]/35 bg-[#F7FCFD] hover:border-[#08A9C1] hover:bg-[#F1FAFB]"
         }`}
       >
-        <span className="text-2xl">↑</span>
+        <span className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[#EAF8FA] text-[#07879B]">
+          <svg
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 16V4" />
+            <path d="m7 9 5-5 5 5" />
+            <path d="M5 20h14" />
+          </svg>
+        </span>
 
-        <span className="mt-2 font-medium text-slate-900">
+        <span className="mt-3 text-[13px] font-semibold text-[var(--text-primary)]">
           {uploading
             ? "Uploading..."
             : currentFileName
@@ -145,7 +160,7 @@ export default function FileUploadQuestion({
               : "Upload a file"}
         </span>
 
-        <span className="mt-1 text-xs text-slate-500">
+        <span className="mt-1 text-[11px] text-[var(--text-muted)]">
           Maximum file size: 10 MB
         </span>
 
@@ -158,8 +173,6 @@ export default function FileUploadQuestion({
 
             void uploadFile(file);
 
-            // Allows selecting the same file again
-            // after an upload error.
             event.target.value = "";
           }}
           className="hidden"
@@ -167,15 +180,21 @@ export default function FileUploadQuestion({
       </label>
 
       {currentFileName && (
-        <div className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-          ✓ {currentFileName}
+        <div className="mt-3 flex items-center gap-2 rounded-[11px] border border-[var(--success)]/15 bg-[var(--success-soft)] px-4 py-3 text-[12px] font-medium text-[var(--success)]">
+          <span aria-hidden="true">
+            ✓
+          </span>
+
+          <span className="min-w-0 truncate">
+            {currentFileName}
+          </span>
         </div>
       )}
 
       {error && (
-        <p className="mt-2 text-sm text-red-600">
+        <div className="mt-3 rounded-[11px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
           {error}
-        </p>
+        </div>
       )}
     </div>
   );

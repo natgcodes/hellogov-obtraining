@@ -9,6 +9,7 @@ type Props = {
   activity: LearnerActivity;
   status: string;
   moduleId: string;
+  readOnly?: boolean;
 };
 
 function getActivityLabel(type: string) {
@@ -68,6 +69,7 @@ export default function ActivityCard({
   activity,
   status,
   moduleId,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -93,7 +95,7 @@ export default function ActivityCard({
   // ---------------------------------------------------------
 
   async function toggleComplete() {
-    if (saving) {
+    if (readOnly || saving) {
       return;
     }
 
@@ -292,22 +294,36 @@ export default function ActivityCard({
         ================================================= */}
 
         <div className="shrink-0 sm:pt-0.5">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={toggleComplete}
-            className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-              completed
-                ? "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
-                : "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
-            }`}
-          >
-            {saving
-              ? "Saving..."
-              : completed
-                ? "Mark incomplete"
-                : "Complete activity"}
-          </button>
+          {readOnly ? (
+            <span
+              className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold ${
+                completed
+                  ? "border border-[var(--success)]/20 bg-[var(--success-soft)] text-[var(--success)]"
+                  : "border border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-muted)]"
+              }`}
+            >
+              {completed
+                ? "Complete"
+                : "Incomplete"}
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={toggleComplete}
+              className={`inline-flex h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                completed
+                  ? "border border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-soft)]"
+                  : "bg-[var(--teal)] text-white hover:bg-[var(--teal-deep)]"
+              }`}
+            >
+              {saving
+                ? "Saving..."
+                : completed
+                  ? "Mark incomplete"
+                  : "Complete activity"}
+            </button>
+          )}
         </div>
       </div>
     </div>

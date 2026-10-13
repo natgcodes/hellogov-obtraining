@@ -9,6 +9,7 @@ import type {
 type Props = {
   module: LearnerModule;
   progress: ProgressMap;
+  readOnly?: boolean;
 };
 
 function getStatusStyles(status: string) {
@@ -41,6 +42,7 @@ function getStatusStyles(status: string) {
 export default function LearnerModuleCard({
   module,
   progress,
+  readOnly = false,
 }: Props) {
   const status =
     progress.modules[module.id] ??
@@ -56,9 +58,7 @@ export default function LearnerModuleCard({
 
   return (
     <section className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
-      {/* ===================================================
-          MODULE HEADER
-      =================================================== */}
+      {/* MODULE HEADER */}
 
       <div className="border-b border-[var(--border-soft)] px-6 py-6 sm:px-7">
         <div className="flex flex-wrap items-start justify-between gap-5">
@@ -139,14 +139,10 @@ export default function LearnerModuleCard({
         </div>
       </div>
 
-      {/* ===================================================
-          MODULE CONTENT
-      =================================================== */}
+      {/* MODULE CONTENT */}
 
       <div className="space-y-8 px-6 py-6 sm:px-7">
-        {/* =================================================
-            MATERIALS
-        ================================================= */}
+        {/* MATERIALS */}
 
         {module.materials.length > 0 && (
           <div>
@@ -179,6 +175,7 @@ export default function LearnerModuleCard({
                         material.id
                       ] ?? false
                     }
+                    readOnly={readOnly}
                   />
                 )
               )}
@@ -186,9 +183,7 @@ export default function LearnerModuleCard({
           </div>
         )}
 
-        {/* =================================================
-            ACTIVITIES
-        ================================================= */}
+        {/* ACTIVITIES */}
 
         {module.activities.length > 0 && (
           <div>
@@ -221,6 +216,7 @@ export default function LearnerModuleCard({
                         activity.id
                       ] ?? "not_started"
                     }
+                    readOnly={readOnly}
                   />
                 )
               )}
@@ -228,9 +224,7 @@ export default function LearnerModuleCard({
           </div>
         )}
 
-        {/* =================================================
-            KNOWLEDGE CHECKS
-        ================================================= */}
+        {/* KNOWLEDGE CHECKS */}
 
         {module.quizzes.length > 0 && (
           <div>
@@ -288,12 +282,18 @@ export default function LearnerModuleCard({
                         )}
                       </div>
 
-                      <Link
-                        href={`/learn/quiz/${quiz.id}`}
-                        className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
-                      >
-                        Start quiz
-                      </Link>
+                      {readOnly ? (
+                        <span className="inline-flex shrink-0 items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-[12px] font-semibold text-[var(--text-muted)]">
+                          Read only
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/learn/quiz/${quiz.id}`}
+                          className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
+                        >
+                          Start quiz
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )
@@ -302,9 +302,7 @@ export default function LearnerModuleCard({
           </div>
         )}
 
-        {/* =================================================
-            EMPTY MODULE
-        ================================================= */}
+        {/* EMPTY MODULE */}
 
         {totalItems === 0 && (
           <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-5 py-8 text-center">

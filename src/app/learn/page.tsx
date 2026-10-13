@@ -697,10 +697,13 @@ export default async function LearnPage() {
               </div>
 
               <SetupChecklist
-                items={program.setup_items}
-                progress={progress.setup}
-                programId={program.id}
-              />
+  items={program.setup_items}
+  progress={progress.setup}
+  programId={program.id}
+  title={program.setup_section?.title}
+  description={program.setup_section?.description}
+  instructions={program.setup_section?.instructions}
+/>
             </section>
           )}
 

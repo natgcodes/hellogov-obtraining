@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import DayEditor from "@/components/trainer/DayEditor";
-import SetupEditor from "@/components/trainer/SetupEditor";
+
 import CertificationEditor from "@/components/trainer/CertificationEditor";
+import DayEditor from "@/components/trainer/DayEditor";
 import PostTrainingEditor from "@/components/trainer/PostTrainingEditor";
+import SetupEditor from "@/components/trainer/SetupEditor";
 import type { Quiz } from "@/components/trainer/QuizEditor";
 
 type SupabaseMaterial = {
@@ -42,15 +43,31 @@ type SupabaseModule = {
   quizzes: Quiz[];
 };
 
+type CheckpointType =
+  | "assessment"
+  | "trainer_session"
+  | "information";
+
 type SupabaseCheckpoint = {
   id: string;
   quiz_id: string | null;
   title: string;
   description: string | null;
-  checkpoint_type: string;
+  checkpoint_type: CheckpointType;
   passing_score: number | null;
   position: number;
+  is_required: boolean;
+  meeting_url: string | null;
+  scheduled_at: string | null;
+  duration_minutes: number | null;
   quizzes: Quiz[];
+};
+
+type DayContent = {
+  id: string;
+  content_type: "module" | "checkpoint";
+  content_id: string;
+  position: number;
 };
 
 type SupabaseDay = {
@@ -60,6 +77,7 @@ type SupabaseDay = {
   description: string | null;
   position: number;
   is_published: boolean;
+  day_content: DayContent[];
   modules: SupabaseModule[];
   checkpoints: SupabaseCheckpoint[];
 };
@@ -71,6 +89,14 @@ type SetupItem = {
   description: string | null;
   position: number;
   is_required: boolean;
+};
+
+type SetupSection = {
+  id: string;
+  program_id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
 };
 
 type CertificationComponent = {
@@ -110,6 +136,7 @@ type PostTraining = {
 type ProgramTimelineProps = {
   days: SupabaseDay[];
   setupItems: SetupItem[];
+  setupSection: SetupSection;
   certification: Certification | null;
   postTraining: PostTraining | null;
 };
@@ -119,17 +146,15 @@ type TimelineItem = {
   label: string;
   title: string;
   description: string;
+  kind:
+    | "setup"
+    | "day"
+    | "certification"
+    | "post-training";
   day?: SupabaseDay;
-  count?: number;
   countLabel?: string;
   duration?: string;
   status?: "draft" | "published";
-  color:
-    | "red"
-    | "blue"
-    | "green"
-    | "purple"
-    | "neutral";
   editable?: boolean;
 };
 
@@ -139,59 +164,11 @@ type ActiveSection =
   | "post-training"
   | null;
 
-const PROGRAM_ID =
-  "5f5a6ef1-3133-45f6-b421-0dc09ea4a6a0";
-
-const colors = {
-  red: {
-    dot: "bg-[#e84545]",
-    soft: "bg-[#fff1f1]",
-    text: "text-[#d83d3d]",
-  },
-  blue: {
-    dot: "bg-[#4f7cff]",
-    soft: "bg-[#eef3ff]",
-    text: "text-[#4169d8]",
-  },
-  green: {
-    dot: "bg-[#22a06b]",
-    soft: "bg-[#ecfdf3]",
-    text: "text-[#16845a]",
-  },
-  purple: {
-    dot: "bg-[#7c5cff]",
-    soft: "bg-[#f3f0ff]",
-    text: "text-[#6847df]",
-  },
-  neutral: {
-    dot: "bg-[#98a2b3]",
-    soft: "bg-[#f2f4f7]",
-    text: "text-[#667085]",
-  },
-};
-
-function getDayColor(
-  dayNumber: number
-): TimelineItem["color"] {
-  if (dayNumber === 1 || dayNumber === 2) {
-    return "blue";
-  }
-
-  if (dayNumber === 3) {
-    return "green";
-  }
-
-  if (dayNumber === 4) {
-    return "red";
-  }
-
-  return "neutral";
-}
-
 function getDayDuration(day: SupabaseDay) {
   const totalMinutes = day.modules.reduce(
     (total, module) =>
-      total + (module.duration_minutes ?? 0),
+      total +
+      (module.duration_minutes ?? 0),
     0
   );
 
@@ -203,7 +180,9 @@ function getDayDuration(day: SupabaseDay) {
     return `${totalMinutes} min`;
   }
 
-  const hours = Math.floor(totalMinutes / 60);
+  const hours = Math.floor(
+    totalMinutes / 60
+  );
   const minutes = totalMinutes % 60;
 
   if (minutes === 0) {
@@ -218,57 +197,156 @@ function formatCount(
   singular: string,
   plural: string
 ) {
-  return `${count} ${count === 1 ? singular : plural}`;
+  return `${count} ${
+    count === 1 ? singular : plural
+  }`;
+}
+
+function TimelineIcon({
+  kind,
+}: {
+  kind: TimelineItem["kind"];
+}) {
+  const common = "h-[17px] w-[17px]";
+
+  if (kind === "setup") {
+    return (
+      <svg
+        className={common}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 3v3" />
+        <path d="M12 18v3" />
+        <path d="m4.2 4.2 2.1 2.1" />
+        <path d="m17.7 17.7 2.1 2.1" />
+        <path d="M3 12h3" />
+        <path d="M18 12h3" />
+        <path d="m4.2 19.8 2.1-2.1" />
+        <path d="m17.7 6.3 2.1-2.1" />
+        <circle cx="12" cy="12" r="3.5" />
+      </svg>
+    );
+  }
+
+  if (kind === "certification") {
+    return (
+      <svg
+        className={common}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="9" r="5" />
+        <path d="m9 13-1 8 4-2 4 2-1-8" />
+      </svg>
+    );
+  }
+
+  if (kind === "post-training") {
+    return (
+      <svg
+        className={common}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M5 12h14" />
+        <path d="m14 7 5 5-5 5" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      className={common}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect
+        x="5"
+        y="4"
+        width="14"
+        height="16"
+        rx="2"
+      />
+      <path d="M8.5 8h7" />
+      <path d="M8.5 12h7" />
+      <path d="M8.5 16h4.5" />
+    </svg>
+  );
 }
 
 export default function ProgramTimeline({
   days,
   setupItems,
+  setupSection,
   certification,
   postTraining,
 }: ProgramTimelineProps) {
-  const [selectedDayId, setSelectedDayId] = useState<
-    string | null
-  >(null);
+  const [selectedDayId, setSelectedDayId] =
+    useState<string | null>(null);
 
   const [activeSection, setActiveSection] =
     useState<ActiveSection>(null);
 
   const selectedDay =
-    days.find((day) => day.id === selectedDayId) ?? null;
+    days.find(
+      (day) => day.id === selectedDayId
+    ) ?? null;
 
-  const dayItems: TimelineItem[] = days.map((day) => ({
-    id: day.id,
-    label: `Day ${day.day_number}`,
-    title: day.title,
-    description: day.description ?? "",
-    day,
-    count: day.modules.length,
-    countLabel: formatCount(
-      day.modules.length,
-      "module",
-      "modules"
-    ),
-    duration: getDayDuration(day),
-    status: day.is_published ? "published" : "draft",
-    color: getDayColor(day.day_number),
-    editable: true,
-  }));
+  const dayItems: TimelineItem[] =
+    days.map((day) => ({
+      id: day.id,
+      label: `Day ${day.day_number}`,
+      title: day.title,
+      description:
+        day.description ?? "",
+      kind: "day",
+      day,
+      countLabel: formatCount(
+        day.modules.length,
+        "module",
+        "modules"
+      ),
+      duration: getDayDuration(day),
+      status: day.is_published
+        ? "published"
+        : "draft",
+      editable: true,
+    }));
 
   const items: TimelineItem[] = [
     {
       id: "setup",
       label: "Before Day 1",
-      title: "Tool Setup",
+      title: setupSection.title,
       description:
-        "Confirm that every learner has the required accounts, permissions and tools before onboarding begins.",
-      count: setupItems.length,
+        setupSection.description ?? "",
+      kind: "setup",
       countLabel: formatCount(
         setupItems.length,
         "setup item",
         "setup items"
       ),
-      color: "neutral",
       editable: true,
     },
 
@@ -283,14 +361,14 @@ export default function ProgramTimeline({
       description:
         certification?.description ??
         "Final knowledge, platform and mock-call assessments before supported production.",
-      count:
-        certification?.certification_components?.length ?? 0,
+      kind: "certification",
       countLabel: formatCount(
-        certification?.certification_components?.length ?? 0,
+        certification
+          ?.certification_components
+          ?.length ?? 0,
         "component",
         "components"
       ),
-      color: "purple",
       editable: true,
     },
 
@@ -303,19 +381,21 @@ export default function ProgramTimeline({
       description:
         postTraining?.description ??
         "Shadowing, supported calls, QA follow-up and coaching after onboarding.",
-      count:
-        postTraining?.post_training_stages?.length ?? 0,
+      kind: "post-training",
       countLabel: formatCount(
-        postTraining?.post_training_stages?.length ?? 0,
+        postTraining
+          ?.post_training_stages
+          ?.length ?? 0,
         "stage",
         "stages"
       ),
-      color: "neutral",
       editable: true,
     },
   ];
 
-  function handleItemClick(item: TimelineItem) {
+  function handleItemClick(
+    item: TimelineItem
+  ) {
     if (item.day) {
       setActiveSection(null);
       setSelectedDayId(item.day.id);
@@ -330,133 +410,265 @@ export default function ProgramTimeline({
     }
 
     if (item.id === "certification") {
-      setActiveSection("certification");
+      setActiveSection(
+        "certification"
+      );
       return;
     }
 
     if (item.id === "post-training") {
-      setActiveSection("post-training");
+      setActiveSection(
+        "post-training"
+      );
     }
   }
 
   return (
     <>
-      <div className="relative">
-        <div className="absolute bottom-10 left-[19px] top-10 w-px bg-[#e4e7ec]" />
+      <section className="overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
+        <div className="border-b border-[var(--border-soft)] px-5 py-5 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                Onboarding structure
+              </h2>
 
-        <div className="space-y-4">
-          {items.map((item) => {
-            const palette = colors[item.color];
+              <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                Select a section to manage its
+                content, resources and assessments.
+              </p>
+            </div>
 
-            return (
-              <div
-                key={item.id}
-                className="relative flex gap-5"
-              >
-                <div className="relative z-10 flex w-10 shrink-0 justify-center pt-7">
-                  <div
-                    className={`h-[11px] w-[11px] rounded-full ${palette.dot} ring-4 ring-[#f7f8fa]`}
-                  />
-                </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
+                {days.length}{" "}
+                {days.length === 1
+                  ? "training day"
+                  : "training days"}
+              </span>
 
+              <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">
+                {items.length} sections
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="divide-y divide-[var(--border-soft)]">
+          {items.map(
+            (item, index) => {
+              const isFirst =
+                index === 0;
+              const isLast =
+                index ===
+                items.length - 1;
+
+              return (
                 <button
+                  key={item.id}
                   type="button"
-                  onClick={() => handleItemClick(item)}
-                  disabled={!item.editable}
-                  className={`group w-full rounded-[20px] border border-[#e5e7eb] bg-white p-6 text-left shadow-[0_1px_2px_rgba(16,24,40,0.03)] transition ${
+                  onClick={() =>
+                    handleItemClick(
+                      item
+                    )
+                  }
+                  disabled={
+                    !item.editable
+                  }
+                  className={`group relative flex w-full gap-4 bg-white px-5 py-5 text-left transition-colors sm:gap-5 sm:px-6 ${
                     item.editable
-                      ? "cursor-pointer hover:-translate-y-[1px] hover:border-[#d7dbe2] hover:shadow-[0_8px_24px_rgba(16,24,40,0.06)]"
+                      ? "cursor-pointer hover:bg-[#FAFCFC]"
                       : "cursor-default opacity-70"
                   }`}
                 >
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${palette.soft} ${palette.text}`}
-                        >
-                          {item.label}
-                        </span>
+                  <div className="relative flex w-9 shrink-0 justify-center">
+                    {!isFirst && (
+                      <div className="absolute -top-5 bottom-1/2 left-1/2 w-px -translate-x-1/2 bg-[var(--border)]" />
+                    )}
 
-                        {item.status && (
-                          <span className="rounded-full border border-[#e4e7ec] bg-white px-2.5 py-1 text-[11px] font-medium capitalize text-[#667085]">
-                            {item.status}
+                    {!isLast && (
+                      <div className="absolute left-1/2 top-1/2 -bottom-5 w-px -translate-x-1/2 bg-[var(--border)]" />
+                    )}
+
+                    <div
+                      className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full border transition ${
+                        item.kind ===
+                        "certification"
+                          ? "border-[#08A9C1]/25 bg-[#EAF8FA] text-[#07879B]"
+                          : item.kind ===
+                              "day"
+                            ? "border-[#08A9C1]/20 bg-[#F3FBFC] text-[#07879B]"
+                            : "border-[var(--border)] bg-white text-[var(--text-muted)]"
+                      }`}
+                    >
+                      <TimelineIcon
+                        kind={
+                          item.kind
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                              item.kind ===
+                              "certification"
+                                ? "bg-[#EAF8FA] text-[#07879B]"
+                                : item.kind ===
+                                    "day"
+                                  ? "bg-[#F2F4F7] text-[var(--text-secondary)]"
+                                  : "bg-[#F8FAFB] text-[var(--text-muted)]"
+                            }`}
+                          >
+                            {
+                              item.label
+                            }
                           </span>
+
+                          {item.status && (
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize ${
+                                item.status ===
+                                "published"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              <span
+                                className={`h-1.5 w-1.5 rounded-full ${
+                                  item.status ===
+                                  "published"
+                                    ? "bg-emerald-500"
+                                    : "bg-slate-400"
+                                }`}
+                              />
+
+                              {
+                                item.status
+                              }
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="mt-2.5 text-[15px] font-semibold tracking-[-0.015em] text-[var(--text-primary)] sm:text-[16px]">
+                          {item.title}
+                        </h3>
+
+                        {item.description && (
+                          <p className="mt-1.5 max-w-3xl whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)] sm:text-[13px]">
+                            {
+                              item.description
+                            }
+                          </p>
                         )}
                       </div>
 
-                      <h3 className="text-[17px] font-semibold tracking-[-0.015em] text-[#172033]">
-                        {item.title}
-                      </h3>
+                      <div className="flex shrink-0 items-center gap-4 md:pl-4">
+                        {(item.countLabel ||
+                          item.duration) && (
+                          <div className="min-w-[100px] text-left md:text-right">
+                            {item.countLabel && (
+                              <p className="text-[12px] font-semibold text-[var(--text-secondary)]">
+                                {
+                                  item.countLabel
+                                }
+                              </p>
+                            )}
 
-                      <p className="mt-1.5 max-w-3xl text-sm leading-6 text-[#667085]">
-                        {item.description}
-                      </p>
-                    </div>
+                            {item.duration && (
+                              <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+                                {
+                                  item.duration
+                                }
+                              </p>
+                            )}
+                          </div>
+                        )}
 
-                    <div className="flex shrink-0 items-center gap-5">
-                      {(item.countLabel ||
-                        item.duration) && (
-                        <div className="hidden text-right md:block">
-                          {item.countLabel && (
-                            <div className="text-sm font-medium text-[#344054]">
-                              {item.countLabel}
-                            </div>
-                          )}
-
-                          {item.duration && (
-                            <div className="mt-0.5 text-xs text-[#98a2b3]">
-                              {item.duration}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {item.editable && (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e4e7ec] text-[#667085] transition group-hover:border-[#d0d5dd] group-hover:bg-[#f9fafb] group-hover:text-[#172033]">
-                          →
-                        </div>
-                      )}
+                        {item.editable && (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-[var(--border)] bg-white text-[var(--text-muted)] transition group-hover:border-[#08A9C1]/30 group-hover:bg-[#EAF8FA] group-hover:text-[#07879B]">
+                            <svg
+                              className="h-4 w-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M5 12h14" />
+                              <path d="m14 7 5 5-5 5" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
-              </div>
-            );
-          })}
+              );
+            }
+          )}
         </div>
-      </div>
+      </section>
 
       {selectedDay && (
         <DayEditor
           day={selectedDay}
-          dayNumber={selectedDay.day_number}
+          dayNumber={
+            selectedDay.day_number
+          }
           title={selectedDay.title}
-          description={selectedDay.description ?? ""}
-          onClose={() => setSelectedDayId(null)}
+          description={
+            selectedDay.description ??
+            ""
+          }
+          onClose={() =>
+            setSelectedDayId(null)
+          }
         />
       )}
 
       {activeSection === "setup" && (
         <SetupEditor
           items={setupItems}
-          programId={PROGRAM_ID}
-          onClose={() => setActiveSection(null)}
+          programId={
+            setupSection.program_id
+          }
+          section={setupSection}
+          onClose={() =>
+            setActiveSection(null)
+          }
         />
       )}
 
-      {activeSection === "certification" &&
+      {activeSection ===
+        "certification" &&
         certification && (
           <CertificationEditor
-            certification={certification}
-            onClose={() => setActiveSection(null)}
+            certification={
+              certification
+            }
+            onClose={() =>
+              setActiveSection(null)
+            }
           />
         )}
 
-      {activeSection === "post-training" &&
+      {activeSection ===
+        "post-training" &&
         postTraining && (
           <PostTrainingEditor
-            postTraining={postTraining}
-            onClose={() => setActiveSection(null)}
+            postTraining={
+              postTraining
+            }
+            onClose={() =>
+              setActiveSection(null)
+            }
           />
         )}
     </>

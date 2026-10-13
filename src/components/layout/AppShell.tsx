@@ -29,6 +29,12 @@ type AppShellProps = {
   userEmail?: string | null;
   role: "learner" | "trainer";
   learnerJourney?: LearnerJourney;
+
+  impersonation?: {
+    learnerId: string;
+    learnerName: string;
+    learnerEmail?: string | null;
+  };
 };
 
 type IconName =
@@ -39,6 +45,7 @@ type IconName =
   | "learners"
   | "users"
   | "review"
+  | "notes"
   | "check"
   | "current"
   | "lock"
@@ -125,6 +132,17 @@ function Icon({
           <path d="M3.5 19c.6-3.2 2.4-5 5.5-5s4.9 1.8 5.5 5" />
           <path d="M17 8v6" />
           <path d="M14 11h6" />
+        </svg>
+      );
+
+    case "notes":
+      return (
+        <svg {...commonProps}>
+          <path d="M6 3.5h9l3 3V20.5H6z" />
+          <path d="M15 3.5v4h4" />
+          <path d="M9 11h6" />
+          <path d="M9 15h4" />
+          <path d="M9 7.5h2" />
         </svg>
       );
 
@@ -231,6 +249,7 @@ export default function AppShell({
   userEmail,
   role,
   learnerJourney,
+  impersonation,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -243,6 +262,29 @@ export default function AppShell({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const isTrainer = role === "trainer";
+  const isImpersonating = Boolean(impersonation);
+
+  const showTrainerNavigation =
+    isTrainer && !isImpersonating;
+
+  const showLearnerNavigation =
+    !isTrainer || isImpersonating;
+
+  const learnerBasePath = isImpersonating
+    ? `/trainer/impersonate/${impersonation!.learnerId}`
+    : "/learn";
+
+  const shellHomePath = showTrainerNavigation
+    ? "/trainer"
+    : learnerBasePath;
+
+  const profilePath = showTrainerNavigation
+    ? "/trainer/profile"
+    : `${learnerBasePath}/profile`;
+
+  const profileLabel = showTrainerNavigation
+    ? "My Profile"
+    : "Profile";
 
   const trainerNavigation: NavigationItem[] = [
     {
@@ -256,7 +298,7 @@ export default function AppShell({
       icon: "program",
     },
     {
-      label: "Learners",
+      label: "Trainees",
       href: "/trainer/learners",
       icon: "learners",
     },
@@ -271,31 +313,36 @@ export default function AppShell({
       icon: "review",
     },
     {
-  label: "Q&A",
-  href: "/trainer/questions",
-  icon: "submissions",
-},
+      label: "Q&A",
+      href: "/trainer/questions",
+      icon: "submissions",
+    },
+    {
+      label: "Trainee Notes",
+      href: "/trainer/notes",
+      icon: "notes",
+    },
   ];
 
   const fallbackLearnerNavigation: NavigationItem[] = [
     {
       label: "Overview",
-      href: "/learn",
+      href: learnerBasePath,
       icon: "home",
     },
     {
       label: "Submissions",
-      href: "/learn/submissions",
+      href: `${learnerBasePath}/submissions`,
       icon: "submissions",
     },
     {
       label: "Certification",
-      href: "/learn/certification",
+      href: `${learnerBasePath}/certification`,
       icon: "certificate",
     },
     {
       label: "Next Steps",
-      href: "/learn/post-training",
+      href: `${learnerBasePath}/post-training`,
       icon: "arrow",
     },
   ];
@@ -307,6 +354,10 @@ export default function AppShell({
 
     if (href === "/learn") {
       return pathname === "/learn";
+    }
+
+    if (href === learnerBasePath) {
+      return pathname === learnerBasePath;
     }
 
     return pathname.startsWith(href);
@@ -321,7 +372,9 @@ export default function AppShell({
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      setLogoutError("Could not sign out. Please try again.");
+      setLogoutError(
+        "Could not sign out. Please try again."
+      );
       setLoggingOut(false);
       return;
     }
@@ -330,41 +383,55 @@ export default function AppShell({
     router.refresh();
   }
 
-  const displayName = userName || "HelloGov User";
+  const displayName = isImpersonating
+    ? impersonation!.learnerName || "Trainee"
+    : userName || "HelloGov User";
 
-  const initial = (userName || userEmail || "U")
+  const displayEmail = isImpersonating
+    ? impersonation!.learnerEmail ?? null
+    : userEmail ?? null;
+
+  const initial = (
+    displayName ||
+    displayEmail ||
+    "U"
+  )
     .charAt(0)
     .toUpperCase();
 
   const currentDayId =
     learnerJourney?.days.find(
-      (day) => day.unlocked && !day.completed
+      (day) =>
+        day.unlocked && !day.completed
     )?.id ?? null;
 
   const setupComplete =
     Boolean(learnerJourney) &&
     learnerJourney!.setupTotal > 0 &&
-    learnerJourney!.setupCompleted >= learnerJourney!.setupTotal;
-
-  // ---------------------------------------------------------
-  // STANDARD NAV ITEM
-  // ---------------------------------------------------------
+    learnerJourney!.setupCompleted >=
+      learnerJourney!.setupTotal;
 
   function renderStandardNavItem(
     item: NavigationItem,
     mobile = false
   ) {
     const active = isActive(item.href);
-    const collapsed = !mobile && sidebarCollapsed;
+    const collapsed =
+      !mobile && sidebarCollapsed;
 
     return (
       <Link
         key={item.href}
         href={item.href}
-        title={collapsed ? item.label : undefined}
+        title={
+          collapsed
+            ? item.label
+            : undefined
+        }
         onClick={
           mobile
-            ? () => setMobileMenuOpen(false)
+            ? () =>
+                setMobileMenuOpen(false)
             : undefined
         }
         className={`flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
@@ -387,23 +454,28 @@ export default function AppShell({
           <Icon name={item.icon} />
         </span>
 
-        {!collapsed && <span>{item.label}</span>}
+        {!collapsed && (
+          <span>{item.label}</span>
+        )}
       </Link>
     );
   }
 
-  // ---------------------------------------------------------
-  // LEARNER NAVIGATION
-  // ---------------------------------------------------------
-
-  function renderJourneyNavigation(mobile = false) {
-    const collapsed = !mobile && sidebarCollapsed;
+  function renderJourneyNavigation(
+    mobile = false
+  ) {
+    const collapsed =
+      !mobile && sidebarCollapsed;
 
     if (!learnerJourney) {
       return (
         <nav className="space-y-1">
-          {fallbackLearnerNavigation.map((item) =>
-            renderStandardNavItem(item, mobile)
+          {fallbackLearnerNavigation.map(
+            (item) =>
+              renderStandardNavItem(
+                item,
+                mobile
+              )
           )}
         </nav>
       );
@@ -414,7 +486,7 @@ export default function AppShell({
         {renderStandardNavItem(
           {
             label: "Overview",
-            href: "/learn",
+            href: learnerBasePath,
             icon: "home",
           },
           mobile
@@ -423,7 +495,7 @@ export default function AppShell({
         {renderStandardNavItem(
           {
             label: "Submissions",
-            href: "/learn/submissions",
+            href: `${learnerBasePath}/submissions`,
             icon: "submissions",
           },
           mobile
@@ -440,8 +512,6 @@ export default function AppShell({
         {collapsed && (
           <div className="mx-2 my-3 border-t border-[var(--border-soft)]" />
         )}
-
-        {/* BEFORE DAY 1 */}
 
         <div
           title={
@@ -476,122 +546,141 @@ export default function AppShell({
               </span>
 
               <span className="shrink-0 text-[11px] font-semibold text-[var(--text-muted)]">
-                {learnerJourney.setupCompleted}/
+                {
+                  learnerJourney.setupCompleted
+                }
+                /
                 {learnerJourney.setupTotal}
               </span>
             </>
           )}
         </div>
 
-        {/* DAYS */}
+        {learnerJourney.days.map(
+          (day) => {
+            const current =
+              day.id === currentDayId;
 
-        {learnerJourney.days.map((day) => {
-          const current = day.id === currentDayId;
+            const active =
+              pathname.startsWith(
+                `${learnerBasePath}/day/${day.id}`
+              );
 
-          const active = pathname.startsWith(
-            `/learn/day/${day.id}`
-          );
+            const accessible =
+              day.unlocked ||
+              day.completed;
 
-          const accessible = day.unlocked || day.completed;
-          const shortTitle = getDayShortTitle(day);
+            const shortTitle =
+              getDayShortTitle(day);
 
-          return (
-            <Link
-              key={day.id}
-              href={
-                accessible
-                  ? `/learn/day/${day.id}`
-                  : "/learn"
-              }
-              title={
-                collapsed
-                  ? `Day ${day.dayNumber} · ${shortTitle}`
-                  : day.title
-              }
-              onClick={(event) => {
-                if (!accessible) {
-                  event.preventDefault();
-                  return;
+            return (
+              <Link
+                key={day.id}
+                href={
+                  accessible
+                    ? `${learnerBasePath}/day/${day.id}`
+                    : learnerBasePath
                 }
-
-                if (mobile) {
-                  setMobileMenuOpen(false);
+                title={
+                  collapsed
+                    ? `Day ${day.dayNumber} · ${shortTitle}`
+                    : day.title
                 }
-              }}
-              aria-disabled={!accessible}
-              className={`flex min-h-10 items-center rounded-[10px] text-[14px] transition-colors ${
-                collapsed
-                  ? "justify-center px-2"
-                  : "gap-3 px-3"
-              } ${
-                active
-                  ? "bg-[var(--teal-soft)]"
-                  : accessible
-                    ? "hover:bg-[var(--surface-soft)]"
-                    : "cursor-default"
-              }`}
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center ${
-                  day.completed
-                    ? "text-[var(--success)]"
-                    : current
-                      ? "text-[var(--teal)]"
-                      : "text-[var(--text-muted)]"
+                onClick={(event) => {
+                  if (!accessible) {
+                    event.preventDefault();
+                    return;
+                  }
+
+                  if (mobile) {
+                    setMobileMenuOpen(
+                      false
+                    );
+                  }
+                }}
+                aria-disabled={
+                  !accessible
+                }
+                className={`flex min-h-10 items-center rounded-[10px] text-[14px] transition-colors ${
+                  collapsed
+                    ? "justify-center px-2"
+                    : "gap-3 px-3"
+                } ${
+                  active
+                    ? "bg-[var(--teal-soft)]"
+                    : accessible
+                      ? "hover:bg-[var(--surface-soft)]"
+                      : "cursor-default"
                 }`}
               >
-                {day.completed ? (
-                  <Icon name="check" />
-                ) : current ? (
-                  <Icon name="current" />
-                ) : (
-                  <Icon
-                    name="lock"
-                    className="h-[15px] w-[15px]"
-                  />
-                )}
-              </span>
-
-              {!collapsed && (
-                <>
-                  <span
-                    className={`shrink-0 font-medium ${
-                      active || current
-                        ? "text-[var(--teal-deep)]"
-                        : accessible
-                          ? "text-[var(--text-secondary)]"
-                          : "text-[var(--text-muted)]"
-                    }`}
-                  >
-                    Day {day.dayNumber}
-                  </span>
-
-                  <span
-                    className={`ml-auto max-w-[110px] truncate text-right text-[11px] ${
-                      current
-                        ? "text-[var(--teal-deep)]"
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center ${
+                    day.completed
+                      ? "text-[var(--success)]"
+                      : current
+                        ? "text-[var(--teal)]"
                         : "text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {shortTitle}
-                  </span>
-                </>
-              )}
-            </Link>
-          );
-        })}
+                  }`}
+                >
+                  {day.completed ? (
+                    <Icon name="check" />
+                  ) : current ? (
+                    <Icon name="current" />
+                  ) : (
+                    <Icon
+                      name="lock"
+                      className="h-[15px] w-[15px]"
+                    />
+                  )}
+                </span>
 
-        {/* CERTIFICATION */}
+                {!collapsed && (
+                  <>
+                    <span
+                      className={`shrink-0 font-medium ${
+                        active ||
+                        current
+                          ? "text-[var(--teal-deep)]"
+                          : accessible
+                            ? "text-[var(--text-secondary)]"
+                            : "text-[var(--text-muted)]"
+                      }`}
+                    >
+                      Day{" "}
+                      {day.dayNumber}
+                    </span>
+
+                    <span
+                      className={`ml-auto max-w-[110px] truncate text-right text-[11px] ${
+                        current
+                          ? "text-[var(--teal-deep)]"
+                          : "text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {shortTitle}
+                    </span>
+                  </>
+                )}
+              </Link>
+            );
+          }
+        )}
 
         <Link
           href={
             learnerJourney.certificationUnlocked
-              ? "/learn/certification"
-              : "/learn"
+              ? `${learnerBasePath}/certification`
+              : learnerBasePath
           }
-          title={collapsed ? "Certification" : undefined}
+          title={
+            collapsed
+              ? "Certification"
+              : undefined
+          }
           onClick={(event) => {
-            if (!learnerJourney.certificationUnlocked) {
+            if (
+              !learnerJourney.certificationUnlocked
+            ) {
               event.preventDefault();
               return;
             }
@@ -600,13 +689,17 @@ export default function AppShell({
               setMobileMenuOpen(false);
             }
           }}
-          aria-disabled={!learnerJourney.certificationUnlocked}
+          aria-disabled={
+            !learnerJourney.certificationUnlocked
+          }
           className={`mt-2 flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
             collapsed
               ? "justify-center px-2"
               : "gap-3 px-3"
           } ${
-            pathname.startsWith("/learn/certification")
+            pathname.startsWith(
+              `${learnerBasePath}/certification`
+            )
               ? "bg-[var(--teal-soft)] text-[var(--teal-deep)]"
               : learnerJourney.certificationUnlocked
                 ? "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
@@ -624,13 +717,15 @@ export default function AppShell({
             )}
           </span>
 
-          {!collapsed && <span>Certification</span>}
+          {!collapsed && (
+            <span>Certification</span>
+          )}
         </Link>
 
         {renderStandardNavItem(
           {
             label: "Next Steps",
-            href: "/learn/post-training",
+            href: `${learnerBasePath}/post-training`,
             icon: "arrow",
           },
           mobile
@@ -639,15 +734,16 @@ export default function AppShell({
     );
   }
 
-  // ---------------------------------------------------------
-  // TRAINER NAVIGATION
-  // ---------------------------------------------------------
-
-  function renderTrainerNavigation(mobile = false) {
+  function renderTrainerNavigation(
+    mobile = false
+  ) {
     return (
       <nav className="space-y-1">
         {trainerNavigation.map((item) =>
-          renderStandardNavItem(item, mobile)
+          renderStandardNavItem(
+            item,
+            mobile
+          )
         )}
       </nav>
     );
@@ -655,9 +751,7 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
-      {/* ===================================================
-          DESKTOP SIDEBAR
-      =================================================== */}
+      {/* DESKTOP SIDEBAR */}
 
       <aside
         className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-[var(--border)] bg-white transition-[width] duration-200 ease-out lg:flex ${
@@ -666,8 +760,6 @@ export default function AppShell({
             : "w-[var(--sidebar-width)]"
         }`}
       >
-        {/* BRAND + COLLAPSE */}
-
         <div
           className={`flex h-[var(--topbar-height)] items-center border-b border-[var(--border-soft)] ${
             sidebarCollapsed
@@ -676,8 +768,12 @@ export default function AppShell({
           }`}
         >
           <Link
-            href={isTrainer ? "/trainer" : "/learn"}
-            title={sidebarCollapsed ? "HelloGov" : undefined}
+            href={shellHomePath}
+            title={
+              sidebarCollapsed
+                ? "HelloGov"
+                : undefined
+            }
             className="flex min-w-0 items-center gap-3"
           >
             {sidebarCollapsed ? (
@@ -699,7 +795,7 @@ export default function AppShell({
                   className="h-auto w-[118px] object-contain"
                 />
 
-                {isTrainer && (
+                {showTrainerNavigation && (
                   <div className="mt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">
                     Training Admin
                   </div>
@@ -711,7 +807,9 @@ export default function AppShell({
           {!sidebarCollapsed && (
             <button
               type="button"
-              onClick={() => setSidebarCollapsed(true)}
+              onClick={() =>
+                setSidebarCollapsed(true)
+              }
               className="ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
@@ -724,13 +822,13 @@ export default function AppShell({
           )}
         </div>
 
-        {/* COLLAPSED EXPAND BUTTON */}
-
         {sidebarCollapsed && (
           <div className="px-2 pt-3">
             <button
               type="button"
-              onClick={() => setSidebarCollapsed(false)}
+              onClick={() =>
+                setSidebarCollapsed(false)
+              }
               className="flex h-9 w-full items-center justify-center rounded-[9px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
               title="Expand sidebar"
               aria-label="Expand sidebar"
@@ -743,8 +841,6 @@ export default function AppShell({
           </div>
         )}
 
-        {/* NAVIGATION */}
-
         <div className="flex min-h-0 flex-1 flex-col">
           <div
             className={`overflow-y-auto ${
@@ -755,29 +851,45 @@ export default function AppShell({
           >
             {!sidebarCollapsed && (
               <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.04em] text-[var(--text-muted)]">
-                {isTrainer
+                {showTrainerNavigation
                   ? "Training Management"
                   : "Onboarding"}
               </p>
             )}
 
-            {isTrainer
+            {showTrainerNavigation
               ? renderTrainerNavigation()
               : renderJourneyNavigation()}
           </div>
 
-          {/* BOTTOM HELP / TRAINER WORKSPACE */}
-
           {!sidebarCollapsed && (
             <div className="mt-auto p-4">
-              {isTrainer ? (
+              {showTrainerNavigation ? (
                 <div className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-soft)] p-4">
                   <p className="text-[12px] font-semibold text-[var(--text-primary)]">
                     Training workspace
                   </p>
 
                   <p className="mt-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
-                    Manage onboarding content, learners, and submissions.
+                    Manage onboarding
+                    content, trainees, and
+                    submissions.
+                  </p>
+                </div>
+              ) : isImpersonating ? (
+                <div className="rounded-[12px] border border-[#08A9C1]/20 bg-[#F3FBFC] p-4">
+                  <p className="text-[12px] font-semibold text-[#07879B]">
+                    Read-only preview
+                  </p>
+
+                  <p className="mt-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
+                    You are viewing this
+                    onboarding as{" "}
+                    {
+                      impersonation!
+                        .learnerName
+                    }
+                    .
                   </p>
                 </div>
               ) : (
@@ -788,9 +900,7 @@ export default function AppShell({
         </div>
       </aside>
 
-      {/* ===================================================
-          APP AREA
-      =================================================== */}
+      {/* APP AREA */}
 
       <div
         className={`transition-[padding] duration-200 ease-out ${
@@ -816,8 +926,6 @@ export default function AppShell({
               <Icon name="menu" />
             </button>
 
-            {/* SEARCH */}
-
             <div className="hidden w-full max-w-[500px] sm:block">
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-[var(--text-muted)]">
@@ -830,8 +938,8 @@ export default function AppShell({
                 <input
                   type="search"
                   placeholder={
-                    isTrainer
-                      ? "Search learners or training content..."
+                    showTrainerNavigation
+                      ? "Search trainees or training content..."
                       : "Search modules, topics or resources..."
                   }
                   className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white pl-10 pr-4 text-[13px] text-[var(--text-primary)] shadow-[var(--shadow-xs)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--teal)]"
@@ -839,12 +947,16 @@ export default function AppShell({
               </div>
             </div>
 
-            {/* USER */}
-
             <div className="relative ml-auto flex items-center gap-3">
-              {isTrainer && (
+              {showTrainerNavigation && (
                 <span className="hidden rounded-full bg-[var(--teal-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--teal-deep)] md:inline-flex">
                   Trainer
+                </span>
+              )}
+
+              {isImpersonating && (
+                <span className="hidden rounded-full bg-[#EAF8FA] px-3 py-1.5 text-[11px] font-semibold text-[#07879B] md:inline-flex">
+                  Trainee Preview
                 </span>
               )}
 
@@ -921,9 +1033,9 @@ export default function AppShell({
                             {displayName}
                           </p>
 
-                          {userEmail && (
+                          {displayEmail && (
                             <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-                              {userEmail}
+                              {displayEmail}
                             </p>
                           )}
                         </div>
@@ -931,34 +1043,56 @@ export default function AppShell({
                     </div>
 
                     <div className="p-1.5">
-                      {!isTrainer && (
+                      {/* PROFILE - AVAILABLE TO TRAINERS AND TRAINEES */}
+
+                      <Link
+                        href={profilePath}
+                        role="menuitem"
+                        onClick={() =>
+                          setUserMenuOpen(false)
+                        }
+                        className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+                      >
+                        <svg
+                          className="h-4 w-4 text-[var(--text-muted)]"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle
+                            cx="12"
+                            cy="8"
+                            r="3.5"
+                          />
+                          <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
+                        </svg>
+
+                        <span>
+                          {profileLabel}
+                        </span>
+                      </Link>
+
+                      {isImpersonating && (
                         <Link
-                          href="/learn/profile"
+                          href={`/trainer/learners/${impersonation!.learnerId}`}
                           role="menuitem"
                           onClick={() =>
                             setUserMenuOpen(false)
                           }
-                          className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+                          className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-[12px] font-medium text-[#07879B] transition-colors hover:bg-[#F3FBFC]"
                         >
-                          <svg
-                            className="h-4 w-4 text-[var(--text-muted)]"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <circle
-                              cx="12"
-                              cy="8"
-                              r="3.5"
-                            />
-                            <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
-                          </svg>
+                          <Icon
+                            name="arrow"
+                            className="h-4 w-4"
+                          />
 
-                          <span>Profile</span>
+                          <span>
+                            Exit impersonation
+                          </span>
                         </Link>
                       )}
 
@@ -966,7 +1100,9 @@ export default function AppShell({
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setUserMenuOpen(false);
+                          setUserMenuOpen(
+                            false
+                          );
                           handleLogout();
                         }}
                         disabled={loggingOut}
@@ -1007,9 +1143,7 @@ export default function AppShell({
           )}
         </header>
 
-        {/* =================================================
-            MOBILE NAVIGATION
-        ================================================= */}
+        {/* MOBILE NAVIGATION */}
 
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -1025,13 +1159,11 @@ export default function AppShell({
             <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col border-r border-[var(--border)] bg-white shadow-[var(--shadow-lg)]">
               <div className="flex h-[var(--topbar-height)] items-center justify-between border-b border-[var(--border-soft)] px-5">
                 <Link
-                  href={
-                    isTrainer
-                      ? "/trainer"
-                      : "/learn"
-                  }
+                  href={shellHomePath}
                   onClick={() =>
-                    setMobileMenuOpen(false)
+                    setMobileMenuOpen(
+                      false
+                    )
                   }
                   className="flex items-center gap-3"
                 >
@@ -1048,7 +1180,9 @@ export default function AppShell({
                 <button
                   type="button"
                   onClick={() =>
-                    setMobileMenuOpen(false)
+                    setMobileMenuOpen(
+                      false
+                    )
                   }
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-[var(--text-muted)] hover:bg-[var(--surface-soft)]"
                   aria-label="Close navigation"
@@ -1059,17 +1193,30 @@ export default function AppShell({
 
               <div className="overflow-y-auto p-3 pt-5">
                 <p className="mb-2 px-3 text-[11px] font-semibold text-[var(--text-muted)]">
-                  {isTrainer
+                  {showTrainerNavigation
                     ? "Training Management"
                     : "Onboarding"}
                 </p>
 
-                {isTrainer
-                  ? renderTrainerNavigation(true)
-                  : renderJourneyNavigation(true)}
+                {showTrainerNavigation
+                  ? renderTrainerNavigation(
+                      true
+                    )
+                  : renderJourneyNavigation(
+                      true
+                    )}
               </div>
 
               <div className="mt-auto border-t border-[var(--border-soft)] p-4">
+                {isImpersonating && (
+                  <div className="mb-4 rounded-[10px] border border-[#08A9C1]/20 bg-[#F3FBFC] px-3 py-3">
+                    <p className="text-[11px] font-semibold text-[#07879B]">
+                      Read-only trainee
+                      preview
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--surface-muted)] text-xs font-semibold">
                     {initial}
@@ -1080,19 +1227,47 @@ export default function AppShell({
                       {displayName}
                     </p>
 
-                    {userEmail && (
+                    {displayEmail && (
                       <p className="truncate text-xs text-[var(--text-muted)]">
-                        {userEmail}
+                        {displayEmail}
                       </p>
                     )}
                   </div>
                 </div>
 
+                {/* PROFILE */}
+
+                <Link
+                  href={profilePath}
+                  onClick={() =>
+                    setMobileMenuOpen(
+                      false
+                    )
+                  }
+                  className="mt-4 flex w-full items-center justify-center rounded-[9px] border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)]"
+                >
+                  {profileLabel}
+                </Link>
+
+                {isImpersonating && (
+                  <Link
+                    href={`/trainer/learners/${impersonation!.learnerId}`}
+                    onClick={() =>
+                      setMobileMenuOpen(
+                        false
+                      )
+                    }
+                    className="mt-3 flex w-full items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-[#F3FBFC] px-4 py-2.5 text-sm font-semibold text-[#07879B]"
+                  >
+                    Exit impersonation
+                  </Link>
+                )}
+
                 <button
                   type="button"
                   onClick={handleLogout}
                   disabled={loggingOut}
-                  className="mt-4 w-full rounded-[9px] border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)]"
+                  className="mt-3 w-full rounded-[9px] border border-[var(--border)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)]"
                 >
                   {loggingOut
                     ? "Signing out..."
@@ -1102,8 +1277,6 @@ export default function AppShell({
             </aside>
           </div>
         )}
-
-        {/* APPLICATION CONTENT */}
 
         <main className="min-h-[calc(100vh-var(--topbar-height))]">
           {children}

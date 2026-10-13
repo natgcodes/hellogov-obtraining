@@ -64,11 +64,20 @@ export type SetupItem = {
   is_required: boolean;
 };
 
+export type SetupSection = {
+  id: string;
+  program_id: string;
+  title: string;
+  description: string | null;
+  instructions: string | null;
+};
+
 export type LearnerProgram = {
   id: string;
   title: string;
   description: string | null;
   status: string;
+  setup_section: SetupSection | null;
   setup_items: SetupItem[];
   days: LearnerDay[];
 };

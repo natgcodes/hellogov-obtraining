@@ -41,9 +41,6 @@ export default function MatchCardsQuestion({
       return;
     }
 
-    // Matching is one-to-one.
-    // Remove this right-side item from any
-    // previous left-side assignment.
     for (const [
       existingLeftId,
       existingRightId,
@@ -88,18 +85,25 @@ export default function MatchCardsQuestion({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900">
+          <p className="text-[13px] font-semibold text-[var(--text-primary)]">
             Match each item with its correct answer
           </p>
 
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-[12px] text-[var(--text-muted)]">
             Each answer can only be used once.
           </p>
         </div>
 
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+        <span
+          className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${
+            completedCount === leftItems.length &&
+            leftItems.length > 0
+              ? "bg-[var(--success-soft)] text-[var(--success)]"
+              : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
+          }`}
+        >
           {completedCount} / {leftItems.length}{" "}
           matched
         </span>
@@ -120,35 +124,29 @@ export default function MatchCardsQuestion({
           return (
             <div
               key={left.item_id}
-              className={`rounded-2xl border p-4 transition ${
+              className={`rounded-[14px] border p-4 transition ${
                 selectedRight
-                  ? "border-purple-200 bg-purple-50/40"
-                  : "border-slate-200 bg-white"
+                  ? "border-[#08A9C1]/25 bg-[#F5FCFD]"
+                  : "border-[var(--border)] bg-white"
               }`}
             >
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)_auto] md:items-center">
-                {/* LEFT ITEM */}
-
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)_auto] md:items-center">
+                <div className="rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     Item {index + 1}
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-slate-900">
+                  <p className="mt-1 whitespace-pre-wrap text-[13px] font-semibold leading-5 text-[var(--text-primary)]">
                     {left.item_text}
                   </p>
                 </div>
 
-                {/* ARROW */}
-
                 <div
-                  className="hidden text-center text-lg text-slate-300 md:block"
+                  className="hidden text-center text-[var(--text-muted)] md:block"
                   aria-hidden="true"
                 >
                   →
                 </div>
-
-                {/* RIGHT SELECTION */}
 
                 <div>
                   <select
@@ -161,11 +159,11 @@ export default function MatchCardsQuestion({
                         event.target.value
                       )
                     }
-                    className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition ${
+                    className={`w-full rounded-[10px] border bg-white px-3.5 py-3 text-[13px] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:cursor-not-allowed disabled:bg-[var(--surface-soft)] disabled:text-[var(--text-muted)] ${
                       selectedRight
-                        ? "border-purple-300 bg-white font-medium text-purple-900"
-                        : "border-slate-200 bg-white text-slate-600"
-                    } focus:border-purple-400 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500`}
+                        ? "border-[#08A9C1]/40 font-medium text-[var(--text-primary)]"
+                        : "border-[var(--border)] text-[var(--text-secondary)]"
+                    }`}
                   >
                     <option value="">
                       Select a match...
@@ -198,14 +196,12 @@ export default function MatchCardsQuestion({
                   </select>
 
                   {selectedRight && (
-                    <p className="mt-2 text-xs font-medium text-purple-700 md:hidden">
+                    <p className="mt-2 text-[11px] font-medium text-[#07879B] md:hidden">
                       {left.item_text} →{" "}
                       {selectedRight.item_text}
                     </p>
                   )}
                 </div>
-
-                {/* CLEAR */}
 
                 <div>
                   {selectedRight &&
@@ -218,7 +214,7 @@ export default function MatchCardsQuestion({
                         )
                       }
                       aria-label={`Clear match for ${left.item_text}`}
-                      className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                      className="rounded-[9px] px-3 py-2 text-[11px] font-semibold text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
                     >
                       Clear
                     </button>
@@ -231,16 +227,14 @@ export default function MatchCardsQuestion({
                 </div>
               </div>
 
-              {/* EXPLICIT CONFIRMATION */}
-
               {selectedRight && (
-                <div className="mt-3 hidden rounded-xl bg-purple-50 px-4 py-2.5 text-sm text-purple-800 md:block">
+                <div className="mt-3 hidden rounded-[10px] border border-[#08A9C1]/15 bg-[#EAF8FA] px-4 py-2.5 text-[12px] text-[#086F80] md:block">
                   <span className="font-semibold">
                     {left.item_text}
                   </span>
 
                   <span
-                    className="mx-2 text-purple-400"
+                    className="mx-2 text-[#08A9C1]"
                     aria-hidden="true"
                   >
                     →
@@ -258,8 +252,8 @@ export default function MatchCardsQuestion({
 
       {completedCount === leftItems.length &&
         leftItems.length > 0 && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-            All items have been matched.
+          <div className="rounded-[12px] border border-[var(--success)]/20 bg-[var(--success-soft)] px-4 py-3 text-[12px] font-medium text-[var(--success)]">
+            ✓ All items have been matched.
           </div>
         )}
     </div>

@@ -83,6 +83,7 @@ type SupabaseCheckpoint = {
   passing_score: number | null;
   position: number;
   is_required: boolean;
+  allow_learner_completion: boolean;
   meeting_url: string | null;
   scheduled_at: string | null;
   duration_minutes: number | null;

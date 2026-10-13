@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import CertificationEditor from "@/components/trainer/CertificationEditor";
 import DayEditor from "@/components/trainer/DayEditor";
 import PostTrainingEditor from "@/components/trainer/PostTrainingEditor";
 import SetupEditor from "@/components/trainer/SetupEditor";
 import type { Quiz } from "@/components/trainer/QuizEditor";
+import { createClient } from "@/lib/supabase/client";
 
 type SupabaseMaterial = {
   id: string;
@@ -57,6 +59,7 @@ type SupabaseCheckpoint = {
   passing_score: number | null;
   position: number;
   is_required: boolean;
+  allow_learner_completion: boolean;
   meeting_url: string | null;
   scheduled_at: string | null;
   duration_minutes: number | null;
@@ -167,8 +170,7 @@ type ActiveSection =
 function getDayDuration(day: SupabaseDay) {
   const totalMinutes = day.modules.reduce(
     (total, module) =>
-      total +
-      (module.duration_minutes ?? 0),
+      total + (module.duration_minutes ?? 0),
     0
   );
 
@@ -180,9 +182,7 @@ function getDayDuration(day: SupabaseDay) {
     return `${totalMinutes} min`;
   }
 
-  const hours = Math.floor(
-    totalMinutes / 60
-  );
+  const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
 
   if (minutes === 0) {
@@ -197,9 +197,7 @@ function formatCount(
   singular: string,
   plural: string
 ) {
-  return `${count} ${
-    count === 1 ? singular : plural
-  }`;
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function TimelineIcon({
@@ -302,11 +300,28 @@ export default function ProgramTimeline({
   certification,
   postTraining,
 }: ProgramTimelineProps) {
+  const router = useRouter();
+
   const [selectedDayId, setSelectedDayId] =
     useState<string | null>(null);
 
   const [activeSection, setActiveSection] =
     useState<ActiveSection>(null);
+
+  const [showAddDay, setShowAddDay] =
+    useState(false);
+
+  const [newDayTitle, setNewDayTitle] =
+    useState("");
+
+  const [newDayDescription, setNewDayDescription] =
+    useState("");
+
+  const [creatingDay, setCreatingDay] =
+    useState(false);
+
+  const [createDayError, setCreateDayError] =
+    useState<string | null>(null);
 
   const selectedDay =
     days.find(
@@ -318,8 +333,7 @@ export default function ProgramTimeline({
       id: day.id,
       label: `Day ${day.day_number}`,
       title: day.title,
-      description:
-        day.description ?? "",
+      description: day.description ?? "",
       kind: "day",
       day,
       countLabel: formatCount(
@@ -410,16 +424,96 @@ export default function ProgramTimeline({
     }
 
     if (item.id === "certification") {
-      setActiveSection(
-        "certification"
-      );
+      setActiveSection("certification");
       return;
     }
 
     if (item.id === "post-training") {
-      setActiveSection(
-        "post-training"
+      setActiveSection("post-training");
+    }
+  }
+
+  function openAddDay() {
+    setSelectedDayId(null);
+    setActiveSection(null);
+    setCreateDayError(null);
+    setNewDayTitle("");
+    setNewDayDescription("");
+    setShowAddDay(true);
+  }
+
+  function closeAddDay() {
+    if (creatingDay) {
+      return;
+    }
+
+    setShowAddDay(false);
+    setCreateDayError(null);
+    setNewDayTitle("");
+    setNewDayDescription("");
+  }
+
+  async function handleCreateDay(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    const title = newDayTitle.trim();
+    const description =
+      newDayDescription.trim();
+
+    if (!title) {
+      setCreateDayError(
+        "Enter a title for the training day."
       );
+      return;
+    }
+
+    setCreatingDay(true);
+    setCreateDayError(null);
+
+    const supabase = createClient();
+
+    const { data, error } =
+      await supabase.rpc(
+        "create_program_day",
+        {
+          target_program_id:
+            setupSection.program_id,
+          day_title: title,
+          day_description:
+            description || null,
+        }
+      );
+
+    if (error) {
+      console.error(
+        "Unable to create training day:",
+        error
+      );
+
+      setCreateDayError(
+        error.message ||
+          "Unable to create the training day."
+      );
+      setCreatingDay(false);
+      return;
+    }
+
+    const newDayId =
+      typeof data === "string"
+        ? data
+        : null;
+
+    setShowAddDay(false);
+    setNewDayTitle("");
+    setNewDayDescription("");
+    setCreatingDay(false);
+
+    router.refresh();
+
+    if (newDayId) {
+      setSelectedDayId(newDayId);
     }
   }
 
@@ -439,7 +533,7 @@ export default function ProgramTimeline({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
                 {days.length}{" "}
                 {days.length === 1
@@ -450,6 +544,21 @@ export default function ProgramTimeline({
               <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">
                 {items.length} sections
               </span>
+
+              <button
+                type="button"
+                onClick={openAddDay}
+                className="ml-1 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[9px] bg-[#08A9C1] px-3.5 text-[12px] font-semibold text-white transition hover:bg-[#0795AA]"
+              >
+                <span
+                  className="text-[16px] leading-none"
+                  aria-hidden="true"
+                >
+                  +
+                </span>
+
+                Add training day
+              </button>
             </div>
           </div>
         </div>
@@ -457,24 +566,18 @@ export default function ProgramTimeline({
         <div className="divide-y divide-[var(--border-soft)]">
           {items.map(
             (item, index) => {
-              const isFirst =
-                index === 0;
+              const isFirst = index === 0;
               const isLast =
-                index ===
-                items.length - 1;
+                index === items.length - 1;
 
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() =>
-                    handleItemClick(
-                      item
-                    )
+                    handleItemClick(item)
                   }
-                  disabled={
-                    !item.editable
-                  }
+                  disabled={!item.editable}
                   className={`group relative flex w-full gap-4 bg-white px-5 py-5 text-left transition-colors sm:gap-5 sm:px-6 ${
                     item.editable
                       ? "cursor-pointer hover:bg-[#FAFCFC]"
@@ -495,16 +598,13 @@ export default function ProgramTimeline({
                         item.kind ===
                         "certification"
                           ? "border-[#08A9C1]/25 bg-[#EAF8FA] text-[#07879B]"
-                          : item.kind ===
-                              "day"
+                          : item.kind === "day"
                             ? "border-[#08A9C1]/20 bg-[#F3FBFC] text-[#07879B]"
                             : "border-[var(--border)] bg-white text-[var(--text-muted)]"
                       }`}
                     >
                       <TimelineIcon
-                        kind={
-                          item.kind
-                        }
+                        kind={item.kind}
                       />
                     </div>
                   </div>
@@ -524,9 +624,7 @@ export default function ProgramTimeline({
                                   : "bg-[#F8FAFB] text-[var(--text-muted)]"
                             }`}
                           >
-                            {
-                              item.label
-                            }
+                            {item.label}
                           </span>
 
                           {item.status && (
@@ -547,9 +645,7 @@ export default function ProgramTimeline({
                                 }`}
                               />
 
-                              {
-                                item.status
-                              }
+                              {item.status}
                             </span>
                           )}
                         </div>
@@ -560,9 +656,7 @@ export default function ProgramTimeline({
 
                         {item.description && (
                           <p className="mt-1.5 max-w-3xl whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)] sm:text-[13px]">
-                            {
-                              item.description
-                            }
+                            {item.description}
                           </p>
                         )}
                       </div>
@@ -573,17 +667,13 @@ export default function ProgramTimeline({
                           <div className="min-w-[100px] text-left md:text-right">
                             {item.countLabel && (
                               <p className="text-[12px] font-semibold text-[var(--text-secondary)]">
-                                {
-                                  item.countLabel
-                                }
+                                {item.countLabel}
                               </p>
                             )}
 
                             {item.duration && (
                               <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
-                                {
-                                  item.duration
-                                }
+                                {item.duration}
                               </p>
                             )}
                           </div>
@@ -616,16 +706,160 @@ export default function ProgramTimeline({
         </div>
       </section>
 
+      {/* =====================================================
+          ADD TRAINING DAY
+      ===================================================== */}
+
+      {showAddDay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 px-4 py-8 backdrop-blur-[2px]">
+          <div className="w-full max-w-[520px] overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-xl">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--border-soft)] px-6 py-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#07879B]">
+                  Onboarding structure
+                </p>
+
+                <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+                  Add training day
+                </h2>
+
+                <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                  The next day number will be
+                  assigned automatically.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAddDay}
+                disabled={creatingDay}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[18px] text-[var(--text-muted)] transition hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleCreateDay}
+              className="px-6 py-5"
+            >
+              <div>
+                <label
+                  htmlFor="new-day-title"
+                  className="text-[12px] font-semibold text-[var(--text-primary)]"
+                >
+                  Day title
+                </label>
+
+                <input
+                  id="new-day-title"
+                  type="text"
+                  value={newDayTitle}
+                  onChange={(event) =>
+                    setNewDayTitle(
+                      event.target.value
+                    )
+                  }
+                  disabled={creatingDay}
+                  placeholder="e.g. Advanced Support Scenarios"
+                  className="mt-2 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 py-2.5 text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:bg-[var(--surface-muted)]"
+                />
+              </div>
+
+              <div className="mt-5">
+                <label
+                  htmlFor="new-day-description"
+                  className="text-[12px] font-semibold text-[var(--text-primary)]"
+                >
+                  Description
+                </label>
+
+                <span className="ml-1 text-[11px] font-normal text-[var(--text-muted)]">
+                  Optional
+                </span>
+
+                <textarea
+                  id="new-day-description"
+                  value={newDayDescription}
+                  onChange={(event) =>
+                    setNewDayDescription(
+                      event.target.value
+                    )
+                  }
+                  disabled={creatingDay}
+                  rows={4}
+                  placeholder="What will trainees learn or practice during this day?"
+                  className="mt-2 w-full resize-none rounded-[10px] border border-[var(--border)] bg-white px-3.5 py-3 text-[13px] leading-5 text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:bg-[var(--surface-muted)]"
+                />
+              </div>
+
+              <div className="mt-4 rounded-[10px] border border-[#D9EEF1] bg-[#F3FBFC] px-4 py-3">
+                <p className="text-[11px] leading-5 text-[#47727A]">
+                  The new training day will be
+                  created as a{" "}
+                  <strong>Draft</strong>. It will
+                  not be visible to trainees until
+                  you publish it.
+                </p>
+              </div>
+
+              {createDayError && (
+                <div className="mt-4 rounded-[10px] border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-[12px] leading-5 text-red-700">
+                    {createDayError}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-6 flex items-center justify-end gap-2 border-t border-[var(--border-soft)] pt-5">
+                <button
+                  type="button"
+                  onClick={closeAddDay}
+                  disabled={creatingDay}
+                  className="inline-flex min-h-10 items-center justify-center rounded-[9px] border border-[var(--border)] bg-white px-4 text-[12px] font-semibold text-[var(--text-secondary)] transition hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={
+                    creatingDay ||
+                    !newDayTitle.trim()
+                  }
+                  className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] bg-[#08A9C1] px-4 text-[12px] font-semibold text-white transition hover:bg-[#0795AA] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {creatingDay ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <span
+                        className="text-[15px]"
+                        aria-hidden="true"
+                      >
+                        +
+                      </span>
+                      Create training day
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {selectedDay && (
         <DayEditor
           day={selectedDay}
-          dayNumber={
-            selectedDay.day_number
-          }
+          dayNumber={selectedDay.day_number}
           title={selectedDay.title}
           description={
-            selectedDay.description ??
-            ""
+            selectedDay.description ?? ""
           }
           onClose={() =>
             setSelectedDayId(null)
@@ -650,9 +884,7 @@ export default function ProgramTimeline({
         "certification" &&
         certification && (
           <CertificationEditor
-            certification={
-              certification
-            }
+            certification={certification}
             onClose={() =>
               setActiveSection(null)
             }
@@ -663,9 +895,7 @@ export default function ProgramTimeline({
         "post-training" &&
         postTraining && (
           <PostTrainingEditor
-            postTraining={
-              postTraining
-            }
+            postTraining={postTraining}
             onClose={() =>
               setActiveSection(null)
             }

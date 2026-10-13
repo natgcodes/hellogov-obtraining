@@ -102,6 +102,7 @@ export async function getDays() {
         passing_score,
         position,
         is_required,
+        allow_learner_completion,
         meeting_url,
         scheduled_at,
         duration_minutes,

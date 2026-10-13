@@ -291,12 +291,13 @@ export default async function ImpersonatedDayPage({
   // ============================================================
 
   const progress: ProgressMap = {
-    setup: {},
-    modules: {},
-    materials: {},
-    activities: {},
-    percent: 0,
-  };
+  setup: {},
+  modules: {},
+  materials: {},
+  activities: {},
+  quizzes: {},
+  percent: 0,
+};
 
   for (
     const item of rawProgress.modules ?? []

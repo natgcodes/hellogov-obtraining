@@ -6,6 +6,7 @@ function emptyProgress(): ProgressMap {
     setup: {},
     materials: {},
     activities: {},
+    quizzes: {},
     modules: {},
     percent: 0,
   };
@@ -50,7 +51,7 @@ export async function getLearnerProgress(
   // - progress.setup
   // - progress.percent
   //
-  // Module/material/activity progress is loaded on the
+  // Module/material/activity/quiz progress is loaded on the
   // individual day pages instead.
   // ---------------------------------------------------------
 
@@ -120,6 +121,7 @@ export async function getLearnerProgress(
 
     materials: {},
     activities: {},
+    quizzes: {},
     modules: {},
     percent,
   };

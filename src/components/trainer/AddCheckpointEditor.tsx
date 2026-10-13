@@ -27,7 +27,8 @@ export default function AddCheckpointEditor({
     useState<CheckpointType>("assessment");
 
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] =
+    useState("");
 
   const [passingScore, setPassingScore] =
     useState("80");
@@ -44,6 +45,11 @@ export default function AddCheckpointEditor({
   const [isRequired, setIsRequired] =
     useState(true);
 
+  const [
+    allowLearnerCompletion,
+    setAllowLearnerCompletion,
+  ] = useState(false);
+
   const [isSaving, setIsSaving] =
     useState(false);
   const [errorMessage, setErrorMessage] =
@@ -52,6 +58,50 @@ export default function AddCheckpointEditor({
   function changeType(type: CheckpointType) {
     setCheckpointType(type);
     setErrorMessage(null);
+
+    /*
+     * Sensible defaults:
+     *
+     * Assessment:
+     * - required
+     * - completion comes from assessment by default
+     *
+     * Trainer Session:
+     * - required
+     * - trainee can mark complete by default
+     *
+     * Information:
+     * - optional
+     * - trainee can mark complete by default
+     */
+    if (type === "assessment") {
+      setIsRequired(true);
+      setAllowLearnerCompletion(false);
+    }
+
+    if (type === "trainer_session") {
+      setIsRequired(true);
+      setAllowLearnerCompletion(true);
+    }
+
+    if (type === "information") {
+      setIsRequired(false);
+      setAllowLearnerCompletion(true);
+    }
+  }
+
+  async function saveCompletionSetting(
+    checkpointId: string
+  ) {
+    const { error } = await supabase
+      .from("checkpoints")
+      .update({
+        allow_learner_completion:
+          allowLearnerCompletion,
+      })
+      .eq("id", checkpointId);
+
+    return error;
   }
 
   async function handleSave() {
@@ -69,11 +119,6 @@ export default function AddCheckpointEditor({
 
     /*
      * ASSESSMENT
-     *
-     * Creates:
-     * - checkpoint
-     * - internal quiz
-     * - day_content entry
      */
     if (checkpointType === "assessment") {
       const parsedPassingScore =
@@ -94,20 +139,21 @@ export default function AddCheckpointEditor({
         return;
       }
 
-      const { error } = await supabase.rpc(
-        "create_checkpoint_assessment",
-        {
-          target_day_id: dayId,
-          checkpoint_title: cleanTitle,
-          checkpoint_description:
-            description.trim() || null,
-          target_checkpoint_type:
-            "assessment",
-          target_passing_score:
-            parsedPassingScore,
-          target_position: nextPosition,
-        }
-      );
+      const { data, error } =
+        await supabase.rpc(
+          "create_checkpoint_assessment",
+          {
+            target_day_id: dayId,
+            checkpoint_title: cleanTitle,
+            checkpoint_description:
+              description.trim() || null,
+            target_checkpoint_type:
+              "assessment",
+            target_passing_score:
+              parsedPassingScore,
+            target_position: nextPosition,
+          }
+        );
 
       if (error) {
         console.error(
@@ -118,9 +164,108 @@ export default function AddCheckpointEditor({
         setErrorMessage(
           "We couldn't create this assessment. Please try again."
         );
-
         setIsSaving(false);
         return;
+      }
+
+      const checkpointId =
+        data as string | null;
+
+      if (!checkpointId) {
+        setErrorMessage(
+          "The assessment was created, but its completion settings could not be saved."
+        );
+        setIsSaving(false);
+        router.refresh();
+        return;
+      }
+
+      /*
+       * The assessment creation RPC currently
+       * creates assessments as required.
+       * Synchronize the trainer's selected
+       * requirement + manual completion setting.
+       */
+      const {
+        error: checkpointSettingsError,
+      } = await supabase
+        .from("checkpoints")
+        .update({
+          is_required: isRequired,
+          allow_learner_completion:
+            allowLearnerCompletion,
+        })
+        .eq("id", checkpointId);
+
+      if (checkpointSettingsError) {
+        console.error(
+          "Error saving assessment checkpoint settings:",
+          checkpointSettingsError
+        );
+
+        setErrorMessage(
+          "The assessment was created, but its checkpoint settings could not be saved."
+        );
+        setIsSaving(false);
+        router.refresh();
+        return;
+      }
+
+      /*
+       * Keep the internal quiz requirement
+       * synchronized as well.
+       */
+      const {
+        data: createdCheckpoint,
+        error: checkpointLookupError,
+      } = await supabase
+        .from("checkpoints")
+        .select("quiz_id")
+        .eq("id", checkpointId)
+        .single();
+
+      if (
+        checkpointLookupError ||
+        !createdCheckpoint
+      ) {
+        console.error(
+          "Unable to load created assessment:",
+          checkpointLookupError
+        );
+
+        setErrorMessage(
+          "The assessment was created, but its quiz settings could not be synchronized."
+        );
+        setIsSaving(false);
+        router.refresh();
+        return;
+      }
+
+      if (createdCheckpoint.quiz_id) {
+        const { error: quizError } =
+          await supabase
+            .from("quizzes")
+            .update({
+              is_required: isRequired,
+            })
+            .eq(
+              "id",
+              createdCheckpoint.quiz_id
+            );
+
+        if (quizError) {
+          console.error(
+            "Error synchronizing assessment requirement:",
+            quizError
+          );
+
+          setErrorMessage(
+            "The assessment was created, but its quiz requirement could not be synchronized."
+          );
+          setIsSaving(false);
+          router.refresh();
+          return;
+        }
       }
 
       router.refresh();
@@ -131,8 +276,11 @@ export default function AddCheckpointEditor({
     /*
      * TRAINER SESSION
      */
-    if (checkpointType === "trainer_session") {
-      let scheduledAt: string | null = null;
+    if (
+      checkpointType === "trainer_session"
+    ) {
+      let scheduledAt: string | null =
+        null;
 
       if (
         (meetingDate && !meetingTime) ||
@@ -160,7 +308,8 @@ export default function AddCheckpointEditor({
           return;
         }
 
-        scheduledAt = localDate.toISOString();
+        scheduledAt =
+          localDate.toISOString();
       }
 
       const parsedDuration =
@@ -180,23 +329,26 @@ export default function AddCheckpointEditor({
         return;
       }
 
-      const { error } = await supabase.rpc(
-        "create_day_checkpoint",
-        {
-          target_day_id: dayId,
-          checkpoint_title: cleanTitle,
-          checkpoint_description:
-            description.trim() || null,
-          target_checkpoint_type:
-            "trainer_session",
-          target_meeting_url:
-            meetingUrl.trim() || null,
-          target_scheduled_at: scheduledAt,
-          target_duration_minutes:
-            parsedDuration,
-          target_is_required: isRequired,
-        }
-      );
+      const { data, error } =
+        await supabase.rpc(
+          "create_day_checkpoint",
+          {
+            target_day_id: dayId,
+            checkpoint_title: cleanTitle,
+            checkpoint_description:
+              description.trim() || null,
+            target_checkpoint_type:
+              "trainer_session",
+            target_meeting_url:
+              meetingUrl.trim() || null,
+            target_scheduled_at:
+              scheduledAt,
+            target_duration_minutes:
+              parsedDuration,
+            target_is_required:
+              isRequired,
+          }
+        );
 
       if (error) {
         console.error(
@@ -207,8 +359,38 @@ export default function AddCheckpointEditor({
         setErrorMessage(
           "We couldn't create this trainer session. Please try again."
         );
-
         setIsSaving(false);
+        return;
+      }
+
+      const checkpointId =
+        data as string | null;
+
+      if (!checkpointId) {
+        setErrorMessage(
+          "The trainer session was created, but its completion settings could not be saved."
+        );
+        setIsSaving(false);
+        router.refresh();
+        return;
+      }
+
+      const completionError =
+        await saveCompletionSetting(
+          checkpointId
+        );
+
+      if (completionError) {
+        console.error(
+          "Error saving trainer session completion settings:",
+          completionError
+        );
+
+        setErrorMessage(
+          "The trainer session was created, but its trainee completion setting could not be saved."
+        );
+        setIsSaving(false);
+        router.refresh();
         return;
       }
 
@@ -220,21 +402,23 @@ export default function AddCheckpointEditor({
     /*
      * INFORMATION
      */
-    const { error } = await supabase.rpc(
-      "create_day_checkpoint",
-      {
-        target_day_id: dayId,
-        checkpoint_title: cleanTitle,
-        checkpoint_description:
-          description.trim() || null,
-        target_checkpoint_type:
-          "information",
-        target_meeting_url: null,
-        target_scheduled_at: null,
-        target_duration_minutes: null,
-        target_is_required: false,
-      }
-    );
+    const { data, error } =
+      await supabase.rpc(
+        "create_day_checkpoint",
+        {
+          target_day_id: dayId,
+          checkpoint_title: cleanTitle,
+          checkpoint_description:
+            description.trim() || null,
+          target_checkpoint_type:
+            "information",
+          target_meeting_url: null,
+          target_scheduled_at: null,
+          target_duration_minutes: null,
+          target_is_required:
+            isRequired,
+        }
+      );
 
     if (error) {
       console.error(
@@ -245,8 +429,38 @@ export default function AddCheckpointEditor({
       setErrorMessage(
         "We couldn't create this information block. Please try again."
       );
-
       setIsSaving(false);
+      return;
+    }
+
+    const checkpointId =
+      data as string | null;
+
+    if (!checkpointId) {
+      setErrorMessage(
+        "The information block was created, but its completion settings could not be saved."
+      );
+      setIsSaving(false);
+      router.refresh();
+      return;
+    }
+
+    const completionError =
+      await saveCompletionSetting(
+        checkpointId
+      );
+
+    if (completionError) {
+      console.error(
+        "Error saving information completion settings:",
+        completionError
+      );
+
+      setErrorMessage(
+        "The information block was created, but its trainee completion setting could not be saved."
+      );
+      setIsSaving(false);
+      router.refresh();
       return;
     }
 
@@ -258,6 +472,7 @@ export default function AddCheckpointEditor({
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[1px]">
       <div className="max-h-[92vh] w-full max-w-[680px] overflow-y-auto rounded-[24px] border border-[#e5e7eb] bg-white shadow-2xl">
         {/* HEADER */}
+
         <div className="flex items-start justify-between border-b border-[#eef0f3] px-6 py-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#07879B]">
@@ -287,6 +502,7 @@ export default function AddCheckpointEditor({
 
         <div className="space-y-6 p-6">
           {/* TYPE */}
+
           <div>
             <label className="mb-2 block text-sm font-medium text-[#344054]">
               Checkpoint type
@@ -295,7 +511,8 @@ export default function AddCheckpointEditor({
             <div className="grid gap-3 sm:grid-cols-3">
               <TypeCard
                 selected={
-                  checkpointType === "assessment"
+                  checkpointType ===
+                  "assessment"
                 }
                 title="Assessment"
                 description="Scored quiz with questions."
@@ -315,14 +532,17 @@ export default function AddCheckpointEditor({
                 description="Scheduled live meeting."
                 icon="◷"
                 onClick={() =>
-                  changeType("trainer_session")
+                  changeType(
+                    "trainer_session"
+                  )
                 }
                 disabled={isSaving}
               />
 
               <TypeCard
                 selected={
-                  checkpointType === "information"
+                  checkpointType ===
+                  "information"
                 }
                 title="Information"
                 description="Instructions or context."
@@ -336,9 +556,11 @@ export default function AddCheckpointEditor({
           </div>
 
           {/* TITLE */}
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[#344054]">
-              {checkpointType === "information"
+              {checkpointType ===
+              "information"
                 ? "Title"
                 : checkpointType ===
                     "trainer_session"
@@ -350,11 +572,14 @@ export default function AddCheckpointEditor({
               type="text"
               value={title}
               onChange={(event) =>
-                setTitle(event.target.value)
+                setTitle(
+                  event.target.value
+                )
               }
               disabled={isSaving}
               placeholder={
-                checkpointType === "assessment"
+                checkpointType ===
+                "assessment"
                   ? "e.g. Mid-Day Knowledge Check"
                   : checkpointType ===
                       "trainer_session"
@@ -366,9 +591,11 @@ export default function AddCheckpointEditor({
           </div>
 
           {/* DESCRIPTION */}
+
           <div>
             <label className="mb-1.5 block text-sm font-medium text-[#344054]">
-              {checkpointType === "information"
+              {checkpointType ===
+              "information"
                 ? "Instructions"
                 : "Description"}
             </label>
@@ -376,16 +603,20 @@ export default function AddCheckpointEditor({
             <textarea
               value={description}
               onChange={(event) =>
-                setDescription(event.target.value)
+                setDescription(
+                  event.target.value
+                )
               }
               disabled={isSaving}
               rows={
-                checkpointType === "information"
+                checkpointType ===
+                "information"
                   ? 6
                   : 4
               }
               placeholder={
-                checkpointType === "information"
+                checkpointType ===
+                "information"
                   ? "Write the instructions or information trainees should read before continuing..."
                   : checkpointType ===
                       "trainer_session"
@@ -397,7 +628,9 @@ export default function AddCheckpointEditor({
           </div>
 
           {/* ASSESSMENT SETTINGS */}
-          {checkpointType === "assessment" && (
+
+          {checkpointType ===
+            "assessment" && (
             <>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-[#344054]">
@@ -437,6 +670,7 @@ export default function AddCheckpointEditor({
           )}
 
           {/* TRAINER SESSION SETTINGS */}
+
           {checkpointType ===
             "trainer_session" && (
             <>
@@ -507,63 +741,106 @@ export default function AddCheckpointEditor({
 
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[#344054]">
-                    Requirement
+                    Meeting link
                   </label>
 
-                  <label className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl border border-[#d0d5dd] px-3.5">
-                    <input
-                      type="checkbox"
-                      checked={isRequired}
-                      onChange={(event) =>
-                        setIsRequired(
-                          event.target.checked
-                        )
-                      }
-                      disabled={isSaving}
-                      className="h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
-                    />
-
-                    <span className="text-sm text-[#475467]">
-                      Required session
-                    </span>
-                  </label>
+                  <input
+                    type="url"
+                    value={meetingUrl}
+                    onChange={(event) =>
+                      setMeetingUrl(
+                        event.target.value
+                      )
+                    }
+                    disabled={isSaving}
+                    placeholder="https://meet.google.com/..."
+                    className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm text-[#172033] outline-none transition placeholder:text-[#98a2b3] focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10"
+                  />
                 </div>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-[#344054]">
-                  Meeting link
-                </label>
-
-                <input
-                  type="url"
-                  value={meetingUrl}
-                  onChange={(event) =>
-                    setMeetingUrl(
-                      event.target.value
-                    )
-                  }
-                  disabled={isSaving}
-                  placeholder="https://meet.google.com/..."
-                  className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm text-[#172033] outline-none transition placeholder:text-[#98a2b3] focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10"
-                />
-
-                <p className="mt-1.5 text-xs leading-5 text-[#98a2b3]">
-                  You can leave this blank and add
-                  the meeting link later.
-                </p>
               </div>
             </>
           )}
 
-          {/* INFORMATION HELP */}
-          {checkpointType === "information" && (
+          {/* COMPLETION SETTINGS */}
+
+          <div className="rounded-[16px] border border-[#e4e7ec] bg-[#f9fafb] p-4">
+            <p className="text-sm font-semibold text-[#344054]">
+              Completion settings
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-[#667085]">
+              Control whether this item is required
+              and whether the trainee can complete it
+              manually.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-white p-3.5">
+                <input
+                  type="checkbox"
+                  checked={isRequired}
+                  onChange={(event) =>
+                    setIsRequired(
+                      event.target.checked
+                    )
+                  }
+                  disabled={isSaving}
+                  className="mt-0.5 h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
+                />
+
+                <span>
+                  <span className="block text-sm font-medium text-[#344054]">
+                    Required to complete the day
+                  </span>
+
+                  <span className="mt-0.5 block text-xs leading-5 text-[#98a2b3]">
+                    The trainee must complete this
+                    item before the training day can
+                    be completed.
+                  </span>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-white p-3.5">
+                <input
+                  type="checkbox"
+                  checked={
+                    allowLearnerCompletion
+                  }
+                  onChange={(event) =>
+                    setAllowLearnerCompletion(
+                      event.target.checked
+                    )
+                  }
+                  disabled={isSaving}
+                  className="mt-0.5 h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
+                />
+
+                <span>
+                  <span className="block text-sm font-medium text-[#344054]">
+                    Allow trainee to mark as
+                    completed
+                  </span>
+
+                  <span className="mt-0.5 block text-xs leading-5 text-[#98a2b3]">
+                    Shows a “Mark as completed”
+                    action to the trainee for this
+                    checkpoint.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {checkpointType ===
+            "information" && (
             <div className="rounded-xl border border-[#B9E8EE] bg-[#F0FAFB] px-4 py-3">
               <p className="text-xs leading-5 text-[#08788A]">
-                Information blocks do not require
-                completion and do not affect the
-                trainee&apos;s score. They are shown
-                directly between training modules.
+                Information blocks do not have a
+                score. They can be optional, or you
+                can require the trainee to mark them
+                as completed before finishing the
+                day.
               </p>
             </div>
           )}
@@ -578,6 +855,7 @@ export default function AddCheckpointEditor({
         </div>
 
         {/* FOOTER */}
+
         <div className="sticky bottom-0 flex items-center justify-end gap-3 border-t border-[#eef0f3] bg-white px-6 py-5">
           <button
             type="button"

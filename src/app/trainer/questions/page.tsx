@@ -294,8 +294,6 @@ export default async function TrainerQuestionsPage() {
 
                           {/* STATUS + ACTION */}
 
-{/* STATUS + ACTION */}
-
 <div className="flex shrink-0 flex-col items-end gap-2 sm:translate-y-4">
   <span
     className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-semibold ${

@@ -22,6 +22,7 @@ type Checkpoint = {
   passing_score: number | null;
   position: number;
   is_required: boolean;
+  allow_learner_completion: boolean;
   meeting_url: string | null;
   scheduled_at: string | null;
   duration_minutes: number | null;
@@ -139,6 +140,14 @@ export default function CheckpointEditor({
   const [isRequired, setIsRequired] =
     useState(checkpoint.is_required);
 
+  const [
+    allowLearnerCompletion,
+    setAllowLearnerCompletion,
+  ] = useState(
+    checkpoint.allow_learner_completion ??
+      false
+  );
+
   const [meetingUrl, setMeetingUrl] =
     useState(
       checkpoint.meeting_url ?? ""
@@ -226,6 +235,11 @@ export default function CheckpointEditor({
 
     setIsRequired(
       checkpoint.is_required
+    );
+
+    setAllowLearnerCompletion(
+      checkpoint.allow_learner_completion ??
+        false
     );
 
     setMeetingUrl(
@@ -368,9 +382,10 @@ export default function CheckpointEditor({
         ? parsedPassingScore
         : null,
 
-      is_required: isInformation
-        ? false
-        : isRequired,
+      is_required: isRequired,
+
+      allow_learner_completion:
+        allowLearnerCompletion,
 
       meeting_url: isTrainerSession
         ? meetingUrl.trim() || null
@@ -418,14 +433,15 @@ export default function CheckpointEditor({
       const { error: quizError } =
         await supabase
           .from("quizzes")
-.update({
-  title: cleanTitle,
-  description:
-    description.trim() || null,
-  passing_score:
-    parsedPassingScore ?? 0,
-  is_required: isRequired,
-})
+          .update({
+            title: cleanTitle,
+            description:
+              description.trim() ||
+              null,
+            passing_score:
+              parsedPassingScore ?? 0,
+            is_required: isRequired,
+          })
           .eq(
             "id",
             checkpoint.quiz_id
@@ -600,6 +616,7 @@ export default function CheckpointEditor({
       <div className="fixed inset-0 z-[80] flex justify-end bg-black/25 backdrop-blur-[1px]">
         <div className="h-full w-full max-w-[780px] overflow-y-auto border-l border-[#e5e7eb] bg-[#f7f8fa] shadow-2xl">
           {/* HEADER */}
+
           <div className="sticky top-0 z-10 flex items-start justify-between border-b border-[#eaecf0] bg-white/95 px-7 py-5 backdrop-blur">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -634,6 +651,7 @@ export default function CheckpointEditor({
 
           <div className="space-y-6 p-7">
             {/* SETTINGS */}
+
             <div className="space-y-5 rounded-[18px] border border-[#e5e7eb] bg-white p-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#07879B]">
@@ -655,6 +673,7 @@ export default function CheckpointEditor({
               </div>
 
               {/* TITLE */}
+
               <div>
                 <label className="text-sm font-medium text-[#344054]">
                   {isTrainerSession
@@ -678,6 +697,7 @@ export default function CheckpointEditor({
               </div>
 
               {/* DESCRIPTION */}
+
               <div>
                 <label className="text-sm font-medium text-[#344054]">
                   {isInformation
@@ -710,74 +730,44 @@ export default function CheckpointEditor({
               </div>
 
               {/* ASSESSMENT */}
+
               {isAssessment && (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="text-sm font-medium text-[#344054]">
-                      Passing score
-                    </label>
+                <div>
+                  <label className="text-sm font-medium text-[#344054]">
+                    Passing score
+                  </label>
 
-                    <div className="relative mt-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="1"
-                        value={
-                          passingScore
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setPassingScore(
-                            event.target
-                              .value
-                          )
-                        }
-                        disabled={isBusy}
-                        placeholder="80"
-                        className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 pr-10 text-sm text-[#172033] outline-none transition focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
-                      />
+                  <div className="relative mt-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={
+                        passingScore
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setPassingScore(
+                          event.target
+                            .value
+                        )
+                      }
+                      disabled={isBusy}
+                      placeholder="80"
+                      className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 pr-10 text-sm text-[#172033] outline-none transition focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
+                    />
 
-                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-[#98a2b3]">
-                        %
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium text-[#344054]">
-                      Requirement
-                    </p>
-
-                    <label className="mt-2 flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl border border-[#d0d5dd] px-3.5">
-                      <input
-                        type="checkbox"
-                        checked={
-                          isRequired
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setIsRequired(
-                            event.target
-                              .checked
-                          )
-                        }
-                        disabled={isBusy}
-                        className="h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
-                      />
-
-                      <span className="text-sm text-[#475467]">
-                        Required
-                        assessment
-                      </span>
-                    </label>
+                    <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-sm text-[#98a2b3]">
+                      %
+                    </span>
                   </div>
                 </div>
               )}
 
               {/* TRAINER SESSION */}
+
               {isTrainerSession && (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -862,80 +852,132 @@ export default function CheckpointEditor({
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium text-[#344054]">
-                        Requirement
-                      </p>
-
-                      <label className="mt-2 flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl border border-[#d0d5dd] px-3.5">
-                        <input
-                          type="checkbox"
-                          checked={
-                            isRequired
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            setIsRequired(
-                              event
-                                .target
-                                .checked
-                            )
-                          }
-                          disabled={isBusy}
-                          className="h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
-                        />
-
-                        <span className="text-sm text-[#475467]">
-                          Required
-                          session
-                        </span>
+                      <label className="text-sm font-medium text-[#344054]">
+                        Meeting link
                       </label>
+
+                      <input
+                        type="url"
+                        value={meetingUrl}
+                        onChange={(
+                          event
+                        ) =>
+                          setMeetingUrl(
+                            event.target
+                              .value
+                          )
+                        }
+                        disabled={isBusy}
+                        placeholder="https://meet.google.com/..."
+                        className="mt-2 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm text-[#172033] outline-none transition placeholder:text-[#98a2b3] focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium text-[#344054]">
-                      Meeting link
-                    </label>
-
-                    <input
-                      type="url"
-                      value={meetingUrl}
-                      onChange={(
-                        event
-                      ) =>
-                        setMeetingUrl(
-                          event.target
-                            .value
-                        )
-                      }
-                      disabled={isBusy}
-                      placeholder="https://meet.google.com/..."
-                      className="mt-2 w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 text-sm text-[#172033] outline-none transition placeholder:text-[#98a2b3] focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
-                    />
-
-                    <p className="mt-1.5 text-xs leading-5 text-[#98a2b3]">
-                      This can be added
-                      later if the meeting
-                      has not been scheduled
-                      yet.
-                    </p>
-                  </div>
+                  <p className="text-xs leading-5 text-[#98a2b3]">
+                    The meeting link can be
+                    added later if the
+                    session has not been
+                    scheduled yet.
+                  </p>
                 </>
               )}
 
               {/* INFORMATION */}
+
               {isInformation && (
                 <div className="rounded-xl border border-[#B9E8EE] bg-[#F0FAFB] px-4 py-3">
                   <p className="text-xs leading-5 text-[#08788A]">
-                    Information blocks
-                    are informational only.
-                    They do not require a
-                    score or trainee
-                    completion.
+                    Information blocks do
+                    not have a score. They
+                    can still be required
+                    and manually completed
+                    by the trainee.
                   </p>
                 </div>
               )}
+
+              {/* COMPLETION SETTINGS */}
+
+              <div className="rounded-[16px] border border-[#e4e7ec] bg-[#f9fafb] p-4">
+                <p className="text-sm font-semibold text-[#344054]">
+                  Completion settings
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-[#667085]">
+                  Control whether this item
+                  is required and whether
+                  the trainee can complete
+                  it manually.
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-white p-3.5">
+                    <input
+                      type="checkbox"
+                      checked={isRequired}
+                      onChange={(
+                        event
+                      ) =>
+                        setIsRequired(
+                          event.target
+                            .checked
+                        )
+                      }
+                      disabled={isBusy}
+                      className="mt-0.5 h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
+                    />
+
+                    <span>
+                      <span className="block text-sm font-medium text-[#344054]">
+                        Required to
+                        complete the day
+                      </span>
+
+                      <span className="mt-0.5 block text-xs leading-5 text-[#98a2b3]">
+                        The trainee must
+                        complete this item
+                        before the training
+                        day can be
+                        completed.
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#e4e7ec] bg-white p-3.5">
+                    <input
+                      type="checkbox"
+                      checked={
+                        allowLearnerCompletion
+                      }
+                      onChange={(
+                        event
+                      ) =>
+                        setAllowLearnerCompletion(
+                          event.target
+                            .checked
+                        )
+                      }
+                      disabled={isBusy}
+                      className="mt-0.5 h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
+                    />
+
+                    <span>
+                      <span className="block text-sm font-medium text-[#344054]">
+                        Allow trainee to
+                        mark as completed
+                      </span>
+
+                      <span className="mt-0.5 block text-xs leading-5 text-[#98a2b3]">
+                        Shows a “Mark as
+                        completed” action
+                        to the trainee for
+                        this checkpoint.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
 
               {errorMessage && (
                 <div className="rounded-xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3">
@@ -960,6 +1002,7 @@ export default function CheckpointEditor({
             </div>
 
             {/* QUESTIONS - ASSESSMENT ONLY */}
+
             {isAssessment && (
               <div>
                 <div className="mb-3 flex items-center justify-between gap-4">
@@ -1132,6 +1175,7 @@ export default function CheckpointEditor({
             )}
 
             {/* DELETE */}
+
             <div className="rounded-[18px] border border-[#fecdca] bg-white p-5">
               <p className="text-sm font-semibold text-[#b42318]">
                 Delete{" "}

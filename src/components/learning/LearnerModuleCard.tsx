@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MaterialCard from "./MaterialCard";
 import ActivityCard from "./ActivityCard";
+import QuizCompletionButton from "./QuizCompletionButton";
 import type {
   LearnerModule,
   ProgressMap,
@@ -287,12 +288,23 @@ export default function LearnerModuleCard({
                           Read only
                         </span>
                       ) : (
-                        <Link
-                          href={`/learn/quiz/${quiz.id}`}
-                          className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
-                        >
-                          Start quiz
-                        </Link>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/learn/quiz/${quiz.id}`}
+                            className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
+                          >
+                            Start quiz
+                          </Link>
+
+                          <QuizCompletionButton
+                            quizId={quiz.id}
+                            completed={
+                              progress.quizzes[
+                                quiz.id
+                              ] ?? false
+                            }
+                          />
+                        </div>
                       )}
                     </div>
                   </div>

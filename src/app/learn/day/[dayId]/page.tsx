@@ -3,15 +3,17 @@ import {
   notFound,
   redirect,
 } from "next/navigation";
+
 import AppShell from "@/components/layout/AppShell";
+import CheckpointCompletionButton from "@/components/learning/CheckpointCompletionButton";
 import LearnerModuleCard from "@/components/learning/LearnerModuleCard";
 import ModuleNotes from "@/components/learning/ModuleNotes";
-import { createClient } from "@/lib/supabase/server";
 import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
 import type {
   LearnerModule,
   ProgressMap,
 } from "@/lib/learning/types";
+import { createClient } from "@/lib/supabase/server";
 
 type Props = {
   params: Promise<{
@@ -19,15 +21,48 @@ type Props = {
   }>;
 };
 
+type CheckpointType =
+  | "assessment"
+  | "trainer_session"
+  | "information";
+
 type LearnerCheckpoint = {
   id: string;
   title: string;
   description: string | null;
-  checkpoint_type: string;
+  checkpoint_type: CheckpointType;
   passing_score: number | null;
   position: number;
   quiz_id: string | null;
+  is_required: boolean;
+  allow_learner_completion: boolean;
+  meeting_url: string | null;
+  scheduled_at: string | null;
+  duration_minutes: number | null;
 };
+
+type DayContentRow = {
+  id: string;
+  content_type:
+    | "module"
+    | "checkpoint";
+  content_id: string;
+  position: number;
+};
+
+type OrderedDayContent =
+  | {
+      type: "module";
+      id: string;
+      position: number;
+      module: LearnerModule;
+    }
+  | {
+      type: "checkpoint";
+      id: string;
+      position: number;
+      checkpoint: LearnerCheckpoint;
+    };
 
 type CheckpointResult = {
   checkpoint_id: string;
@@ -55,19 +90,42 @@ type DayProgressData = {
     status: string;
   }>;
 
+  quizzes?: Array<{
+    quiz_id: string;
+    completed: boolean;
+  }>;
+
   checkpoints?: CheckpointResult[];
 };
 
-function getCheckpointTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    knowledge: "Knowledge",
-    practical: "Practical",
-    mock_call: "Mock Call",
-    trainer_review: "Trainer Review",
-    other: "Checkpoint",
+function getCheckpointTypeLabel(
+  type: CheckpointType
+) {
+  const labels: Record<
+    CheckpointType,
+    string
+  > = {
+    assessment: "Checkpoint",
+    trainer_session: "Live Session",
+    information: "Information",
   };
 
-  return labels[type] ?? "Checkpoint";
+  return labels[type];
+}
+
+function getCheckpointEyebrow(
+  type: CheckpointType
+) {
+  const labels: Record<
+    CheckpointType,
+    string
+  > = {
+    assessment: "CHECKPOINT",
+    trainer_session: "LIVE SESSION",
+    information: "INFORMATION",
+  };
+
+  return labels[type];
 }
 
 function getCheckpointStatus(
@@ -101,7 +159,7 @@ function getCheckpointStatus(
     return {
       label: "Completed",
       className:
-        "bg-[var(--blue-soft)] text-[var(--blue)]",
+        "bg-[var(--success-soft)] text-[var(--success)]",
     };
   }
 
@@ -122,13 +180,26 @@ function getCheckpointStatus(
   }
 
   return {
-    label: result.status.replaceAll("_", " "),
+    label: result.status.replaceAll(
+      "_",
+      " "
+    ),
     className:
       "bg-[var(--surface-muted)] text-[var(--text-muted)]",
   };
 }
 
-function formatDuration(minutes: number) {
+function isCheckpointCompleted(
+  result?: CheckpointResult
+) {
+  return (
+    result?.status === "completed"
+  );
+}
+
+function formatDuration(
+  minutes: number
+) {
   if (minutes <= 0) {
     return null;
   }
@@ -137,8 +208,12 @@ function formatDuration(minutes: number) {
     return `${minutes} min`;
   }
 
-  const hours = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
+  const hours = Math.floor(
+    minutes / 60
+  );
+
+  const remaining =
+    minutes % 60;
 
   if (remaining === 0) {
     return `${hours} ${
@@ -149,16 +224,40 @@ function formatDuration(minutes: number) {
   return `${hours}h ${remaining}m`;
 }
 
+function formatSessionDate(
+  value: string | null
+) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(date.getTime())
+  ) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-US",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }
+  ).format(date);
+}
+
 export default async function LearnerDayPage({
   params,
 }: Props) {
-  // ---------------------------------------------------------
-  // PERFORMANCE
-  // ---------------------------------------------------------
+  const totalStart =
+    performance.now();
 
-  const totalStart = performance.now();
-
-  function logPerf(label: string, start: number) {
+  function logPerf(
+    label: string,
+    start: number
+  ) {
     console.log(
       `[DAY PERF] ${label}: ${Math.round(
         performance.now() - start
@@ -170,30 +269,38 @@ export default async function LearnerDayPage({
     label: string,
     promise: PromiseLike<T>
   ): Promise<T> => {
-    const start = performance.now();
+    const start =
+      performance.now();
 
-    const result = await promise;
+    const result =
+      await promise;
 
     logPerf(label, start);
 
     return result;
   };
 
-  const { dayId } = await params;
+  const { dayId } =
+    await params;
 
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
   // ---------------------------------------------------------
   // AUTH
   // ---------------------------------------------------------
 
-  const authStart = performance.now();
+  const authStart =
+    performance.now();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  logPerf("auth.getUser", authStart);
+  logPerf(
+    "auth.getUser",
+    authStart
+  );
 
   if (!user) {
     redirect("/login");
@@ -201,18 +308,18 @@ export default async function LearnerDayPage({
 
   // ---------------------------------------------------------
   // PARALLEL PAGE DATA
-  //
-  // Once we know the authenticated user and dayId, these
-  // requests do not need to wait for one another.
   // ---------------------------------------------------------
 
-  const parallelStart = performance.now();
+  const parallelStart =
+    performance.now();
 
   const profilePromise = timed(
     "profile",
     supabase
       .from("profiles")
-      .select("full_name, email, role")
+      .select(
+        "full_name, email, role"
+      )
       .eq("id", user.id)
       .single()
   );
@@ -234,6 +341,13 @@ export default async function LearnerDayPage({
         position,
         is_published,
 
+        day_content (
+          id,
+          content_type,
+          content_id,
+          position
+        ),
+
         modules (
           id,
           title,
@@ -254,16 +368,16 @@ export default async function LearnerDayPage({
           ),
 
           activities (
-  id,
-  title,
-  description,
-  instructions,
-  resource_url,
-  activity_type,
-  duration_minutes,
-  is_required,
-  position
-),
+            id,
+            title,
+            description,
+            instructions,
+            resource_url,
+            activity_type,
+            duration_minutes,
+            is_required,
+            position
+          ),
 
           quizzes (
             id,
@@ -286,7 +400,12 @@ export default async function LearnerDayPage({
           checkpoint_type,
           passing_score,
           position,
-          quiz_id
+          quiz_id,
+          is_required,
+          allow_learner_completion,
+          meeting_url,
+          scheduled_at,
+          duration_minutes
         )
       `)
       .eq("id", dayId)
@@ -294,15 +413,16 @@ export default async function LearnerDayPage({
       .single()
   );
 
-  const dayProgressPromise = timed(
-    "get_learner_day_progress",
-    supabase.rpc(
+  const dayProgressPromise =
+    timed(
       "get_learner_day_progress",
-      {
-        target_day_id: dayId,
-      }
-    )
-  );
+      supabase.rpc(
+        "get_learner_day_progress",
+        {
+          target_day_id: dayId,
+        }
+      )
+    );
 
   const [
     profileResult,
@@ -330,7 +450,10 @@ export default async function LearnerDayPage({
     error: profileError,
   } = profileResult;
 
-  if (profileError || !profile) {
+  if (
+    profileError ||
+    !profile
+  ) {
     console.error(
       "Unable to load learner profile:",
       profileError
@@ -339,12 +462,14 @@ export default async function LearnerDayPage({
     redirect("/login");
   }
 
-  if (profile.role === "trainer") {
+  if (
+    profile.role === "trainer"
+  ) {
     redirect("/trainer");
   }
 
   // ---------------------------------------------------------
-  // LEARNER JOURNEY + DAY ACCESS
+  // JOURNEY
   // ---------------------------------------------------------
 
   if (!learnerJourney) {
@@ -372,7 +497,7 @@ export default async function LearnerDayPage({
     currentJourneyDay.completed;
 
   // ---------------------------------------------------------
-  // DAY CONTENT
+  // DAY
   // ---------------------------------------------------------
 
   const {
@@ -380,55 +505,272 @@ export default async function LearnerDayPage({
     error: dayError,
   } = dayResult;
 
-  if (dayError || !day) {
+  if (
+    dayError ||
+    !day
+  ) {
     notFound();
   }
 
   // ---------------------------------------------------------
-  // NORMALIZE CONTENT
+  // NORMALIZE MODULES
   // ---------------------------------------------------------
 
   const modules: LearnerModule[] = (
     day.modules ?? []
-  )
-    .map((module) => ({
-      ...module,
+  ).map((module) => ({
+    ...module,
 
-      materials: [
-        ...(module.materials ?? []),
-      ].sort(
-        (a, b) =>
-          a.position - b.position
-      ),
-
-      activities: [
-        ...(module.activities ?? []),
-      ].sort(
-        (a, b) =>
-          a.position - b.position
-      ),
-
-      quizzes: [
-        ...(module.quizzes ?? []),
-      ]
-        .filter(
-          (quiz) => quiz.is_published
-        )
-        .sort(
-          (a, b) =>
-            a.position - b.position
-        ),
-    }))
-    .sort(
+    materials: [
+      ...(module.materials ?? []),
+    ].sort(
       (a, b) =>
         a.position - b.position
-    );
+    ),
+
+    activities: [
+      ...(module.activities ?? []),
+    ].sort(
+      (a, b) =>
+        a.position - b.position
+    ),
+
+    quizzes: [
+      ...(module.quizzes ?? []),
+    ]
+      .filter(
+        (quiz) =>
+          quiz.is_published
+      )
+      .sort(
+        (a, b) =>
+          a.position - b.position
+      ),
+  }));
 
   const checkpoints: LearnerCheckpoint[] =
-    [...(day.checkpoints ?? [])].sort(
+    (day.checkpoints ??
+      []) as LearnerCheckpoint[];
+
+  const dayContent: DayContentRow[] =
+    [
+      ...(day.day_content ?? []),
+    ].sort(
       (a, b) =>
         a.position - b.position
+    ) as DayContentRow[];
+
+  // ---------------------------------------------------------
+  // INTERLEAVED CONTENT
+  // ---------------------------------------------------------
+
+  const moduleMap =
+    new Map(
+      modules.map((module) => [
+        module.id,
+        module,
+      ])
     );
+
+  const checkpointMap =
+    new Map(
+      checkpoints.map(
+        (checkpoint) => [
+          checkpoint.id,
+          checkpoint,
+        ]
+      )
+    );
+
+  const orderedContent:
+    OrderedDayContent[] = [];
+
+  for (const content of dayContent) {
+    if (
+      content.content_type ===
+      "module"
+    ) {
+      const module =
+        moduleMap.get(
+          content.content_id
+        );
+
+      if (!module) {
+        continue;
+      }
+
+      orderedContent.push({
+        type: "module",
+        id: content.id,
+        position: content.position,
+        module,
+      });
+
+      continue;
+    }
+
+    if (
+      content.content_type ===
+      "checkpoint"
+    ) {
+      const checkpoint =
+        checkpointMap.get(
+          content.content_id
+        );
+
+      if (!checkpoint) {
+        continue;
+      }
+
+      orderedContent.push({
+        type: "checkpoint",
+        id: content.id,
+        position: content.position,
+        checkpoint,
+      });
+    }
+  }
+
+  // Legacy fallback
+
+  const orderedModuleIds =
+    new Set(
+      orderedContent
+        .filter(
+          (content) =>
+            content.type ===
+            "module"
+        )
+        .map(
+          (content) =>
+            content.module.id
+        )
+    );
+
+  const orderedCheckpointIds =
+    new Set(
+      orderedContent
+        .filter(
+          (content) =>
+            content.type ===
+            "checkpoint"
+        )
+        .map(
+          (content) =>
+            content.checkpoint.id
+        )
+    );
+
+  const legacyModules =
+    modules
+      .filter(
+        (module) =>
+          !orderedModuleIds.has(
+            module.id
+          )
+      )
+      .sort(
+        (a, b) =>
+          a.position -
+          b.position
+      );
+
+  const legacyCheckpoints =
+    checkpoints
+      .filter(
+        (checkpoint) =>
+          !orderedCheckpointIds.has(
+            checkpoint.id
+          )
+      )
+      .sort(
+        (a, b) =>
+          a.position -
+          b.position
+      );
+
+  let fallbackPosition =
+    orderedContent.length > 0
+      ? Math.max(
+          ...orderedContent.map(
+            (content) =>
+              content.position
+          )
+        ) + 1
+      : 0;
+
+  for (
+    const module of legacyModules
+  ) {
+    orderedContent.push({
+      type: "module",
+      id: `legacy-module-${module.id}`,
+      position:
+        fallbackPosition++,
+      module,
+    });
+  }
+
+  for (
+    const checkpoint of legacyCheckpoints
+  ) {
+    orderedContent.push({
+      type: "checkpoint",
+      id: `legacy-checkpoint-${checkpoint.id}`,
+      position:
+        fallbackPosition++,
+      checkpoint,
+    });
+  }
+
+  orderedContent.sort(
+    (a, b) =>
+      a.position - b.position
+  );
+
+  const moduleNumbers =
+    new Map<string, number>();
+
+  let moduleCounter = 0;
+
+  for (
+    const content of orderedContent
+  ) {
+    if (
+      content.type === "module"
+    ) {
+      moduleCounter += 1;
+
+      moduleNumbers.set(
+        content.module.id,
+        moduleCounter
+      );
+    }
+  }
+
+  const checkpointNumbers =
+    new Map<string, number>();
+
+  let checkpointCounter = 0;
+
+  for (
+    const content of orderedContent
+  ) {
+    if (
+      content.type ===
+        "checkpoint" &&
+      content.checkpoint
+        .checkpoint_type ===
+        "assessment"
+    ) {
+      checkpointCounter += 1;
+
+      checkpointNumbers.set(
+        content.checkpoint.id,
+        checkpointCounter
+      );
+    }
+  }
 
   // ---------------------------------------------------------
   // DAY PROGRESS
@@ -447,52 +789,64 @@ export default async function LearnerDayPage({
   }
 
   const normalizedDayProgress =
-    (dayProgressData ?? {}) as DayProgressData;
+    (dayProgressData ??
+      {}) as DayProgressData;
 
   const moduleProgress =
-    normalizedDayProgress.modules ?? [];
+    normalizedDayProgress.modules ??
+    [];
 
   const materialProgress =
-    normalizedDayProgress.materials ?? [];
+    normalizedDayProgress
+      .materials ?? [];
 
   const activityProgress =
-    normalizedDayProgress.activities ?? [];
+  normalizedDayProgress.activities ?? [];
 
-  const checkpointProgress =
-    normalizedDayProgress.checkpoints ?? [];
+const quizProgress =
+  normalizedDayProgress.quizzes ?? [];
 
-  // ---------------------------------------------------------
-  // PROGRESS MAP
-  // ---------------------------------------------------------
+const checkpointProgress =
+  normalizedDayProgress.checkpoints ?? [];
 
   const progress: ProgressMap = {
-    setup: {},
-    percent: 0,
+  setup: {},
+  percent: 0,
 
-    modules: Object.fromEntries(
-      moduleProgress.map((item) => [
-        item.module_id,
-        item.status,
-      ])
-    ),
+  modules: Object.fromEntries(
+    moduleProgress.map((item) => [
+      item.module_id,
+      item.status,
+    ])
+  ),
 
-    materials: Object.fromEntries(
-      materialProgress.map((item) => [
-        item.material_id,
-        item.completed,
-      ])
-    ),
+  materials: Object.fromEntries(
+    materialProgress.map((item) => [
+      item.material_id,
+      item.completed,
+    ])
+  ),
 
-    activities: Object.fromEntries(
-      activityProgress.map((item) => [
-        item.activity_id,
-        item.status,
-      ])
-    ),
-  };
+  activities: Object.fromEntries(
+    activityProgress.map((item) => [
+      item.activity_id,
+      item.status,
+    ])
+  ),
+
+  quizzes: Object.fromEntries(
+    quizProgress.map((item) => [
+      item.quiz_id,
+      item.completed,
+    ])
+  ),
+};
 
   const checkpointResults =
-    new Map<string, CheckpointResult>(
+    new Map<
+      string,
+      CheckpointResult
+    >(
       checkpointProgress.map(
         (result) => [
           result.checkpoint_id,
@@ -502,45 +856,72 @@ export default async function LearnerDayPage({
     );
 
   // ---------------------------------------------------------
-  // DAY METRICS
+  // METRICS
+  //
+  // All required checkpoints can now contribute to day
+  // progress, not only assessments.
   // ---------------------------------------------------------
 
-  const completedModules =
+  const requiredModules =
     modules.filter(
       (module) =>
-        progress.modules[module.id] ===
-        "completed"
+        module.is_required
+    );
+
+  const completedModules =
+    requiredModules.filter(
+      (module) =>
+        progress.modules[
+          module.id
+        ] === "completed"
     ).length;
 
-  const totalModules = modules.length;
+  const totalModules =
+    modules.length;
+
+  const requiredCheckpoints =
+    checkpoints.filter(
+      (checkpoint) =>
+        checkpoint.is_required
+    );
 
   const completedCheckpoints =
-    checkpoints.filter((checkpoint) => {
-      const result =
-        checkpointResults.get(
-          checkpoint.id
-        );
-
-      return result?.status === "completed";
-    }).length;
+    requiredCheckpoints.filter(
+      (checkpoint) =>
+        isCheckpointCompleted(
+          checkpointResults.get(
+            checkpoint.id
+          )
+        )
+    ).length;
 
   const totalCheckpoints =
-    checkpoints.length;
+    requiredCheckpoints.length;
 
   const totalMinutes =
     modules.reduce(
       (total, module) =>
         total +
-        (module.duration_minutes ?? 0),
+        (module.duration_minutes ??
+          0),
+      0
+    ) +
+    checkpoints.reduce(
+      (total, checkpoint) =>
+        total +
+        (checkpoint.duration_minutes ??
+          0),
       0
     );
 
   const duration =
-    formatDuration(totalMinutes);
+    formatDuration(
+      totalMinutes
+    );
 
   const totalRequiredItems =
-    totalModules +
-    totalCheckpoints;
+    requiredModules.length +
+    requiredCheckpoints.length;
 
   const completedRequiredItems =
     completedModules +
@@ -557,10 +938,6 @@ export default async function LearnerDayPage({
         ? 100
         : 0;
 
-  // ---------------------------------------------------------
-  // FINAL PERFORMANCE
-  // ---------------------------------------------------------
-
   logPerf(
     "TOTAL LearnerDayPage",
     totalStart
@@ -575,11 +952,11 @@ export default async function LearnerDayPage({
       role="learner"
       userName={profile.full_name}
       userEmail={profile.email}
-      learnerJourney={learnerJourney}
+      learnerJourney={
+        learnerJourney
+      }
     >
       <div className="mx-auto w-full max-w-[1080px] px-5 py-8 sm:px-7 lg:px-9 lg:py-10">
-        {/* BREADCRUMB */}
-
         <Link
           href="/learn"
           prefetch
@@ -601,7 +978,8 @@ export default async function LearnerDayPage({
             <div className="p-6 sm:p-7">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-[var(--teal-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--teal-deep)]">
-                  Day {day.day_number}
+                  Day{" "}
+                  {day.day_number}
                 </span>
 
                 {dayCompleted ? (
@@ -620,7 +998,7 @@ export default async function LearnerDayPage({
               </h1>
 
               {day.description && (
-                <p className="mt-2 max-w-[680px] text-[13px] leading-6 text-[var(--text-secondary)]">
+                <p className="mt-2 max-w-[680px] whitespace-pre-wrap text-[13px] leading-6 text-[var(--text-secondary)]">
                   {day.description}
                 </p>
               )}
@@ -641,12 +1019,14 @@ export default async function LearnerDayPage({
                     />
 
                     <span>
-                      Approx. {duration}
+                      Approx.{" "}
+                      {duration}
                     </span>
                   </>
                 )}
 
-                {totalCheckpoints > 0 && (
+                {checkpoints.length >
+                  0 && (
                   <>
                     <span
                       className="h-1 w-1 rounded-full bg-[var(--border-strong)]"
@@ -654,8 +1034,11 @@ export default async function LearnerDayPage({
                     />
 
                     <span>
-                      {totalCheckpoints}{" "}
-                      {totalCheckpoints === 1
+                      {
+                        checkpoints.length
+                      }{" "}
+                      {checkpoints.length ===
+                      1
                         ? "checkpoint"
                         : "checkpoints"}
                     </span>
@@ -673,12 +1056,20 @@ export default async function LearnerDayPage({
 
               <div className="mt-3 flex items-end justify-between gap-3">
                 <span className="text-[28px] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
-                  {dayProgress}%
+                  {dayCompleted
+                    ? 100
+                    : dayProgress}
+                  %
                 </span>
 
                 <span className="pb-1 text-[11px] text-[var(--text-muted)]">
-                  {completedRequiredItems}/
-                  {totalRequiredItems}
+                  {
+                    completedRequiredItems
+                  }
+                  /
+                  {
+                    totalRequiredItems
+                  }
                 </span>
               </div>
 
@@ -690,13 +1081,17 @@ export default async function LearnerDayPage({
                       : "bg-[var(--teal)]"
                   }`}
                   style={{
-                    width: `${Math.min(
-                      100,
-                      Math.max(
-                        0,
-                        dayProgress
-                      )
-                    )}%`,
+                    width: `${
+                      dayCompleted
+                        ? 100
+                        : Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              dayProgress
+                            )
+                          )
+                    }%`,
                   }}
                 />
               </div>
@@ -704,24 +1099,35 @@ export default async function LearnerDayPage({
               <div className="mt-5 space-y-2.5 border-t border-[var(--border)] pt-4">
                 <div className="flex items-center justify-between gap-3 text-[11px]">
                   <span className="text-[var(--text-muted)]">
-                    Modules
+                    Required modules
                   </span>
 
                   <span className="font-medium text-[var(--text-secondary)]">
-                    {completedModules}/
-                    {totalModules}
+                    {
+                      completedModules
+                    }
+                    /
+                    {
+                      requiredModules.length
+                    }
                   </span>
                 </div>
 
-                {totalCheckpoints > 0 && (
+                {requiredCheckpoints.length >
+                  0 && (
                   <div className="flex items-center justify-between gap-3 text-[11px]">
                     <span className="text-[var(--text-muted)]">
-                      Checkpoints
+                      Required checkpoints
                     </span>
 
                     <span className="font-medium text-[var(--text-secondary)]">
-                      {completedCheckpoints}/
-                      {totalCheckpoints}
+                      {
+                        completedCheckpoints
+                      }
+                      /
+                      {
+                        totalCheckpoints
+                      }
                     </span>
                   </div>
                 )}
@@ -730,7 +1136,7 @@ export default async function LearnerDayPage({
           </div>
         </section>
 
-        {/* MODULES */}
+        {/* LEARNING PATH */}
 
         <section className="mt-9">
           <div className="mb-4">
@@ -743,81 +1149,78 @@ export default async function LearnerDayPage({
             </h2>
 
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Work through the modules in order and
-              complete the required materials and
-              activities.
+              Work through the learning
+              path in order and complete
+              the required content.
             </p>
           </div>
 
-          {modules.length > 0 ? (
-            <div className="space-y-3">
-              {modules.map(
-                (module, index) => (
-                  <div
-                    key={module.id}
-                    className="relative"
-                  >
-                    <div className="mb-2 flex items-center gap-2 px-1">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[9px] font-semibold text-[var(--text-muted)]">
-                        {index + 1}
-                      </span>
+          {orderedContent.length >
+          0 ? (
+            <div className="space-y-4">
+              {orderedContent.map(
+                (content) => {
+                  // MODULE
 
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                        Module {index + 1}
-                      </span>
-                    </div>
+                  if (
+                    content.type ===
+                    "module"
+                  ) {
+                    const module =
+                      content.module;
 
-                                        <div className="overflow-hidden rounded-[18px]">
-                      <LearnerModuleCard
-                        module={module}
-                        progress={progress}
-                      />
+                    const moduleNumber =
+                      moduleNumbers.get(
+                        module.id
+                      ) ?? 1;
 
-                      <ModuleNotes
-                        moduleId={module.id}
-                      />
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          ) : (
-            <div className="rounded-[16px] border border-dashed border-[var(--border-strong)] bg-white p-10 text-center">
-              <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
-                No modules available yet
-              </h3>
+                    return (
+                      <div
+                        key={
+                          content.id
+                        }
+                        className="relative"
+                      >
+                        <div className="mb-2 flex items-center gap-2 px-1">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[9px] font-semibold text-[var(--text-muted)]">
+                            {
+                              moduleNumber
+                            }
+                          </span>
 
-              <p className="mt-2 text-[12px] text-[var(--text-secondary)]">
-                Training content for this day has not
-                been added yet.
-              </p>
-            </div>
-          )}
-        </section>
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                            Module{" "}
+                            {
+                              moduleNumber
+                            }
+                          </span>
+                        </div>
 
-        {/* CHECKPOINTS */}
+                        <div className="overflow-hidden rounded-[18px]">
+                          <LearnerModuleCard
+                            module={
+                              module
+                            }
+                            progress={
+                              progress
+                            }
+                          />
 
-        {checkpoints.length > 0 && (
-          <section className="mt-10">
-            <div className="mb-4 border-t border-[var(--border-soft)] pt-8">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--teal-deep)]">
-                Day assessment
-              </p>
+                          <ModuleNotes
+                            moduleId={
+                              module.id
+                            }
+                          />
+                        </div>
+                      </div>
+                    );
+                  }
 
-              <h2 className="mt-1 text-[20px] font-semibold tracking-[-0.025em] text-[var(--text-primary)]">
-                Checkpoints
-              </h2>
+                  // CHECKPOINT
 
-              <p className="mt-1 max-w-[680px] text-[12px] leading-5 text-[var(--text-secondary)]">
-                Complete the required assessments to
-                demonstrate your understanding before
-                finishing this training day.
-              </p>
-            </div>
+                  const checkpoint =
+                    content.checkpoint;
 
-            <div className="overflow-hidden rounded-[16px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
-              {checkpoints.map(
-                (checkpoint, index) => {
                   const result =
                     checkpointResults.get(
                       checkpoint.id
@@ -828,101 +1231,226 @@ export default async function LearnerDayPage({
                       result
                     );
 
+                  const completed =
+                    isCheckpointCompleted(
+                      result
+                    );
+
+                  const isAssessment =
+                    checkpoint.checkpoint_type ===
+                    "assessment";
+
+                  const isSession =
+                    checkpoint.checkpoint_type ===
+                    "trainer_session";
+
+                  const isInformation =
+                    checkpoint.checkpoint_type ===
+                    "information";
+
+                  const checkpointNumber =
+                    checkpointNumbers.get(
+                      checkpoint.id
+                    );
+
+                  const scheduledDate =
+                    formatSessionDate(
+                      checkpoint.scheduled_at
+                    );
+
                   return (
                     <article
-                      key={checkpoint.id}
-                      className={`p-5 sm:p-6 ${
-                        index > 0
-                          ? "border-t border-[var(--border-soft)]"
-                          : ""
+                      key={content.id}
+                      className={`overflow-hidden rounded-[16px] border bg-white shadow-[var(--shadow-xs)] ${
+                        completed
+                          ? "border-[var(--success)]/20"
+                          : isSession
+                            ? "border-[var(--teal)]/30"
+                            : "border-[var(--border)]"
                       }`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-5">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--teal-deep)]">
-                              Checkpoint {index + 1}
-                            </span>
+                      <div className="p-5 sm:p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-5">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.07em] text-[var(--teal-deep)]">
+                                {getCheckpointEyebrow(
+                                  checkpoint.checkpoint_type
+                                )}
 
-                            <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
-                              {getCheckpointTypeLabel(
-                                checkpoint.checkpoint_type
-                              )}
-                            </span>
-
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${status.className}`}
-                            >
-                              {status.label}
-                            </span>
-                          </div>
-
-                          <h3 className="mt-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-primary)]">
-                            {checkpoint.title}
-                          </h3>
-
-                          {checkpoint.description && (
-                            <p className="mt-1 max-w-[650px] text-[12px] leading-5 text-[var(--text-secondary)]">
-                              {checkpoint.description}
-                            </p>
-                          )}
-
-                          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-[var(--text-muted)]">
-                            {checkpoint.passing_score !==
-                              null && (
-                              <span>
-                                Passing score:{" "}
-                                {
-                                  checkpoint.passing_score
-                                }
-                                %
+                                {isAssessment &&
+                                checkpointNumber
+                                  ? ` ${checkpointNumber}`
+                                  : ""}
                               </span>
-                            )}
 
-                            {result?.score !== null &&
-                              result?.score !==
-                                undefined && (
-                                <span>
-                                  Score:{" "}
-                                  {Number(
-                                    result.score
-                                  ).toFixed(0)}
-                                  %
+                              <span className="rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
+                                {getCheckpointTypeLabel(
+                                  checkpoint.checkpoint_type
+                                )}
+                              </span>
+
+                              {(isAssessment ||
+                                checkpoint.allow_learner_completion) && (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${status.className}`}
+                                >
+                                  {
+                                    status.label
+                                  }
                                 </span>
                               )}
-                          </div>
 
-                          {result?.trainer_feedback && (
-                            <div className="mt-4 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
-                              <p className="text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                                Trainer feedback
-                              </p>
+                              {checkpoint.is_required && (
+                                <span className="rounded-full bg-[var(--warning-soft)] px-2 py-0.5 text-[9px] font-semibold text-[var(--warning)]">
+                                  Required
+                                </span>
+                              )}
+                            </div>
 
-                              <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                            <h3 className="mt-2 text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-primary)]">
+                              {
+                                checkpoint.title
+                              }
+                            </h3>
+
+                            {checkpoint.description && (
+                              <p className="mt-1 max-w-[650px] whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)]">
                                 {
-                                  result.trainer_feedback
+                                  checkpoint.description
                                 }
                               </p>
-                            </div>
-                          )}
-                        </div>
+                            )}
 
-                        <div className="shrink-0">
-                          {checkpoint.quiz_id ? (
-                            <Link
-                              href={`/learn/quiz/${checkpoint.quiz_id}`}
-                              prefetch
-                              className="inline-flex min-w-[118px] items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
-                            >
-                              {result
-                                ? "View checkpoint"
-                                : "Start checkpoint"}
-                            </Link>
-                          ) : (
-                            <span className="inline-flex rounded-[9px] bg-[var(--surface-muted)] px-4 py-2.5 text-[11px] font-medium text-[var(--text-muted)]">
-                              Not available
-                            </span>
-                          )}
+                            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] text-[var(--text-muted)]">
+                              {isAssessment &&
+                                checkpoint.passing_score !==
+                                  null && (
+                                  <span>
+                                    Passing score:{" "}
+                                    {
+                                      checkpoint.passing_score
+                                    }
+                                    %
+                                  </span>
+                                )}
+
+                              {isAssessment &&
+                                result?.score !==
+                                  null &&
+                                result?.score !==
+                                  undefined && (
+                                  <span>
+                                    Score:{" "}
+                                    {Number(
+                                      result.score
+                                    ).toFixed(
+                                      0
+                                    )}
+                                    %
+                                  </span>
+                                )}
+
+                              {isSession &&
+                                scheduledDate && (
+                                  <span>
+                                    {
+                                      scheduledDate
+                                    }
+                                  </span>
+                                )}
+
+                              {isSession &&
+                                checkpoint.duration_minutes && (
+                                  <span>
+                                    {formatDuration(
+                                      checkpoint.duration_minutes
+                                    )}
+                                  </span>
+                                )}
+                            </div>
+
+                            {isAssessment &&
+                              result?.trainer_feedback && (
+                                <div className="mt-4 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
+                                  <p className="text-[9px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                                    Trainer feedback
+                                  </p>
+
+                                  <p className="mt-1 whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)]">
+                                    {
+                                      result.trainer_feedback
+                                    }
+                                  </p>
+                                </div>
+                              )}
+
+                            {isInformation &&
+                              !checkpoint.allow_learner_completion && (
+                                <p className="mt-3 text-[10px] font-medium text-[var(--text-muted)]">
+                                  Continue with the
+                                  next item when you
+                                  are ready.
+                                </p>
+                              )}
+                          </div>
+
+                          {/* ACTIONS */}
+
+                          <div className="flex shrink-0 flex-col items-end gap-2">
+                            {isAssessment &&
+                              checkpoint.quiz_id && (
+                                <Link
+                                  href={`/learn/quiz/${checkpoint.quiz_id}`}
+                                  prefetch
+                                  className="inline-flex min-w-[138px] items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
+                                >
+                                  {result
+                                    ? "View checkpoint"
+                                    : "Start checkpoint"}
+                                </Link>
+                              )}
+
+                            {isAssessment &&
+                              !checkpoint.quiz_id && (
+                                <span className="inline-flex min-w-[138px] items-center justify-center rounded-[9px] bg-[var(--surface-muted)] px-4 py-2.5 text-[11px] font-medium text-[var(--text-muted)]">
+                                  Not available
+                                </span>
+                              )}
+
+                            {isSession &&
+                              checkpoint.meeting_url && (
+                                <a
+                                  href={
+                                    checkpoint.meeting_url
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex min-w-[138px] items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
+                                >
+                                  Join session
+                                </a>
+                              )}
+
+                            {isSession &&
+                              !checkpoint.meeting_url && (
+                                <span className="inline-flex min-w-[138px] items-center justify-center rounded-[9px] bg-[var(--surface-muted)] px-4 py-2.5 text-[11px] font-medium text-[var(--text-muted)]">
+                                  Session details
+                                  pending
+                                </span>
+                              )}
+
+                            {checkpoint.allow_learner_completion && (
+                              <CheckpointCompletionButton
+                                checkpointId={
+                                  checkpoint.id
+                                }
+                                completed={
+                                  completed
+                                }
+                              />
+                            )}
+                          </div>
                         </div>
                       </div>
                     </article>
@@ -930,8 +1458,21 @@ export default async function LearnerDayPage({
                 }
               )}
             </div>
-          </section>
-        )}
+          ) : (
+            <div className="rounded-[16px] border border-dashed border-[var(--border-strong)] bg-white p-10 text-center">
+              <h3 className="text-[14px] font-semibold text-[var(--text-primary)]">
+                No training content
+                available yet
+              </h3>
+
+              <p className="mt-2 text-[12px] text-[var(--text-secondary)]">
+                Training content for
+                this day has not been
+                added yet.
+              </p>
+            </div>
+          )}
+        </section>
 
         {/* END OF DAY */}
 

@@ -65,6 +65,38 @@ type CheckpointProgressMap = Record<
   CheckpointProgress
 >;
 
+type Checkpoint = {
+  id: string;
+  title: string;
+  description: string | null;
+  checkpoint_type: string;
+  passing_score: number | null;
+  is_required: boolean;
+  position: number;
+  quiz_id: string | null;
+};
+
+type DayContentItem = {
+  id: string;
+  content_type: string;
+  content_id: string;
+  position: number;
+};
+
+type OrderedContent =
+  | {
+      type: "module";
+      id: string;
+      position: number;
+      module: LearnerModule;
+    }
+  | {
+      type: "checkpoint";
+      id: string;
+      position: number;
+      checkpoint: Checkpoint;
+    };
+
 // ============================================================
 // PAGE
 // ============================================================
@@ -168,9 +200,7 @@ export default async function ImpersonatedDayPage({
   // ============================================================
   // DAY CONTENT
   //
-  // IMPORTANT:
-  // This query matches the REAL database schema.
-  // Ordering uses "position", not "sort_order".
+  // day_content is the source of truth for ordering.
   // ============================================================
 
   const {
@@ -184,6 +214,13 @@ export default async function ImpersonatedDayPage({
       title,
       description,
       position,
+
+      day_content (
+        id,
+        content_type,
+        content_id,
+        position
+      ),
 
       modules (
         id,
@@ -291,31 +328,25 @@ export default async function ImpersonatedDayPage({
   // ============================================================
 
   const progress: ProgressMap = {
-  setup: {},
-  modules: {},
-  materials: {},
-  activities: {},
-  quizzes: {},
-  percent: 0,
-};
+    setup: {},
+    modules: {},
+    materials: {},
+    activities: {},
+    quizzes: {},
+    percent: 0,
+  };
 
-  for (
-    const item of rawProgress.modules ?? []
-  ) {
+  for (const item of rawProgress.modules ?? []) {
     progress.modules[item.module_id] =
       item.status ?? "not_started";
   }
 
-  for (
-    const item of rawProgress.materials ?? []
-  ) {
+  for (const item of rawProgress.materials ?? []) {
     progress.materials[item.material_id] =
       item.completed ?? false;
   }
 
-  for (
-    const item of rawProgress.activities ?? []
-  ) {
+  for (const item of rawProgress.activities ?? []) {
     progress.activities[item.activity_id] =
       item.status ?? "not_started";
   }
@@ -327,29 +358,14 @@ export default async function ImpersonatedDayPage({
   const checkpointProgress:
     CheckpointProgressMap = {};
 
-  for (
-    const item of rawProgress.checkpoints ?? []
-  ) {
-    checkpointProgress[
-      item.checkpoint_id
-    ] = {
-      status:
-        item.status ?? "not_started",
-
-      score:
-        item.score,
-
-      passed:
-        item.passed,
-
-      trainer_feedback:
-        item.trainer_feedback,
-
-      submitted_at:
-        item.submitted_at,
-
-      graded_at:
-        item.graded_at,
+  for (const item of rawProgress.checkpoints ?? []) {
+    checkpointProgress[item.checkpoint_id] = {
+      status: item.status ?? "not_started",
+      score: item.score,
+      passed: item.passed,
+      trainer_feedback: item.trainer_feedback,
+      submitted_at: item.submitted_at,
+      graded_at: item.graded_at,
     };
   }
 
@@ -367,10 +383,6 @@ export default async function ImpersonatedDayPage({
 
   const modules: LearnerModule[] =
     rawModules.map((module) => {
-      // --------------------------------------------------------
-      // MATERIALS
-      // --------------------------------------------------------
-
       const materials = [
         ...(module.materials ?? []),
       ]
@@ -382,20 +394,12 @@ export default async function ImpersonatedDayPage({
         .map((material) => ({
           id: material.id,
           title: material.title,
-          description:
-            material.description,
-          material_type:
-            material.material_type,
+          description: material.description,
+          material_type: material.material_type,
           url: material.url,
-          is_required:
-            material.is_required,
-          position:
-            material.position ?? 0,
+          is_required: material.is_required,
+          position: material.position ?? 0,
         }));
-
-      // --------------------------------------------------------
-      // ACTIVITIES
-      // --------------------------------------------------------
 
       const activities = [
         ...(module.activities ?? []),
@@ -408,25 +412,15 @@ export default async function ImpersonatedDayPage({
         .map((activity) => ({
           id: activity.id,
           title: activity.title,
-          description:
-            activity.description,
-          instructions:
-            activity.instructions,
-          activity_type:
-            activity.activity_type,
+          description: activity.description,
+          instructions: activity.instructions,
+          activity_type: activity.activity_type,
           duration_minutes:
             activity.duration_minutes,
-          is_required:
-            activity.is_required,
-          resource_url:
-            activity.resource_url,
-          position:
-            activity.position ?? 0,
+          is_required: activity.is_required,
+          resource_url: activity.resource_url,
+          position: activity.position ?? 0,
         }));
-
-      // --------------------------------------------------------
-      // QUIZZES
-      // --------------------------------------------------------
 
       const quizzes = [
         ...(module.quizzes ?? []),
@@ -443,41 +437,24 @@ export default async function ImpersonatedDayPage({
         .map((quiz) => ({
           id: quiz.id,
           title: quiz.title,
-          description:
-            quiz.description,
-          instructions:
-            quiz.instructions,
-          passing_score:
-            quiz.passing_score,
-          max_attempts:
-            quiz.max_attempts,
-          is_required:
-            quiz.is_required,
-          is_published:
-            quiz.is_published,
-          show_results:
-            quiz.show_results,
-          position:
-            quiz.position ?? 0,
+          description: quiz.description,
+          instructions: quiz.instructions,
+          passing_score: quiz.passing_score,
+          max_attempts: quiz.max_attempts,
+          is_required: quiz.is_required,
+          is_published: quiz.is_published,
+          show_results: quiz.show_results,
+          position: quiz.position ?? 0,
         }));
-
-      // --------------------------------------------------------
-      // MODULE
-      // --------------------------------------------------------
 
       return {
         id: module.id,
         title: module.title,
-        description:
-          module.description,
-        objective:
-          module.objective,
-        duration_minutes:
-          module.duration_minutes,
-        is_required:
-          module.is_required,
-        position:
-          module.position ?? 0,
+        description: module.description,
+        objective: module.objective,
+        duration_minutes: module.duration_minutes,
+        is_required: module.is_required,
+        position: module.position ?? 0,
         materials,
         activities,
         quizzes,
@@ -485,16 +462,82 @@ export default async function ImpersonatedDayPage({
     });
 
   // ============================================================
-  // CHECKPOINTS
+  // NORMALIZE CHECKPOINTS
   // ============================================================
 
-  const checkpoints = [
+  const checkpoints: Checkpoint[] = [
     ...(day.checkpoints ?? []),
-  ].sort(
-    (a, b) =>
-      (a.position ?? 0) -
-      (b.position ?? 0)
+  ].map((checkpoint) => ({
+    id: checkpoint.id,
+    title: checkpoint.title,
+    description: checkpoint.description,
+    checkpoint_type: checkpoint.checkpoint_type,
+    passing_score: checkpoint.passing_score,
+    is_required: checkpoint.is_required,
+    position: checkpoint.position ?? 0,
+    quiz_id: checkpoint.quiz_id,
+  }));
+
+  // ============================================================
+  // BUILD ORDERED CONTENT
+  //
+  // Modules and checkpoints are interleaved according to
+  // day_content.position.
+  // ============================================================
+
+  const moduleMap = new Map(
+    modules.map((module) => [
+      module.id,
+      module,
+    ])
   );
+
+  const checkpointMap = new Map(
+    checkpoints.map((checkpoint) => [
+      checkpoint.id,
+      checkpoint,
+    ])
+  );
+
+  const orderedContent: OrderedContent[] = [];
+
+  const dayContent = [
+    ...((day.day_content ?? []) as DayContentItem[]),
+  ].sort(
+    (a, b) => a.position - b.position
+  );
+
+  for (const item of dayContent) {
+    if (item.content_type === "module") {
+      const module = moduleMap.get(
+        item.content_id
+      );
+
+      if (module) {
+        orderedContent.push({
+          type: "module",
+          id: module.id,
+          position: item.position,
+          module,
+        });
+      }
+    }
+
+    if (item.content_type === "checkpoint") {
+      const checkpoint = checkpointMap.get(
+        item.content_id
+      );
+
+      if (checkpoint) {
+        orderedContent.push({
+          type: "checkpoint",
+          id: checkpoint.id,
+          position: item.position,
+          checkpoint,
+        });
+      }
+    }
+  }
 
   // ============================================================
   // DAY SUMMARY
@@ -503,29 +546,43 @@ export default async function ImpersonatedDayPage({
   const completedModules =
     modules.filter(
       (module) =>
-        progress.modules[
-          module.id
-        ] === "completed"
+        progress.modules[module.id] === "completed"
     ).length;
 
-  const passedCheckpoints =
-    checkpoints.filter(
-      (checkpoint) =>
-        checkpointProgress[
-          checkpoint.id
-        ]?.passed === true
-    ).length;
+  const isCheckpointComplete = (
+    checkpoint: Checkpoint
+  ) => {
+    const result =
+      checkpointProgress[checkpoint.id];
+
+    if (!result) {
+      return false;
+    }
+
+    if (
+      checkpoint.checkpoint_type ===
+      "assessment"
+    ) {
+      return (
+        result.status === "completed" &&
+        result.passed === true
+      );
+    }
+
+    return result.status === "completed";
+  };
+
+  const completedCheckpoints =
+    checkpoints.filter(isCheckpointComplete).length;
 
   const requiredModules =
     modules.filter(
-      (module) =>
-        module.is_required
+      (module) => module.is_required
     );
 
   const requiredCheckpoints =
     checkpoints.filter(
-      (checkpoint) =>
-        checkpoint.is_required
+      (checkpoint) => checkpoint.is_required
     );
 
   const requiredItems =
@@ -535,17 +592,12 @@ export default async function ImpersonatedDayPage({
   const completedRequiredModules =
     requiredModules.filter(
       (module) =>
-        progress.modules[
-          module.id
-        ] === "completed"
+        progress.modules[module.id] === "completed"
     ).length;
 
   const completedRequiredCheckpoints =
     requiredCheckpoints.filter(
-      (checkpoint) =>
-        checkpointProgress[
-          checkpoint.id
-        ]?.passed === true
+      isCheckpointComplete
     ).length;
 
   const completedRequiredItems =
@@ -596,12 +648,7 @@ export default async function ImpersonatedDayPage({
                 aria-hidden="true"
               >
                 <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="2.5"
-                />
+                <circle cx="12" cy="12" r="2.5" />
               </svg>
             </div>
 
@@ -673,9 +720,7 @@ export default async function ImpersonatedDayPage({
                   </p>
 
                   <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                    {completedRequiredItems}/
-                    {requiredItems} required items
-                    completed
+                    {completedRequiredItems}/{requiredItems} required items completed
                   </p>
                 </div>
 
@@ -695,150 +740,148 @@ export default async function ImpersonatedDayPage({
 
               <div className="mt-4 flex flex-wrap gap-4 text-[11px] text-[var(--text-secondary)]">
                 <span>
-                  Modules: {completedModules}/
-                  {modules.length}
+                  Modules: {completedModules}/{modules.length}
                 </span>
 
                 <span>
-                  Checkpoints:{" "}
-                  {passedCheckpoints}/
-                  {checkpoints.length}
+                  Checkpoints: {completedCheckpoints}/{checkpoints.length}
                 </span>
               </div>
             </div>
           </div>
 
           {/* ===================================================
-              MODULES
+              ORDERED DAY CONTENT
           =================================================== */}
 
           <div className="mt-6 space-y-6">
-            {modules.map((module) => (
-              <div key={module.id}>
-                <LearnerModuleCard
-                  module={module}
-                  progress={progress}
-                  readOnly
-                />
+            {orderedContent.map((content) => {
+              // ===============================================
+              // MODULE
+              // ===============================================
 
-                <ModuleNotes
-                  moduleId={module.id}
-                  learnerId={learnerId}
-                  readOnly
-                />
-              </div>
-            ))}
-          </div>
+              if (content.type === "module") {
+                return (
+                  <div key={`module-${content.id}`}>
+                    <LearnerModuleCard
+                      module={content.module}
+                      progress={progress}
+                      readOnly
+                    />
 
-          {/* ===================================================
-              CHECKPOINTS
-          =================================================== */}
+                    <ModuleNotes
+                      moduleId={content.module.id}
+                      learnerId={learnerId}
+                      readOnly
+                    />
+                  </div>
+                );
+              }
 
-          {checkpoints.length > 0 && (
-            <div className="mt-8">
-              <div className="mb-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  Checkpoints
-                </p>
+              // ===============================================
+              // CHECKPOINT
+              // ===============================================
 
-                <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  Evaluation status for this
-                  trainee.
-                </p>
-              </div>
+              const checkpoint =
+                content.checkpoint;
 
-              <div className="space-y-3">
-                {checkpoints.map(
-                  (checkpoint) => {
-                    const result =
-                      checkpointProgress[
-                        checkpoint.id
-                      ];
+              const result =
+                checkpointProgress[
+                  checkpoint.id
+                ];
 
-                    const passed =
-                      result?.passed === true;
+              const completed =
+                isCheckpointComplete(checkpoint);
 
-                    return (
-                      <div
-                        key={checkpoint.id}
-                        className="rounded-[14px] border border-[var(--border)] bg-white px-4 py-4"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-4">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--teal-deep)]">
-                                {
-                                  checkpoint.checkpoint_type
-                                }
-                              </span>
+              const isAssessment =
+                checkpoint.checkpoint_type ===
+                "assessment";
 
-                              {checkpoint.is_required && (
-                                <span className="text-[10px] font-semibold text-[var(--text-muted)]">
-                                  · Required
-                                </span>
-                              )}
-                            </div>
+              return (
+                <div
+                  key={`checkpoint-${content.id}`}
+                  className="rounded-[14px] border border-[var(--border)] bg-white px-4 py-4 shadow-[var(--shadow-sm)]"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--teal-deep)]">
+                          {checkpoint.checkpoint_type.replace(
+                            /_/g,
+                            " "
+                          )}
+                        </span>
 
-                            <h3 className="mt-1 text-[13px] font-semibold text-[var(--text-primary)]">
-                              {checkpoint.title}
-                            </h3>
-
-                            {checkpoint.description && (
-                              <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-                                {
-                                  checkpoint.description
-                                }
-                              </p>
-                            )}
-
-                            {result?.score !==
-                              null &&
-                              result?.score !==
-                                undefined && (
-                                <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
-                                  Score:{" "}
-                                  {result.score}%
-                                </p>
-                              )}
-
-                            {result?.trainer_feedback && (
-                              <div className="mt-3 rounded-[10px] bg-[var(--surface-soft)] px-3.5 py-3">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                                  Trainer feedback
-                                </p>
-
-                                <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-                                  {
-                                    result.trainer_feedback
-                                  }
-                                </p>
-                              </div>
-                            )}
-                          </div>
-
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1.5 text-[10px] font-semibold ${
-                              passed
-                                ? "bg-[var(--success-soft)] text-[var(--success)]"
-                                : result
-                                  ? "bg-[var(--warning-soft)] text-[var(--warning)]"
-                                  : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
-                            }`}
-                          >
-                            {passed
-                              ? "Passed"
-                              : result
-                                ? result.status
-                                : "Not started"}
+                        {checkpoint.is_required && (
+                          <span className="text-[10px] font-semibold text-[var(--text-muted)]">
+                            · Required
                           </span>
-                        </div>
+                        )}
                       </div>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-          )}
+
+                      <h3 className="mt-1 text-[13px] font-semibold text-[var(--text-primary)]">
+                        {checkpoint.title}
+                      </h3>
+
+                      {checkpoint.description && (
+                        <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                          {checkpoint.description}
+                        </p>
+                      )}
+
+                      {result?.score !== null &&
+                        result?.score !== undefined && (
+                          <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
+                            Score: {result.score}%
+                          </p>
+                        )}
+
+                      {result?.trainer_feedback && (
+                        <div className="mt-3 rounded-[10px] bg-[var(--surface-soft)] px-3.5 py-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                            Trainer feedback
+                          </p>
+
+                          <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+                            {result.trainer_feedback}
+                          </p>
+                        </div>
+                      )}
+
+                      {isAssessment &&
+                        checkpoint.quiz_id && (
+                          <div className="mt-3">
+                            <Link
+                              href={`/trainer/impersonate/${learnerId}/quiz/${checkpoint.quiz_id}`}
+                              className="inline-flex min-h-9 items-center rounded-[9px] border border-[var(--border)] bg-white px-3.5 text-[12px] font-semibold !text-[var(--teal-deep)] transition hover:bg-[var(--surface-soft)]"
+                            >
+                              View assessment
+                            </Link>
+                          </div>
+                        )}
+                    </div>
+
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1.5 text-[10px] font-semibold ${
+                        completed
+                          ? "bg-[var(--success-soft)] text-[var(--success)]"
+                          : result
+                            ? "bg-[var(--warning-soft)] text-[var(--warning)]"
+                            : "bg-[var(--surface-muted)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {completed
+                        ? isAssessment
+                          ? "Passed"
+                          : "Completed"
+                        : result?.status ??
+                          "Not started"}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </AppShell>

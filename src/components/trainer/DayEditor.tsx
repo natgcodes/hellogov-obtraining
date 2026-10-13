@@ -87,7 +87,7 @@ type SupabaseCheckpoint = {
   meeting_url: string | null;
   scheduled_at: string | null;
   duration_minutes: number | null;
-  quizzes: Quiz[];
+  quizzes: Quiz | Quiz[] | null;
 };
 
 type DayContent = {
@@ -1023,17 +1023,17 @@ function CheckpointCard({
       checkpoint.checkpoint_type
     );
 
-  const scheduledLabel =
-    checkpoint.checkpoint_type ===
-    "trainer_session"
-      ? formatSessionDate(
-          checkpoint.scheduled_at
-        )
+      const scheduledLabel =
+    checkpoint.checkpoint_type === "trainer_session"
+      ? formatSessionDate(checkpoint.scheduled_at)
       : null;
 
+  const checkpointQuiz = Array.isArray(checkpoint.quizzes)
+    ? checkpoint.quizzes[0] ?? null
+    : checkpoint.quizzes ?? null;
+
   const questionCount =
-    checkpoint.quizzes?.[0]
-      ?.quiz_questions?.length ?? 0;
+    checkpointQuiz?.quiz_questions?.length ?? 0;
 
   return (
     <>

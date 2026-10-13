@@ -26,7 +26,7 @@ type Checkpoint = {
   meeting_url: string | null;
   scheduled_at: string | null;
   duration_minutes: number | null;
-  quizzes: Quiz[];
+  quizzes: Quiz | Quiz[] | null;
 };
 
 type CheckpointEditorProps = {
@@ -194,8 +194,9 @@ export default function CheckpointEditor({
     setErrorMessage,
   ] = useState<string | null>(null);
 
-  const quiz =
-    checkpoint.quizzes?.[0] ?? null;
+  const quiz = Array.isArray(checkpoint.quizzes)
+  ? checkpoint.quizzes[0] ?? null
+  : checkpoint.quizzes ?? null;
 
   const questions =
     quiz?.quiz_questions ?? [];

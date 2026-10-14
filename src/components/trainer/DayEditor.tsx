@@ -66,6 +66,7 @@ type SupabaseModule = {
   duration_minutes: number | null;
   position: number;
   is_required: boolean;
+  publication_status: "draft" | "locked" | "published";
   materials: SupabaseMaterial[];
   activities: SupabaseActivity[];
   quizzes: Quiz[];
@@ -655,65 +656,81 @@ function ModuleCard({
   return (
     <>
       <div className="overflow-hidden rounded-[18px] border border-[#e5e7eb] bg-white">
-        <div className="flex items-start gap-4 p-5">
-          <div className="flex shrink-0 items-center gap-2">
-            {dragHandle}
+  <div className="flex items-start gap-4 p-5">
+    <div className="flex shrink-0 items-center gap-2">
+      {dragHandle}
 
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0FAFB] text-xs font-semibold text-[#08788A]">
-              {moduleNumber}
-            </div>
-          </div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F0FAFB] text-xs font-semibold text-[#08788A]">
+        {moduleNumber}
+      </div>
+    </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#08A9C1]">
-                    Module
-                  </span>
+    <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#08A9C1]">
+              Module
+            </span>
 
-                  {module.is_required && (
-                    <span className="rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
-                      Required
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="mt-1 text-[15px] font-semibold text-[#172033]">
-                  {module.title}
-                </h3>
-
-                {module.description && (
-                  <p className="mt-1.5 whitespace-pre-wrap text-sm leading-5 text-[#667085]">
-                    {module.description}
-                  </p>
-                )}
-              </div>
-
-              <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-                  module.duration_minutes
-                    ? "bg-[#f2f4f7] text-[#667085]"
-                    : "bg-[#fff8e7] text-[#b7791f]"
-                }`}
-              >
-                {formatDuration(module.duration_minutes)}
+            {module.is_required && (
+              <span className="rounded-full bg-[#f2f4f7] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#667085]">
+                Required
               </span>
-            </div>
-
-            {module.objective && (
-              <div className="mt-4 rounded-xl bg-[#f9fafb] px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a2b3]">
-                  Learning objective
-                </p>
-
-                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-5 text-[#475467]">
-                  {module.objective}
-                </p>
-              </div>
             )}
+
+            <span
+              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                module.publication_status === "published"
+                  ? "bg-[#ecfdf3] text-[#067647]"
+                  : module.publication_status === "locked"
+                    ? "bg-[#fff8e7] text-[#b7791f]"
+                    : "bg-[#f2f4f7] text-[#667085]"
+              }`}
+            >
+              {module.publication_status === "published"
+                ? "Published"
+                : module.publication_status === "locked"
+                  ? "Locked"
+                  : "Draft"}
+            </span>
           </div>
+
+          <h3 className="mt-1 text-[15px] font-semibold text-[#172033]">
+            {module.title}
+          </h3>
+
+          {module.description && (
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-5 text-[#667085]">
+              {module.description}
+            </p>
+          )}
         </div>
+
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+            module.duration_minutes
+              ? "bg-[#f2f4f7] text-[#667085]"
+              : "bg-[#fff8e7] text-[#b7791f]"
+          }`}
+        >
+          {formatDuration(module.duration_minutes)}
+        </span>
+      </div>
+
+      {module.objective && (
+        <div className="mt-4 rounded-xl bg-[#f9fafb] px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a2b3]">
+            Learning objective
+          </p>
+
+          <p className="mt-1.5 whitespace-pre-wrap text-sm leading-5 text-[#475467]">
+            {module.objective}
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
 
         <div className="border-t border-[#eef0f3] px-5 py-4">
           <div className="grid gap-5 xl:grid-cols-3">

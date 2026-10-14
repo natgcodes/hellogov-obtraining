@@ -22,6 +22,12 @@ type Props = {
   }>;
 };
 
+type PublicationStatus = "draft" | "locked" | "published";
+
+type VisibleLearnerModule = LearnerModule & {
+  publication_status: PublicationStatus;
+};
+
 type CheckpointType =
   | "assessment"
   | "trainer_session"
@@ -56,7 +62,7 @@ type OrderedDayContent =
       type: "module";
       id: string;
       position: number;
-      module: LearnerModule;
+      module: VisibleLearnerModule;
     }
   | {
       type: "checkpoint";
@@ -331,8 +337,9 @@ export default async function LearnerDayPage({
           description,
           objective,
           duration_minutes,
-          position,
+                    position,
           is_required,
+          publication_status,
 
           materials (
             id,
@@ -493,9 +500,11 @@ export default async function LearnerDayPage({
   // NORMALIZE MODULES
   // ---------------------------------------------------------
 
-  const modules: LearnerModule[] = (
-    day.modules ?? []
-  ).map((module) => ({
+  const modules: VisibleLearnerModule[] = (
+  day.modules ?? []
+)
+  .filter((module) => module.publication_status !== "draft")
+  .map((module) => ({
     ...module,
 
     materials: [
@@ -846,12 +855,11 @@ const checkpointProgress =
     );
 
   const completedModules =
-    requiredModules.filter(
-      (module) =>
-        progress.modules[
-          module.id
-        ] === "completed"
-    ).length;
+  requiredModules.filter(
+    (module) =>
+      module.publication_status === "published" &&
+      progress.modules[module.id] === "completed"
+  ).length;
 
   const totalModules =
     modules.length;
@@ -1024,96 +1032,68 @@ const checkpointProgress =
               </div>
             </div>
 
-            {/* DAY PROGRESS */}
+                    {/* DAY PROGRESS */}
 
-            <div className="border-t border-[var(--border-soft)] bg-[var(--surface-soft)] p-6 lg:border-l lg:border-t-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                Day progress
-              </p>
+        <div className="border-t border-[var(--border-soft)] bg-[var(--surface-soft)] p-6 lg:border-l lg:border-t-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+            Day progress
+          </p>
 
-              <div className="mt-3 flex items-end justify-between gap-3">
-                <span className="text-[28px] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
-                  {dayCompleted
-                    ? 100
-                    : dayProgress}
-                  %
-                </span>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <span className="text-[28px] font-semibold tracking-[-0.04em] text-[var(--text-primary)]">
+              {dayCompleted ? 100 : dayProgress}%
+            </span>
 
-                <span className="pb-1 text-[11px] text-[var(--text-muted)]">
-                  {
-                    completedRequiredItems
-                  }
-                  /
-                  {
-                    totalRequiredItems
-                  }
-                </span>
-              </div>
-
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    dayCompleted
-                      ? "bg-[var(--success)]"
-                      : "bg-[var(--teal)]"
-                  }`}
-                  style={{
-                    width: `${
-                      dayCompleted
-                        ? 100
-                        : Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              dayProgress
-                            )
-                          )
-                    }%`,
-                  }}
-                />
-              </div>
-
-              <div className="mt-5 space-y-2.5 border-t border-[var(--border)] pt-4">
-                <div className="flex items-center justify-between gap-3 text-[11px]">
-                  <span className="text-[var(--text-muted)]">
-                    Required modules
-                  </span>
-
-                  <span className="font-medium text-[var(--text-secondary)]">
-                    {
-                      completedModules
-                    }
-                    /
-                    {
-                      requiredModules.length
-                    }
-                  </span>
-                </div>
-
-                {requiredCheckpoints.length >
-                  0 && (
-                  <div className="flex items-center justify-between gap-3 text-[11px]">
-                    <span className="text-[var(--text-muted)]">
-                      Required checkpoints
-                    </span>
-
-                    <span className="font-medium text-[var(--text-secondary)]">
-                      {
-                        completedCheckpoints
-                      }
-                      /
-                      {
-                        totalCheckpoints
-                      }
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <span className="pb-1 text-[11px] text-[var(--text-muted)]">
+              {completedRequiredItems}/{totalRequiredItems}
+            </span>
           </div>
-        </section>
 
-        {/* LEARNING PATH */}
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                dayCompleted
+                  ? "bg-[var(--success)]"
+                  : "bg-[var(--teal)]"
+              }`}
+              style={{
+                width: `${
+                  dayCompleted
+                    ? 100
+                    : Math.min(100, Math.max(0, dayProgress))
+                }%`,
+              }}
+            />
+          </div>
+
+          <div className="mt-5 space-y-2.5 border-t border-[var(--border)] pt-4">
+            <div className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="text-[var(--text-muted)]">
+                Required modules
+              </span>
+
+              <span className="font-medium text-[var(--text-secondary)]">
+                {completedModules}/{requiredModules.length}
+              </span>
+            </div>
+
+            {requiredCheckpoints.length > 0 && (
+              <div className="flex items-center justify-between gap-3 text-[11px]">
+                <span className="text-[var(--text-muted)]">
+                  Required checkpoints
+                </span>
+
+                <span className="font-medium text-[var(--text-secondary)]">
+                  {completedCheckpoints}/{totalCheckpoints}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+
+            {/* LEARNING PATH */}
 
         <section className="mt-9">
           <div className="mb-4">
@@ -1126,73 +1106,96 @@ const checkpointProgress =
             </h2>
 
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Work through the learning
-              path in order and complete
-              the required content.
+              Work through the learning path in order and complete the required content.
             </p>
           </div>
 
-          {orderedContent.length >
-          0 ? (
+          {orderedContent.length > 0 ? (
             <div className="space-y-4">
-              {orderedContent.map(
-                (content) => {
-                  // MODULE
+              {orderedContent.map((content) => {
+                // MODULE
 
-                  if (
-                    content.type ===
-                    "module"
-                  ) {
-                    const module =
-                      content.module;
+                if (content.type === "module") {
+                  const module = content.module;
 
-                    const moduleNumber =
-                      moduleNumbers.get(
-                        module.id
-                      ) ?? 1;
+                  const moduleNumber =
+                    moduleNumbers.get(module.id) ?? 1;
 
-                    return (
-                      <div
-                        key={
-                          content.id
-                        }
-                        className="relative"
-                      >
-                        <div className="mb-2 flex items-center gap-2 px-1">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[9px] font-semibold text-[var(--text-muted)]">
-                            {
-                              moduleNumber
-                            }
-                          </span>
+                  return (
+                    <div
+                      key={content.id}
+                      className="relative"
+                    >
+                      <div className="mb-2 flex items-center gap-2 px-1">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[9px] font-semibold text-[var(--text-muted)]">
+                          {moduleNumber}
+                        </span>
 
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                            Module{" "}
-                            {
-                              moduleNumber
-                            }
-                          </span>
-                        </div>
-
-                        <div className="overflow-hidden rounded-[18px]">
-                          <LearnerModuleCard
-                            module={
-                              module
-                            }
-                            progress={
-                              progress
-                            }
-                          />
-
-                          <ModuleNotes
-                            moduleId={
-                              module.id
-                            }
-                          />
-                        </div>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                          Module {moduleNumber}
+                        </span>
                       </div>
-                    );
-                  }
 
+                      <div className="overflow-hidden rounded-[18px]">
+                        {module.publication_status === "locked" ? (
+                          <div className="rounded-[18px] border border-[var(--border)] bg-white p-5 shadow-[var(--shadow-xs)] sm:p-6">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--warning-soft)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--warning)]">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="13"
+                                  height="13"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <rect
+                                    x="3"
+                                    y="11"
+                                    width="18"
+                                    height="11"
+                                    rx="2"
+                                  />
+                                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                                Locked module
+                              </span>
+
+                              {module.is_required && (
+                                <span className="rounded-full bg-[var(--surface-muted)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-muted)]">
+                                  Required
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="mt-3 text-[15px] font-semibold text-[var(--text-primary)]">
+                              {module.title}
+                            </h3>
+
+                            <p className="mt-2 text-[12px] leading-5 text-[var(--text-muted)]">
+                              Your trainer will unlock this module soon.
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <LearnerModuleCard
+                              module={module}
+                              progress={progress}
+                            />
+
+                            <ModuleNotes
+                              moduleId={module.id}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
                   // CHECKPOINT
 
                   const checkpoint =

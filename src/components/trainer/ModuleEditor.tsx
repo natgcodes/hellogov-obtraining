@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type PublicationStatus = "draft" | "locked" | "published";
+
 type EditableModule = {
   id: string;
   title: string;
@@ -12,6 +14,7 @@ type EditableModule = {
   duration_minutes: number | null;
   position: number;
   is_required: boolean;
+  publication_status: PublicationStatus;
 };
 
 type ModuleEditorProps = {
@@ -40,14 +43,19 @@ export default function ModuleEditor({
     module.is_required
   );
 
+  const [publicationStatus, setPublicationStatus] =
+    useState<PublicationStatus>(
+      module.publication_status ?? "published"
+    );
+
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] =
     useState(false);
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    null
-  );
+  const [errorMessage, setErrorMessage] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     setTitle(module.title);
@@ -55,6 +63,9 @@ export default function ModuleEditor({
     setObjective(module.objective ?? "");
     setDuration(module.duration_minutes?.toString() ?? "");
     setIsRequired(module.is_required);
+    setPublicationStatus(
+      module.publication_status ?? "published"
+    );
     setErrorMessage(null);
     setShowDeleteConfirmation(false);
   }, [module]);
@@ -89,6 +100,7 @@ export default function ModuleEditor({
         objective: objective.trim() || null,
         duration_minutes: parsedDuration,
         is_required: isRequired,
+        publication_status: publicationStatus,
       })
       .eq("id", module.id);
 
@@ -270,6 +282,42 @@ export default function ModuleEditor({
             </div>
           </div>
 
+          {/* Publication status */}
+          <div>
+            <label
+              htmlFor="module-publication-status"
+              className="mb-1.5 block text-sm font-medium text-[#344054]"
+            >
+              Publication status
+            </label>
+
+            <select
+              id="module-publication-status"
+              value={publicationStatus}
+              onChange={(event) =>
+                setPublicationStatus(
+                  event.target.value as PublicationStatus
+                )
+              }
+              disabled={isBusy}
+              className="w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none transition focus:border-[#4f7cff] focus:ring-4 focus:ring-[#4f7cff]/10 disabled:bg-[#f9fafb]"
+            >
+              <option value="draft">Draft</option>
+              <option value="locked">Locked</option>
+              <option value="published">Published</option>
+            </select>
+
+            <div className="mt-2 rounded-xl bg-[#f9fafb] px-4 py-3">
+              <p className="text-xs leading-5 text-[#667085]">
+                {publicationStatus === "draft"
+                  ? "Only trainers can see this module. It will not count toward trainee progress or day completion."
+                  : publicationStatus === "locked"
+                    ? "Trainees can see the module title, but cannot access its content until it is published. Required locked modules prevent day completion."
+                    : "Trainees can access this module. If required, it counts toward day completion."}
+              </p>
+            </div>
+          </div>
+
           <div className="rounded-xl bg-[#f9fafb] px-4 py-3">
             <p className="text-xs leading-5 text-[#667085]">
               Materials and practice activities will be managed
@@ -320,7 +368,7 @@ export default function ModuleEditor({
                       setShowDeleteConfirmation(false)
                     }
                     disabled={isBusy}
-                    className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#344054] transition hover:bg-[#f9fafb] disabled:opacity-50"
+                    className="rounded-lg border border-[#d0d5dd] bg-white px-3 py-2 text-xs font-semibold text-[#344054] hover:bg-[#f9fafb] disabled:opacity-50"
                   >
                     Keep module
                   </button>

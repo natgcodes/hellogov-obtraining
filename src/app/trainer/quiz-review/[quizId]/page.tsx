@@ -26,6 +26,14 @@ type QuizOption = {
   is_correct: boolean;
 };
 
+type MatchingPair = {
+  id: string;
+  question_id: string;
+  left_text: string;
+  right_text: string;
+  position: number;
+};
+
 export default async function QuizReviewDetailPage({
   params,
 }: PageProps) {
@@ -186,9 +194,43 @@ export default async function QuizReviewDetailPage({
     optionsByQuestion.set(option.question_id, existing);
   }
 
+  // ---------------------------------------------------------
+  // FETCH MATCHING PAIRS
+  // ---------------------------------------------------------
+
+  const { data: matchingPairs, error: matchingError } =
+    questionIds.length > 0
+      ? await supabase
+          .from("quiz_matching_pairs")
+          .select(
+            "id,question_id,left_text,right_text,position"
+          )
+          .in("question_id", questionIds)
+          .order("position", { ascending: true })
+      : { data: [], error: null };
+
+  const matchingByQuestion = new Map<
+    string,
+    MatchingPair[]
+  >();
+
+  for (const pair of (matchingPairs ?? []) as MatchingPair[]) {
+    const existing =
+      matchingByQuestion.get(pair.question_id) ?? [];
+
+    existing.push(pair);
+
+    matchingByQuestion.set(pair.question_id, existing);
+  }
+
+  // ---------------------------------------------------------
+  // ERRORS
+  // ---------------------------------------------------------
+
   const errors = [
     questionsError?.message,
     optionsError?.message,
+    matchingError?.message,
   ].filter((message): message is string => Boolean(message));
 
   return (
@@ -269,10 +311,23 @@ export default async function QuizReviewDetailPage({
                 const questionOptions =
                   optionsByQuestion.get(question.id) ?? [];
 
+                const questionMatchingPairs =
+                  matchingByQuestion.get(question.id) ?? [];
+
+                const isMatching =
+                  question.question_type === "matching";
+
                 const hasCorrectAnswers =
                   questionOptions.some(
                     (option) => option.is_correct
                   );
+
+                const hasMatchingAnswers =
+                  isMatching &&
+                  questionMatchingPairs.length > 0;
+
+                const hasPredefinedAnswers =
+                  hasCorrectAnswers || hasMatchingAnswers;
 
                 return (
                   <article
@@ -287,9 +342,9 @@ export default async function QuizReviewDetailPage({
                       </span>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {hasCorrectAnswers && (
+                        {hasPredefinedAnswers && (
                           <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-semibold text-green-700">
-                            Auto-graded
+                            Answer Key Available
                           </span>
                         )}
 
@@ -363,9 +418,58 @@ export default async function QuizReviewDetailPage({
                       </div>
                     )}
 
+                    {/* MATCHING CORRECT ANSWERS */}
+
+                    {hasMatchingAnswers && (
+                      <div className="mt-5 overflow-hidden rounded-[10px] border border-green-200">
+
+                        {/* MATCHING HEADER */}
+
+                        <div className="border-b border-green-200 bg-green-50 px-4 py-3">
+                          <p className="text-[12px] font-semibold text-green-800">
+                            ✓ Correct Matches
+                          </p>
+
+                          <p className="mt-1 text-[11px] text-green-700">
+                            These are the correct pairs configured
+                            for this matching question.
+                          </p>
+                        </div>
+
+                        {/* MATCHING PAIRS */}
+
+                        <div className="divide-y divide-[var(--border-soft)]">
+                          {questionMatchingPairs.map((pair) => (
+                            <div
+                              key={pair.id}
+                              className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                            >
+                              {/* LEFT ITEM */}
+
+                              <span className="whitespace-pre-wrap text-[13px] font-medium leading-5 text-[var(--text-primary)]">
+                                {pair.left_text}
+                              </span>
+
+                              {/* ARROW */}
+
+                              <span className="text-[13px] font-semibold text-green-700">
+                                →
+                              </span>
+
+                              {/* CORRECT MATCH */}
+
+                              <span className="whitespace-pre-wrap text-[13px] font-semibold leading-5 text-green-800">
+                                {pair.right_text}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* MANUAL REVIEW INDICATOR */}
 
-                    {!hasCorrectAnswers && (
+                    {!hasPredefinedAnswers && (
                       <div className="mt-5 rounded-[10px] border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3">
                         <p className="text-[12px] font-medium text-[var(--text-secondary)]">
                           Manual Review

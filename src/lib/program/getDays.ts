@@ -20,7 +20,7 @@ export async function getDays() {
         position
       ),
 
-      modules (
+           modules (
         id,
         title,
         description,
@@ -28,6 +28,7 @@ export async function getDays() {
         duration_minutes,
         position,
         is_required,
+        publication_status,
 
         materials (
           id,

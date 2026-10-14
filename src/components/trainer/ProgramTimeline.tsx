@@ -40,6 +40,7 @@ type SupabaseModule = {
   duration_minutes: number | null;
   position: number;
   is_required: boolean;
+  publication_status: "draft" | "locked" | "published";
   materials: SupabaseMaterial[];
   activities: SupabaseActivity[];
   quizzes: Quiz[];

@@ -315,7 +315,10 @@ export default async function QuizReviewDetailPage({
                   matchingByQuestion.get(question.id) ?? [];
 
                 const isMatching =
-                  question.question_type === "matching";
+
+  question.question_type === "matching" ||
+
+  question.question_type === "match_cards";
 
                 const hasCorrectAnswers =
                   questionOptions.some(

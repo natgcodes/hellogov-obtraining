@@ -312,6 +312,12 @@ export default function AppShell({
       href: "/trainer/review",
       icon: "review",
     },
+{
+      label: "Quiz Review",
+      href: "/trainer/quiz-review",
+      icon: "submissions",
+
+    },
     {
       label: "Q&A",
       href: "/trainer/questions",

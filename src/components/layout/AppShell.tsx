@@ -318,7 +318,7 @@ export default function AppShell({
       icon: "submissions",
     },
     {
-      label: "Trainee Notes",
+      label: "Training Notes",
       href: "/trainer/notes",
       icon: "notes",
     },

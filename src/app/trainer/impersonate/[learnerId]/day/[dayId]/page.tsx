@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import LearnerModuleCard from "@/components/learning/LearnerModuleCard";
 import ModuleNotes from "@/components/learning/ModuleNotes";
+import DualDateTime from "@/components/ui/DualDateTime";
 
 import { createClient } from "@/lib/supabase/server";
 import { getImpersonatedLearnerJourney } from "@/lib/trainer/getImpersonatedLearner";
@@ -74,6 +75,9 @@ type Checkpoint = {
   is_required: boolean;
   position: number;
   quiz_id: string | null;
+  meeting_url: string | null;
+  scheduled_at: string | null;
+  duration_minutes: number | null;
 };
 
 type DayContentItem = {
@@ -267,7 +271,7 @@ export default async function ImpersonatedDayPage({
         )
       ),
 
-      checkpoints (
+            checkpoints (
         id,
         title,
         description,
@@ -275,7 +279,10 @@ export default async function ImpersonatedDayPage({
         passing_score,
         is_required,
         position,
-        quiz_id
+        quiz_id,
+        meeting_url,
+        scheduled_at,
+        duration_minutes
       )
     `)
     .eq("id", dayId)
@@ -465,7 +472,7 @@ export default async function ImpersonatedDayPage({
   // NORMALIZE CHECKPOINTS
   // ============================================================
 
-  const checkpoints: Checkpoint[] = [
+    const checkpoints: Checkpoint[] = [
     ...(day.checkpoints ?? []),
   ].map((checkpoint) => ({
     id: checkpoint.id,
@@ -476,6 +483,9 @@ export default async function ImpersonatedDayPage({
     is_required: checkpoint.is_required,
     position: checkpoint.position ?? 0,
     quiz_id: checkpoint.quiz_id,
+    meeting_url: checkpoint.meeting_url,
+    scheduled_at: checkpoint.scheduled_at,
+    duration_minutes: checkpoint.duration_minutes,
   }));
 
   // ============================================================
@@ -828,6 +838,41 @@ export default async function ImpersonatedDayPage({
                           {checkpoint.description}
                         </p>
                       )}
+
+                      {checkpoint.checkpoint_type ===
+                        "trainer_session" && (
+                        <div className="mt-3 space-y-2">
+                          {checkpoint.scheduled_at ? (
+                            <DualDateTime
+                              value={checkpoint.scheduled_at}
+                              compact
+                            />
+                          ) : (
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              Session date and time pending
+                            </p>
+                          )}
+
+                          {checkpoint.duration_minutes != null && (
+                            <p className="text-[11px] text-[var(--text-secondary)]">
+                              Duration: {checkpoint.duration_minutes} min
+                            </p>
+                          )}
+
+                          {checkpoint.meeting_url && (
+                            <a
+                              href={checkpoint.meeting_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex text-[12px] font-semibold text-[var(--teal-deep)] hover:underline"
+                            >
+                              View meeting link ↗
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+
 
                       {result?.score !== null &&
                         result?.score !== undefined && (

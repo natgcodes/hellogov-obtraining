@@ -3,10 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import QuestionEditor, {
-  QuizQuestion,
-} from "@/components/trainer/QuestionEditor";
+
+import QuestionEditor from "@/components/trainer/QuestionEditor";
+import type { QuizQuestion } from "@/components/trainer/QuestionEditor";
 import type { Quiz } from "@/components/trainer/QuizEditor";
+
+import {
+  officialDateTimeToUTC,
+  getOfficialDateTimeParts,
+} from "@/lib/datetime";
+
+import DualDateTime from "@/components/ui/DualDateTime";
 
 type CheckpointType =
   | "assessment"
@@ -71,45 +78,6 @@ function getTypeContent(type: CheckpointType) {
   };
 }
 
-function getLocalDateTimeParts(
-  value: string | null
-) {
-  if (!value) {
-    return {
-      date: "",
-      time: "",
-    };
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return {
-      date: "",
-      time: "",
-    };
-  }
-
-  const year = date.getFullYear();
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-  const hours = String(
-    date.getHours()
-  ).padStart(2, "0");
-  const minutes = String(
-    date.getMinutes()
-  ).padStart(2, "0");
-
-  return {
-    date: `${year}-${month}-${day}`,
-    time: `${hours}:${minutes}`,
-  };
-}
-
 export default function CheckpointEditor({
   checkpoint,
   onClose,
@@ -118,7 +86,7 @@ export default function CheckpointEditor({
   const supabase = createClient();
 
   const initialDateTime =
-    getLocalDateTimeParts(
+    getOfficialDateTimeParts(
       checkpoint.scheduled_at
     );
 
@@ -195,8 +163,8 @@ export default function CheckpointEditor({
   ] = useState<string | null>(null);
 
   const quiz = Array.isArray(checkpoint.quizzes)
-  ? checkpoint.quizzes[0] ?? null
-  : checkpoint.quizzes ?? null;
+    ? checkpoint.quizzes[0] ?? null
+    : checkpoint.quizzes ?? null;
 
   const questions =
     quiz?.quiz_questions ?? [];
@@ -217,9 +185,19 @@ export default function CheckpointEditor({
     checkpoint.checkpoint_type ===
     "information";
 
+  const scheduledPreview =
+    isTrainerSession &&
+    meetingDate &&
+    meetingTime
+      ? officialDateTimeToUTC(
+          meetingDate,
+          meetingTime
+        )
+      : null;
+
   useEffect(() => {
     const dateTime =
-      getLocalDateTimeParts(
+      getOfficialDateTimeParts(
         checkpoint.scheduled_at
       );
 
@@ -299,12 +277,11 @@ export default function CheckpointEditor({
           Number(passingScore);
 
         if (
-          !Number.isFinite(
-            parsedPassingScore
-          ) ||
-          parsedPassingScore < 0 ||
-          parsedPassingScore > 100
-        ) {
+  !Number.isFinite(parsedDuration) ||
+  parsedDuration === null ||
+  !Number.isInteger(parsedDuration) ||
+  parsedDuration <= 0
+) {
           setErrorMessage(
             "Passing score must be a number between 0 and 100."
           );
@@ -333,23 +310,18 @@ export default function CheckpointEditor({
         meetingDate &&
         meetingTime
       ) {
-        const localDate = new Date(
-          `${meetingDate}T${meetingTime}`
-        );
+        scheduledAt =
+          officialDateTimeToUTC(
+            meetingDate,
+            meetingTime
+          );
 
-        if (
-          Number.isNaN(
-            localDate.getTime()
-          )
-        ) {
+        if (!scheduledAt) {
           setErrorMessage(
             "Please enter a valid meeting date and time."
           );
           return;
         }
-
-        scheduledAt =
-          localDate.toISOString();
       }
 
       if (
@@ -791,7 +763,7 @@ export default function CheckpointEditor({
                           )
                         }
                         disabled={isBusy}
-                        className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none transition focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
+                        className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
                       />
                     </div>
 
@@ -814,9 +786,32 @@ export default function CheckpointEditor({
                           )
                         }
                         disabled={isBusy}
-                        className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none transition focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
+                        className="mt-2 w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
                       />
                     </div>
+                  </div>
+
+                  {/* OFFICIAL TIMEZONE + LOCAL EQUIVALENCE */}
+
+                  <div className="rounded-xl border border-[#B9E8EE] bg-[#F0FAFB] px-4 py-3">
+                    <p className="text-xs font-semibold text-[#08788A]">
+                      Official Time · Colombia / Peru (UTC-5)
+                    </p>
+
+                    <p className="mt-1 text-xs leading-5 text-[#667085]">
+                      All session times are configured
+                      in Colombia/Peru time, regardless
+                      of your location.
+                    </p>
+
+                    {scheduledPreview && (
+                      <div className="mt-3">
+                        <DualDateTime
+                          compact
+                          value={scheduledPreview}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -843,7 +838,7 @@ export default function CheckpointEditor({
                           }
                           disabled={isBusy}
                           placeholder="30"
-                          className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 pr-14 text-sm text-[#172033] outline-none transition focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
+                          className="w-full rounded-xl border border-[#d0d5dd] px-3.5 py-2.5 pr-14 text-sm text-[#172033] outline-none focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10 disabled:bg-[#f9fafb]"
                         />
 
                         <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-[#98a2b3]">

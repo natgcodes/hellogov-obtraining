@@ -3,6 +3,12 @@ import { notFound, redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
 import LearnerManagementPanel from "@/components/trainer/LearnerManagementPanel";
+import LearnerProgressBreakdown, {
+  type DayProgress,
+  type ModuleProgress,
+  type TrainingItem,
+  type CheckpointProgress,
+} from "@/components/trainer/LearnerProgressBreakdown";
 import ResetTraineeProgress from "@/components/trainer/ResetTraineeProgress";
 import { createClient } from "@/lib/supabase/server";
 import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
@@ -18,9 +24,6 @@ type LearnerSummaryRow = {
   full_name: string | null;
   email: string | null;
   enrollment_status: string;
-  enrolled_at: string | null;
-  started_at: string | null;
-  completed_at: string | null;
   progress_percent: number | string | null;
   completed_modules: number | string | null;
   total_modules: number | string | null;
@@ -31,65 +34,78 @@ type LearnerSummaryRow = {
   total_checkpoints: number | string | null;
 };
 
-type AssessmentRow = {
-  quiz_id: string;
-  quiz_title: string;
-  module_id: string | null;
-  module_title: string | null;
-  day_id: string | null;
-  day_number: number | null;
-  day_title: string | null;
-  passing_score: number | string;
-  max_attempts: number | null;
-  is_required: boolean;
-  attempt_count: number | string;
-  latest_attempt_id: string | null;
-  latest_attempt_number: number | null;
-  latest_score: number | string | null;
-  latest_passed: boolean | null;
-  latest_status: string | null;
-  latest_submitted_at: string | null;
-};
-
-type CheckpointRow = {
-  checkpoint_id: string;
-  quiz_id: string | null;
-  title: string;
-  description: string | null;
-  checkpoint_type: string;
+type DayRow = {
   day_id: string;
   day_number: number;
   day_title: string;
   day_position: number;
-  checkpoint_position: number;
-  is_required: boolean;
-  passing_score: number | string | null;
-  result_id: string | null;
-  result_status: string | null;
-  score: number | string | null;
-  passed: boolean | null;
-  submitted_at: string | null;
-  graded_at: string | null;
-  trainer_feedback: string | null;
-  checkpoint_status: string;
+  day_status: string;
 };
 
-type AttemptRow = {
-  attempt_id: string;
+type ModuleRow = {
+  day_id: string;
+  module_id: string;
+  module_title: string;
+  module_position: number;
+  is_required: boolean;
+  module_status: string;
+};
+
+type QuizRow = {
+  module_id: string;
   quiz_id: string;
   quiz_title: string;
-  attempt_number: number;
+  quiz_position: number;
+  is_required: boolean;
+  latest_attempt_id: string | null;
+  latest_attempt_status: string | null;
+  latest_attempt_score: number | string | null;
+  latest_submitted_at: string | null;
+  passed: boolean;
+};
+
+type CheckpointRow = {
+  checkpoint_id: string;
+  day_id: string;
+  checkpoint_title: string;
+  checkpoint_position: number;
+  checkpoint_type: string;
+  is_required: boolean;
+  checkpoint_status: string;
+  quiz_attempt_id: string | null;
+  quiz_attempt_status: string | null;
   score: number | string | null;
-  passed: boolean | null;
+};
+
+type MaterialRow = {
+  id: string;
+  module_id: string;
+  title: string;
+  position: number;
+  is_required: boolean;
+};
+
+type ActivityDefinitionRow = {
+  id: string;
+  module_id: string;
+  title: string;
+  position: number;
+  is_required: boolean;
+};
+
+type MaterialProgressRow = {
+  material_id: string;
+  completed: boolean;
+};
+
+type ActivityProgressRow = {
+  activity_id: string;
   status: string;
-  started_at: string | null;
-  submitted_at: string | null;
-  graded_at: string | null;
 };
 
 type ActivityRow = {
-  activity_type: string | null;
-  activity_id: string;
+  event_type: string | null;
+  event_id: string;
   title: string;
   status: string | null;
   occurred_at: string | null;
@@ -135,41 +151,59 @@ export default async function LearnerDetailPage({
     notFound();
   }
 
+  const rpcParams = {
+    target_program_id: program.id,
+    target_learner_id: learnerId,
+  };
+
   // ----------------------------------------------------------
   // TRAINER / TRAINEE DATA
   // ----------------------------------------------------------
 
   const [
     summaryResponse,
-    assessmentsResponse,
+    daysResponse,
+    modulesResponse,
+    quizzesResponse,
     checkpointsResponse,
-    attemptsResponse,
     activityResponse,
+    learnerProfileResponse,
   ] = await Promise.all([
-    supabase.rpc("get_trainer_learner_summary", {
-      target_program_id: program.id,
-      target_learner_id: learnerId,
-    }),
+    supabase.rpc(
+      "get_trainer_learner_summary",
+      rpcParams
+    ),
 
-    supabase.rpc("get_trainer_learner_assessments", {
-      target_program_id: program.id,
-      target_learner_id: learnerId,
-    }),
+    supabase.rpc(
+      "get_trainer_learner_day_progress",
+      rpcParams
+    ),
 
-    supabase.rpc("get_trainer_learner_checkpoints", {
-      target_program_id: program.id,
-      target_learner_id: learnerId,
-    }),
+    supabase.rpc(
+      "get_trainer_learner_module_progress",
+      rpcParams
+    ),
 
-    supabase.rpc("get_trainer_learner_attempt_history", {
-      target_program_id: program.id,
-      target_learner_id: learnerId,
-    }),
+    supabase.rpc(
+      "get_trainer_learner_quiz_progress",
+      rpcParams
+    ),
 
-    supabase.rpc("get_trainer_learner_activity", {
-      target_program_id: program.id,
-      target_learner_id: learnerId,
-    }),
+    supabase.rpc(
+      "get_trainer_learner_checkpoint_progress",
+      rpcParams
+    ),
+
+    supabase.rpc(
+      "get_trainer_learner_activity",
+      rpcParams
+    ),
+
+    supabase
+      .from("profiles")
+      .select("full_name, email, team_lead")
+      .eq("id", learnerId)
+      .single(),
   ]);
 
   // ----------------------------------------------------------
@@ -185,24 +219,47 @@ export default async function LearnerDetailPage({
     notFound();
   }
 
-  if (assessmentsResponse.error) {
+  if (daysResponse.error) {
     console.error(
-      "Unable to load trainee assessments:",
-      assessmentsResponse.error
+      "Unable to load trainee day progress:",
+      daysResponse.error
+    );
+
+    throw new Error(
+      "Unable to load trainee day progress."
+    );
+  }
+
+  if (modulesResponse.error) {
+    console.error(
+      "Unable to load trainee module progress:",
+      modulesResponse.error
+    );
+
+    throw new Error(
+      "Unable to load trainee module progress."
+    );
+  }
+
+  if (quizzesResponse.error) {
+    console.error(
+      "Unable to load trainee quiz progress:",
+      quizzesResponse.error
+    );
+
+    throw new Error(
+      "Unable to load trainee quiz progress."
     );
   }
 
   if (checkpointsResponse.error) {
     console.error(
-      "Unable to load trainee checkpoints:",
+      "Unable to load trainee checkpoint progress:",
       checkpointsResponse.error
     );
-  }
 
-  if (attemptsResponse.error) {
-    console.error(
-      "Unable to load attempt history:",
-      attemptsResponse.error
+    throw new Error(
+      "Unable to load trainee checkpoint progress."
     );
   }
 
@@ -213,6 +270,13 @@ export default async function LearnerDetailPage({
     );
   }
 
+  if (learnerProfileResponse.error) {
+    console.error(
+      "Unable to load trainee profile:",
+      learnerProfileResponse.error
+    );
+  }
+
   // ----------------------------------------------------------
   // NORMALIZE DATA
   // ----------------------------------------------------------
@@ -220,40 +284,301 @@ export default async function LearnerDetailPage({
   const summaryRaw = summaryResponse.data;
 
   const summary = (
-    Array.isArray(summaryRaw) ? summaryRaw[0] : summaryRaw
+    Array.isArray(summaryRaw)
+      ? summaryRaw[0]
+      : summaryRaw
   ) as LearnerSummaryRow | null;
 
   if (!summary) {
     notFound();
   }
 
-  const {
-    data: learnerProfile,
-    error: learnerProfileError,
-  } = await supabase
-    .from("profiles")
-    .select("full_name, email, team_lead")
-    .eq("id", learnerId)
-    .single();
+  const learnerProfile =
+    learnerProfileResponse.data;
 
-  if (learnerProfileError) {
-    console.error(
-      "Unable to load trainee profile:",
-      learnerProfileError
-    );
-  }
+  const dayRows = (daysResponse.data ??
+    []) as DayRow[];
 
-  const assessments = (assessmentsResponse.data ??
-    []) as AssessmentRow[];
+  const moduleRows = (modulesResponse.data ??
+    []) as ModuleRow[];
 
-  const checkpoints = (checkpointsResponse.data ??
+  const quizRows = (quizzesResponse.data ??
+    []) as QuizRow[];
+
+  const checkpointRows = (checkpointsResponse.data ??
     []) as CheckpointRow[];
-
-  const attempts = (attemptsResponse.data ??
-    []) as AttemptRow[];
 
   const activity = (activityResponse.data ??
     []) as ActivityRow[];
+
+  // ----------------------------------------------------------
+  // FETCH MATERIALS AND ACTIVITIES
+  // ----------------------------------------------------------
+
+  const moduleIds = moduleRows.map(
+    (module) => module.module_id
+  );
+
+  let materials: MaterialRow[] = [];
+  let activities: ActivityDefinitionRow[] = [];
+
+  if (moduleIds.length > 0) {
+    const [
+      materialsResponse,
+      activitiesResponse,
+    ] = await Promise.all([
+      supabase
+        .from("materials")
+        .select(
+          "id, module_id, title, position, is_required"
+        )
+        .in("module_id", moduleIds)
+        .order("position"),
+
+      supabase
+        .from("activities")
+        .select(
+          "id, module_id, title, position, is_required"
+        )
+        .in("module_id", moduleIds)
+        .order("position"),
+    ]);
+
+    if (materialsResponse.error) {
+      console.error(
+        "Unable to load materials:",
+        materialsResponse.error
+      );
+
+      throw new Error(
+        "Unable to load training materials."
+      );
+    }
+
+    if (activitiesResponse.error) {
+      console.error(
+        "Unable to load activities:",
+        activitiesResponse.error
+      );
+
+      throw new Error(
+        "Unable to load training activities."
+      );
+    }
+
+    materials =
+      (materialsResponse.data ?? []) as MaterialRow[];
+
+    activities =
+      (activitiesResponse.data ??
+        []) as ActivityDefinitionRow[];
+  }
+
+  // ----------------------------------------------------------
+  // FETCH LEARNER ITEM PROGRESS
+  // ----------------------------------------------------------
+
+  const materialIds = materials.map(
+    (material) => material.id
+  );
+
+  const activityIds = activities.map(
+    (item) => item.id
+  );
+
+  let materialProgress: MaterialProgressRow[] = [];
+  let activityProgress: ActivityProgressRow[] = [];
+
+  const [
+    materialProgressResponse,
+    activityProgressResponse,
+  ] = await Promise.all([
+    materialIds.length > 0
+      ? supabase
+          .from("learner_material_progress")
+          .select("material_id, completed")
+          .eq("learner_id", learnerId)
+          .in("material_id", materialIds)
+      : Promise.resolve({
+          data: [] as MaterialProgressRow[],
+          error: null,
+        }),
+
+    activityIds.length > 0
+      ? supabase
+          .from("learner_activity_progress")
+          .select("activity_id, status")
+          .eq("learner_id", learnerId)
+          .in("activity_id", activityIds)
+      : Promise.resolve({
+          data: [] as ActivityProgressRow[],
+          error: null,
+        }),
+  ]);
+
+  if (materialProgressResponse.error) {
+    console.error(
+      "Unable to load material progress:",
+      materialProgressResponse.error
+    );
+
+    throw new Error(
+      "Unable to load trainee material progress."
+    );
+  }
+
+  if (activityProgressResponse.error) {
+    console.error(
+      "Unable to load activity progress:",
+      activityProgressResponse.error
+    );
+
+    throw new Error(
+      "Unable to load trainee activity progress."
+    );
+  }
+
+  materialProgress =
+    (materialProgressResponse.data ??
+      []) as MaterialProgressRow[];
+
+  activityProgress =
+    (activityProgressResponse.data ??
+      []) as ActivityProgressRow[];
+
+  // ----------------------------------------------------------
+  // PROGRESS LOOKUPS
+  // ----------------------------------------------------------
+
+  const materialProgressMap = new Map(
+    materialProgress.map((item) => [
+      item.material_id,
+      item.completed,
+    ])
+  );
+
+  const activityProgressMap = new Map(
+    activityProgress.map((item) => [
+      item.activity_id,
+      item.status,
+    ])
+  );
+
+  // ----------------------------------------------------------
+  // BUILD BREAKDOWN DATA
+  // ----------------------------------------------------------
+
+  const days: DayProgress[] = dayRows.map(
+    (day) => ({
+      day_id: day.day_id,
+      day_number: day.day_number,
+      day_title: day.day_title,
+      day_position: day.day_position,
+      day_status: day.day_status,
+    })
+  );
+
+  const modules: ModuleProgress[] =
+    moduleRows.map((module) => ({
+      day_id: module.day_id,
+      module_id: module.module_id,
+      module_title: module.module_title,
+      module_position: module.module_position,
+      is_required: module.is_required,
+      module_status: module.module_status,
+    }));
+
+  const items: TrainingItem[] = [
+    ...materials.map((material) => {
+      const completed =
+        materialProgressMap.get(material.id) ??
+        false;
+
+      return {
+        id: material.id,
+        module_id: material.module_id,
+        title: material.title,
+        type: "material" as const,
+        position: material.position,
+        is_required: material.is_required,
+        status: completed
+          ? "completed"
+          : "not_started",
+        completed,
+      };
+    }),
+
+    ...activities.map((activityItem) => {
+      const status =
+        activityProgressMap.get(
+          activityItem.id
+        ) ?? "not_started";
+
+      return {
+        id: activityItem.id,
+        module_id: activityItem.module_id,
+        title: activityItem.title,
+        type: "activity" as const,
+        position: activityItem.position,
+        is_required: activityItem.is_required,
+        status,
+        completed: status === "completed",
+      };
+    }),
+
+    ...quizRows.map((quiz) => {
+      const submitted =
+        quiz.latest_submitted_at !== null &&
+        quiz.latest_submitted_at !== undefined;
+
+      const status =
+        quiz.latest_attempt_status === "graded"
+          ? quiz.passed
+            ? "passed"
+            : "failed"
+          : quiz.latest_attempt_status ??
+            "not_started";
+
+      return {
+        id: quiz.quiz_id,
+        module_id: quiz.module_id,
+        title: quiz.quiz_title,
+        type: "quiz" as const,
+        position: quiz.quiz_position,
+        is_required: quiz.is_required,
+        status,
+        completed: submitted,
+        attempt_id: quiz.latest_attempt_id,
+        score:
+          quiz.latest_attempt_score === null
+            ? null
+            : Number(quiz.latest_attempt_score),
+      };
+    }),
+  ];
+
+  const checkpoints: CheckpointProgress[] =
+    checkpointRows.map((checkpoint) => ({
+      checkpoint_id: checkpoint.checkpoint_id,
+      day_id: checkpoint.day_id,
+      checkpoint_title:
+        checkpoint.checkpoint_title,
+      checkpoint_position:
+        checkpoint.checkpoint_position,
+      checkpoint_type:
+        checkpoint.checkpoint_type,
+      is_required: checkpoint.is_required,
+      checkpoint_status:
+        checkpoint.checkpoint_status,
+      quiz_attempt_id:
+        checkpoint.quiz_attempt_id,
+      quiz_attempt_status:
+        checkpoint.quiz_attempt_status,
+      score:
+        checkpoint.score === null
+          ? null
+          : Number(checkpoint.score),
+    }));
 
   // ----------------------------------------------------------
   // METRICS
@@ -261,20 +586,27 @@ export default async function LearnerDetailPage({
 
   const progress = Math.max(
     0,
-    Math.min(100, Number(summary.progress_percent ?? 0))
+    Math.min(
+      100,
+      Number(summary.progress_percent ?? 0)
+    )
   );
 
   const completedModules = Number(
     summary.completed_modules ?? 0
   );
 
-  const totalModules = Number(summary.total_modules ?? 0);
+  const totalModules = Number(
+    summary.total_modules ?? 0
+  );
 
   const passedQuizzes = Number(
     summary.passed_quizzes ?? 0
   );
 
-  const totalQuizzes = Number(summary.total_quizzes ?? 0);
+  const totalQuizzes = Number(
+    summary.total_quizzes ?? 0
+  );
 
   const completedCheckpoints = Number(
     summary.completed_checkpoints ?? 0
@@ -284,7 +616,9 @@ export default async function LearnerDetailPage({
     summary.total_checkpoints ?? 0
   );
 
-  const needsReview = Number(summary.needs_review ?? 0);
+  const needsReview = Number(
+    summary.needs_review ?? 0
+  );
 
   const traineeName =
     learnerProfile?.full_name ??
@@ -323,7 +657,10 @@ export default async function LearnerDetailPage({
           <section className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAF8FA] text-[14px] font-semibold text-[#07879B]">
-                {getInitials(traineeName, traineeEmail)}
+                {getInitials(
+                  traineeName,
+                  traineeEmail
+                )}
               </div>
 
               <div className="min-w-0">
@@ -364,7 +701,9 @@ export default async function LearnerDetailPage({
               </Link>
 
               <StatusBadge
-                status={summary.enrollment_status}
+                status={
+                  summary.enrollment_status
+                }
               />
             </div>
           </section>
@@ -377,10 +716,12 @@ export default async function LearnerDetailPage({
               programId={program.id}
               fullName={traineeName}
               email={
-                learnerProfile?.email ?? summary.email
+                learnerProfile?.email ??
+                summary.email
               }
               teamLead={
-                learnerProfile?.team_lead ?? null
+                learnerProfile?.team_lead ??
+                null
               }
               enrollmentStatus={
                 summary.enrollment_status
@@ -388,7 +729,7 @@ export default async function LearnerDetailPage({
             />
           </div>
 
-          {/* PROGRESS */}
+          {/* OVERALL PROGRESS */}
 
           <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
             <div className="flex flex-col gap-5 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
@@ -462,222 +803,14 @@ export default async function LearnerDetailPage({
             />
           </section>
 
-          {/* CHECKPOINTS */}
+          {/* DETAILED PROGRESS */}
 
-          <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
-            <SectionHeader
-              eyebrow="Milestones"
-              title="Checkpoints"
-              description="Required onboarding checkpoints and trainee results."
-              count={checkpoints.length}
-            />
-
-            {checkpoints.length === 0 ? (
-              <EmptyState>
-                No checkpoints are available for this program.
-              </EmptyState>
-            ) : (
-              <div className="divide-y divide-[var(--border-soft)]">
-                {checkpoints.map((checkpoint) => (
-                  <div
-                    key={checkpoint.checkpoint_id}
-                    className="flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-[#FAFCFC] sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
-                          Day {checkpoint.day_number}
-                        </span>
-
-                        <span className="text-[10px] font-medium text-[var(--text-muted)]">
-                          Checkpoint{" "}
-                          {checkpoint.checkpoint_position}
-                        </span>
-
-                        {checkpoint.is_required && (
-                          <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
-                            Required
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-2 text-[13px] font-semibold text-[var(--text-primary)]">
-                        {checkpoint.title}
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        {checkpoint.day_title}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-3">
-                      {checkpoint.score !== null && (
-                        <span className="text-[12px] font-semibold text-[var(--text-primary)]">
-                          {Number(
-                            checkpoint.score
-                          ).toFixed(2)}
-                          %
-                        </span>
-                      )}
-
-                      <StatusBadge
-                        status={
-                          checkpoint.checkpoint_status
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ASSESSMENTS */}
-
-          <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
-            <SectionHeader
-              title="Assessments"
-              description="Module quizzes and latest trainee results."
-              count={assessments.length}
-            />
-
-            {assessments.length === 0 ? (
-              <EmptyState>
-                No assessments are available.
-              </EmptyState>
-            ) : (
-              <div className="divide-y divide-[var(--border-soft)]">
-                {assessments.map((assessment) => (
-                  <div
-                    key={assessment.quiz_id}
-                    className="flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-[#FAFCFC] sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                  >
-                    <div className="min-w-0">
-                      {assessment.day_number !==
-                        null && (
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                          Day {assessment.day_number}
-                          {assessment.module_title
-                            ? ` · ${assessment.module_title}`
-                            : ""}
-                        </p>
-                      )}
-
-                      <p className="mt-1.5 text-[13px] font-semibold text-[var(--text-primary)]">
-                        {assessment.quiz_title}
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        {Number(
-                          assessment.attempt_count ?? 0
-                        )}{" "}
-                        {Number(
-                          assessment.attempt_count ?? 0
-                        ) === 1
-                          ? "attempt"
-                          : "attempts"}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-3">
-                      {assessment.latest_score !==
-                        null && (
-                        <span className="text-[12px] font-semibold text-[var(--text-primary)]">
-                          {Number(
-                            assessment.latest_score
-                          ).toFixed(2)}
-                          %
-                        </span>
-                      )}
-
-                      <StatusBadge
-                        status={
-                          assessment.latest_status ===
-                          "graded"
-                            ? assessment.latest_passed
-                              ? "passed"
-                              : "failed"
-                            : assessment.latest_status ??
-                              "not_started"
-                        }
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ATTEMPT HISTORY */}
-
-          <section className="mt-6 overflow-hidden rounded-[18px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]">
-            <SectionHeader
-              title="Attempt History"
-              description="Assessment attempts and grading outcomes."
-              count={attempts.length}
-            />
-
-            {attempts.length === 0 ? (
-              <EmptyState>
-                No assessment attempts yet.
-              </EmptyState>
-            ) : (
-              <div className="divide-y divide-[var(--border-soft)]">
-                {attempts.map((attempt) => (
-                  <div
-                    key={attempt.attempt_id}
-                    className="flex flex-col gap-4 px-5 py-4 transition-colors hover:bg-[#FAFCFC] sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-[var(--text-primary)]">
-                        {attempt.quiz_title}
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        Attempt {attempt.attempt_number}
-                        {attempt.submitted_at
-                          ? ` · ${formatDate(
-                              attempt.submitted_at
-                            )}`
-                          : ""}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      {attempt.score !== null && (
-                        <span className="text-[12px] font-semibold text-[var(--text-primary)]">
-                          {Number(
-                            attempt.score
-                          ).toFixed(2)}
-                          %
-                        </span>
-                      )}
-
-                      <StatusBadge
-                        status={
-                          attempt.status === "graded"
-                            ? attempt.passed
-                              ? "passed"
-                              : "failed"
-                            : attempt.status
-                        }
-                      />
-
-                      {attempt.status ===
-                        "needs_review" && (
-                        <Link
-                          href={`/trainer/review/${attempt.attempt_id}`}
-                          className="inline-flex min-h-8 items-center rounded-[8px] px-2.5 text-[11px] font-semibold !text-[#07879B] transition hover:bg-[#EAF8FA]"
-                        >
-                          Review →
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <LearnerProgressBreakdown
+            days={days}
+            modules={modules}
+            items={items}
+            checkpoints={checkpoints}
+          />
 
           {/* RECENT ACTIVITY */}
 
@@ -696,7 +829,7 @@ export default async function LearnerDetailPage({
               <div className="divide-y divide-[var(--border-soft)]">
                 {activity.map((item, index) => (
                   <div
-                    key={`${item.activity_type ?? "activity"}-${item.activity_id}-${index}`}
+                    key={`${item.event_type ?? "activity"}-${item.event_id}-${index}`}
                     className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-[#FAFCFC] sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="min-w-0">
@@ -706,7 +839,7 @@ export default async function LearnerDetailPage({
 
                       <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                         {formatLabel(
-                          item.activity_type
+                          item.event_type
                         )}
                         {item.occurred_at
                           ? ` · ${formatDate(
@@ -778,12 +911,10 @@ function Metric({
 }
 
 function SectionHeader({
-  eyebrow,
   title,
   description,
   count,
 }: {
-  eyebrow?: string;
   title: string;
   description: string;
   count: number;
@@ -791,17 +922,7 @@ function SectionHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-5 sm:px-6">
       <div>
-        {eyebrow && (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--teal)]">
-            {eyebrow}
-          </p>
-        )}
-
-        <h2
-          className={`text-[16px] font-semibold tracking-[-0.02em] text-[var(--text-primary)] ${
-            eyebrow ? "mt-1" : ""
-          }`}
-        >
+        <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
           {title}
         </h2>
 
@@ -835,7 +956,8 @@ function StatusBadge({
   status: string | null | undefined;
 }) {
   const normalized =
-    status?.toLowerCase() ?? "not_started";
+    status?.toLowerCase() ??
+    "not_started";
 
   let styles =
     "bg-[#F2F4F7] text-[var(--text-secondary)]";
@@ -844,25 +966,29 @@ function StatusBadge({
     normalized === "completed" ||
     normalized === "passed"
   ) {
-    styles = "bg-emerald-50 text-emerald-700";
+    styles =
+      "bg-emerald-50 text-emerald-700";
   }
 
   if (
     normalized === "in_progress" ||
     normalized === "submitted"
   ) {
-    styles = "bg-[#EAF8FA] text-[#07879B]";
+    styles =
+      "bg-[#EAF8FA] text-[#07879B]";
   }
 
   if (normalized === "needs_review") {
-    styles = "bg-amber-50 text-amber-700";
+    styles =
+      "bg-amber-50 text-amber-700";
   }
 
   if (
     normalized === "failed" ||
     normalized === "not_passed"
   ) {
-    styles = "bg-red-50 text-red-700";
+    styles =
+      "bg-red-50 text-red-700";
   }
 
   return (

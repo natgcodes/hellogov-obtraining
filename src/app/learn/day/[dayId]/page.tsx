@@ -8,6 +8,7 @@ import AppShell from "@/components/layout/AppShell";
 import CheckpointCompletionButton from "@/components/learning/CheckpointCompletionButton";
 import LearnerModuleCard from "@/components/learning/LearnerModuleCard";
 import ModuleNotes from "@/components/learning/ModuleNotes";
+import DualDateTime from "@/components/ui/DualDateTime";
 import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
 import type {
   LearnerModule,
@@ -222,30 +223,6 @@ function formatDuration(
   }
 
   return `${hours}h ${remaining}m`;
-}
-
-function formatSessionDate(
-  value: string | null
-) {
-  if (!value) {
-    return null;
-  }
-
-  const date = new Date(value);
-
-  if (
-    Number.isNaN(date.getTime())
-  ) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(
-    "en-US",
-    {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }
-  ).format(date);
 }
 
 export default async function LearnerDayPage({
@@ -1252,12 +1229,7 @@ const checkpointProgress =
                     checkpointNumbers.get(
                       checkpoint.id
                     );
-
-                  const scheduledDate =
-                    formatSessionDate(
-                      checkpoint.scheduled_at
-                    );
-
+                 
                   return (
                     <article
                       key={content.id}
@@ -1352,13 +1324,12 @@ const checkpointProgress =
                                 )}
 
                               {isSession &&
-                                scheduledDate && (
-                                  <span>
-                                    {
-                                      scheduledDate
-                                    }
-                                  </span>
-                                )}
+  checkpoint.scheduled_at && (
+    <DualDateTime
+      value={checkpoint.scheduled_at}
+      compact
+    />
+  )}
 
                               {isSession &&
                                 checkpoint.duration_minutes && (

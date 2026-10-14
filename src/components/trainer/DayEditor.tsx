@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
-  DragEndEvent,
+  type DragEndEvent,
   DragOverlay,
-  DragStartEvent,
+  type DragStartEvent,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -31,8 +32,9 @@ import AddCheckpointEditor from "@/components/trainer/AddCheckpointEditor";
 import DaySettingsEditor from "@/components/trainer/DaySettingsEditor";
 import AddQuizEditor from "@/components/trainer/AddQuizEditor";
 import QuizEditor, {
-  Quiz,
+  type Quiz,
 } from "@/components/trainer/QuizEditor";
+import DualDateTime from "@/components/ui/DualDateTime";
 
 type SupabaseMaterial = {
   id: string;
@@ -151,21 +153,6 @@ function formatDuration(minutes?: number | null) {
   return `${hours} hr ${remainingMinutes} min`;
 }
 
-function formatSessionDate(value: string | null) {
-  if (!value) return null;
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
 function getMaterialLabel(type: string) {
   const labels: Record<string, string> = {
     link: "Link",
@@ -239,9 +226,7 @@ function OrderButton({
       disabled={disabled}
       className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#e4e7ec] bg-white text-sm font-semibold text-[#475467] transition hover:border-[#B9E8EE] hover:bg-[#F0FAFB] hover:text-[#07879B] disabled:cursor-not-allowed disabled:opacity-30"
       aria-label={
-        direction === "up"
-          ? "Move up"
-          : "Move down"
+        direction === "up" ? "Move up" : "Move down"
       }
     >
       {direction === "up" ? "↑" : "↓"}
@@ -354,9 +339,7 @@ function MaterialCard({
           </div>
 
           <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-medium text-[#667085] ring-1 ring-[#eaecf0]">
-            {getMaterialLabel(
-              material.material_type
-            )}
+            {getMaterialLabel(material.material_type)}
           </span>
         </div>
 
@@ -382,27 +365,21 @@ function MaterialCard({
             <OrderButton
               direction="up"
               onClick={onMoveUp}
-              disabled={
-                index === 0 ||
-                isReordering
-              }
+              disabled={index === 0 || isReordering}
             />
 
             <OrderButton
               direction="down"
               onClick={onMoveDown}
               disabled={
-                index ===
-                  totalMaterials - 1 ||
+                index === totalMaterials - 1 ||
                 isReordering
               }
             />
 
             <button
               type="button"
-              onClick={() =>
-                setIsEditing(true)
-              }
+              onClick={() => setIsEditing(true)}
               disabled={isReordering}
               className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#475467] transition hover:bg-[#f2f4f7] disabled:opacity-50"
             >
@@ -415,9 +392,7 @@ function MaterialCard({
       {isEditing && (
         <MaterialEditor
           material={material}
-          onClose={() =>
-            setIsEditing(false)
-          }
+          onClose={() => setIsEditing(false)}
         />
       )}
     </>
@@ -466,9 +441,7 @@ function ActivityCard({
           </div>
 
           <span className="shrink-0 rounded-full bg-[#F0FAFB] px-2 py-1 text-[10px] font-medium text-[#08788A]">
-            {getActivityLabel(
-              activity.activity_type
-            )}
+            {getActivityLabel(activity.activity_type)}
           </span>
         </div>
 
@@ -486,36 +459,28 @@ function ActivityCard({
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-[#98a2b3]">
-            {formatDuration(
-              activity.duration_minutes
-            )}
+            {formatDuration(activity.duration_minutes)}
           </p>
 
           <div className="flex items-center gap-1">
             <OrderButton
               direction="up"
               onClick={onMoveUp}
-              disabled={
-                index === 0 ||
-                isReordering
-              }
+              disabled={index === 0 || isReordering}
             />
 
             <OrderButton
               direction="down"
               onClick={onMoveDown}
               disabled={
-                index ===
-                  totalActivities - 1 ||
+                index === totalActivities - 1 ||
                 isReordering
               }
             />
 
             <button
               type="button"
-              onClick={() =>
-                setIsEditing(true)
-              }
+              onClick={() => setIsEditing(true)}
               disabled={isReordering}
               className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#475467] transition hover:bg-[#f2f4f7] disabled:opacity-50"
             >
@@ -528,9 +493,7 @@ function ActivityCard({
       {isEditing && (
         <ActivityEditor
           activity={activity}
-          onClose={() =>
-            setIsEditing(false)
-          }
+          onClose={() => setIsEditing(false)}
         />
       )}
     </>
@@ -554,13 +517,11 @@ function QuizCard({
 }) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const totalPoints =
-    quiz.quiz_questions.reduce(
-      (total, question) =>
-        total +
-        Number(question.points ?? 0),
-      0
-    );
+  const totalPoints = quiz.quiz_questions.reduce(
+    (total, question) =>
+      total + Number(question.points ?? 0),
+    0
+  );
 
   return (
     <>
@@ -593,26 +554,21 @@ function QuizCard({
                 : "bg-white text-[#667085] ring-1 ring-[#eaecf0]"
             }`}
           >
-            {quiz.is_published
-              ? "Published"
-              : "Draft"}
+            {quiz.is_published ? "Published" : "Draft"}
           </span>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#667085]">
           <span>
             {quiz.quiz_questions.length}{" "}
-            {quiz.quiz_questions.length ===
-            1
+            {quiz.quiz_questions.length === 1
               ? "question"
               : "questions"}
           </span>
           <span>•</span>
           <span>{totalPoints} pts</span>
           <span>•</span>
-          <span>
-            Pass {quiz.passing_score}%
-          </span>
+          <span>Pass {quiz.passing_score}%</span>
           <span>•</span>
           <span>
             {quiz.max_attempts}{" "}
@@ -626,27 +582,21 @@ function QuizCard({
           <OrderButton
             direction="up"
             onClick={onMoveUp}
-            disabled={
-              index === 0 ||
-              isReordering
-            }
+            disabled={index === 0 || isReordering}
           />
 
           <OrderButton
             direction="down"
             onClick={onMoveDown}
             disabled={
-              index ===
-                totalQuizzes - 1 ||
+              index === totalQuizzes - 1 ||
               isReordering
             }
           />
 
           <button
             type="button"
-            onClick={() =>
-              setIsEditing(true)
-            }
+            onClick={() => setIsEditing(true)}
             disabled={isReordering}
             className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#07879B] hover:bg-[#F0FAFB] disabled:opacity-50"
           >
@@ -658,9 +608,7 @@ function QuizCard({
       {isEditing && (
         <QuizEditor
           quiz={quiz}
-          onClose={() =>
-            setIsEditing(false)
-          }
+          onClose={() => setIsEditing(false)}
         />
       )}
     </>
@@ -679,7 +627,7 @@ function ModuleCard({
   module: SupabaseModule;
   moduleNumber: number;
   isReordering: boolean;
-  dragHandle?: React.ReactNode;
+  dragHandle?: ReactNode;
   onMoveMaterial: (
     module: SupabaseModule,
     materialIndex: number,
@@ -696,16 +644,11 @@ function ModuleCard({
     direction: MoveDirection
   ) => void;
 }) {
-  const [isEditing, setIsEditing] =
+  const [isEditing, setIsEditing] = useState(false);
+  const [isAddingMaterial, setIsAddingMaterial] =
     useState(false);
-  const [
-    isAddingMaterial,
-    setIsAddingMaterial,
-  ] = useState(false);
-  const [
-    isAddingActivity,
-    setIsAddingActivity,
-  ] = useState(false);
+  const [isAddingActivity, setIsAddingActivity] =
+    useState(false);
   const [isAddingQuiz, setIsAddingQuiz] =
     useState(false);
 
@@ -754,9 +697,7 @@ function ModuleCard({
                     : "bg-[#fff8e7] text-[#b7791f]"
                 }`}
               >
-                {formatDuration(
-                  module.duration_minutes
-                )}
+                {formatDuration(module.duration_minutes)}
               </span>
             </div>
 
@@ -779,33 +720,22 @@ function ModuleCard({
             <div>
               <SectionHeader
                 title="Materials"
-                onAdd={() =>
-                  setIsAddingMaterial(true)
-                }
+                onAdd={() => setIsAddingMaterial(true)}
                 disabled={isReordering}
               />
 
-              {module.materials.length >
-              0 ? (
+              {module.materials.length > 0 ? (
                 <div className="space-y-2">
                   {module.materials.map(
-                    (
-                      material,
-                      materialIndex
-                    ) => (
+                    (material, materialIndex) => (
                       <MaterialCard
                         key={material.id}
                         material={material}
-                        index={
-                          materialIndex
-                        }
+                        index={materialIndex}
                         totalMaterials={
-                          module.materials
-                            .length
+                          module.materials.length
                         }
-                        isReordering={
-                          isReordering
-                        }
+                        isReordering={isReordering}
                         onMoveUp={() =>
                           onMoveMaterial(
                             module,
@@ -832,33 +762,22 @@ function ModuleCard({
             <div>
               <SectionHeader
                 title="Practice"
-                onAdd={() =>
-                  setIsAddingActivity(true)
-                }
+                onAdd={() => setIsAddingActivity(true)}
                 disabled={isReordering}
               />
 
-              {module.activities.length >
-              0 ? (
+              {module.activities.length > 0 ? (
                 <div className="space-y-2">
                   {module.activities.map(
-                    (
-                      activity,
-                      activityIndex
-                    ) => (
+                    (activity, activityIndex) => (
                       <ActivityCard
                         key={activity.id}
                         activity={activity}
-                        index={
-                          activityIndex
-                        }
+                        index={activityIndex}
                         totalActivities={
-                          module.activities
-                            .length
+                          module.activities.length
                         }
-                        isReordering={
-                          isReordering
-                        }
+                        isReordering={isReordering}
                         onMoveUp={() =>
                           onMoveActivity(
                             module,
@@ -885,14 +804,11 @@ function ModuleCard({
             <div>
               <SectionHeader
                 title="Quizzes"
-                onAdd={() =>
-                  setIsAddingQuiz(true)
-                }
+                onAdd={() => setIsAddingQuiz(true)}
                 disabled={isReordering}
               />
 
-              {module.quizzes.length >
-              0 ? (
+              {module.quizzes.length > 0 ? (
                 <div className="space-y-2">
                   {module.quizzes.map(
                     (quiz, quizIndex) => (
@@ -901,12 +817,9 @@ function ModuleCard({
                         quiz={quiz}
                         index={quizIndex}
                         totalQuizzes={
-                          module.quizzes
-                            .length
+                          module.quizzes.length
                         }
-                        isReordering={
-                          isReordering
-                        }
+                        isReordering={isReordering}
                         onMoveUp={() =>
                           onMoveQuiz(
                             module,
@@ -945,9 +858,7 @@ function ModuleCard({
 
           <button
             type="button"
-            onClick={() =>
-              setIsEditing(true)
-            }
+            onClick={() => setIsEditing(true)}
             disabled={isReordering}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#475467] hover:bg-[#f2f4f7] disabled:opacity-50"
           >
@@ -959,45 +870,31 @@ function ModuleCard({
       {isEditing && (
         <ModuleEditor
           module={module}
-          onClose={() =>
-            setIsEditing(false)
-          }
+          onClose={() => setIsEditing(false)}
         />
       )}
 
       {isAddingMaterial && (
         <AddMaterialEditor
           moduleId={module.id}
-          nextPosition={
-            module.materials.length + 1
-          }
-          onClose={() =>
-            setIsAddingMaterial(false)
-          }
+          nextPosition={module.materials.length + 1}
+          onClose={() => setIsAddingMaterial(false)}
         />
       )}
 
       {isAddingActivity && (
         <AddActivityEditor
           moduleId={module.id}
-          nextPosition={
-            module.activities.length + 1
-          }
-          onClose={() =>
-            setIsAddingActivity(false)
-          }
+          nextPosition={module.activities.length + 1}
+          onClose={() => setIsAddingActivity(false)}
         />
       )}
 
       {isAddingQuiz && (
         <AddQuizEditor
           moduleId={module.id}
-          nextPosition={
-            module.quizzes.length + 1
-          }
-          onClose={() =>
-            setIsAddingQuiz(false)
-          }
+          nextPosition={module.quizzes.length + 1}
+          onClose={() => setIsAddingQuiz(false)}
         />
       )}
     </>
@@ -1013,20 +910,13 @@ function CheckpointCard({
   checkpoint: SupabaseCheckpoint;
   contentIndex: number;
   isReordering: boolean;
-  dragHandle?: React.ReactNode;
+  dragHandle?: ReactNode;
 }) {
-  const [isEditing, setIsEditing] =
-    useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const presentation =
-    getCheckpointPresentation(
-      checkpoint.checkpoint_type
-    );
-
-      const scheduledLabel =
-    checkpoint.checkpoint_type === "trainer_session"
-      ? formatSessionDate(checkpoint.scheduled_at)
-      : null;
+  const presentation = getCheckpointPresentation(
+    checkpoint.checkpoint_type
+  );
 
   const checkpointQuiz = Array.isArray(checkpoint.quizzes)
     ? checkpoint.quizzes[0] ?? null
@@ -1057,9 +947,7 @@ function CheckpointCard({
                     </span>
 
                     <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a2b3]">
-                      {
-                        presentation.eyebrow
-                      }
+                      {presentation.eyebrow}
                     </span>
 
                     {checkpoint.is_required &&
@@ -1077,9 +965,7 @@ function CheckpointCard({
 
                   {checkpoint.description && (
                     <p className="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-[#667085]">
-                      {
-                        checkpoint.description
-                      }
+                      {checkpoint.description}
                     </p>
                   )}
 
@@ -1098,11 +984,7 @@ function CheckpointCard({
                         <>
                           <span>•</span>
                           <span>
-                            Pass{" "}
-                            {
-                              checkpoint.passing_score
-                            }
-                            %
+                            Pass {checkpoint.passing_score}%
                           </span>
                         </>
                       )}
@@ -1112,10 +994,16 @@ function CheckpointCard({
                   {checkpoint.checkpoint_type ===
                     "trainer_session" && (
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[#667085]">
-                      <span>
-                        {scheduledLabel ??
-                          "Date and time not set"}
-                      </span>
+                      {checkpoint.scheduled_at ? (
+                        <DualDateTime
+                          value={checkpoint.scheduled_at}
+                          compact
+                        />
+                      ) : (
+                        <span>
+                          Date and time not set
+                        </span>
+                      )}
 
                       {checkpoint.duration_minutes && (
                         <>
@@ -1132,9 +1020,7 @@ function CheckpointCard({
                         <>
                           <span>•</span>
                           <a
-                            href={
-                              checkpoint.meeting_url
-                            }
+                            href={checkpoint.meeting_url}
                             target="_blank"
                             rel="noreferrer"
                             className="font-semibold text-[#07879B] hover:underline"
@@ -1149,9 +1035,7 @@ function CheckpointCard({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setIsEditing(true)
-                  }
+                  onClick={() => setIsEditing(true)}
                   disabled={isReordering}
                   className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-[#475467] hover:bg-[#f2f4f7] disabled:opacity-50"
                 >
@@ -1161,13 +1045,11 @@ function CheckpointCard({
 
               <div className="mt-4 flex items-center gap-2 border-t border-[#eef0f3] pt-3">
                 <span className="text-xs text-[#98a2b3]">
-                  Day item{" "}
-                  {contentIndex + 1}
+                  Day item {contentIndex + 1}
                 </span>
 
                 <span className="text-[11px] text-[#c0c6cf]">
-                  Drag the handle to
-                  reorder
+                  Drag the handle to reorder
                 </span>
               </div>
             </div>
@@ -1178,9 +1060,7 @@ function CheckpointCard({
       {isEditing && (
         <CheckpointEditor
           checkpoint={checkpoint}
-          onClose={() =>
-            setIsEditing(false)
-          }
+          onClose={() => setIsEditing(false)}
         />
       )}
     </>
@@ -1228,10 +1108,8 @@ function SortableDayItem({
     disabled: isReordering,
   });
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(
-      transform
-    ),
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.3 : 1,
     zIndex: isDragging ? 20 : undefined,
@@ -1267,9 +1145,7 @@ function SortableDayItem({
       {item.type === "module" ? (
         <ModuleCard
           module={item.module}
-          moduleNumber={
-            moduleNumber ?? 1
-          }
+          moduleNumber={moduleNumber ?? 1}
           isReordering={isReordering}
           dragHandle={dragHandle}
           onMoveMaterial={onMoveMaterial}
@@ -1295,8 +1171,7 @@ function DragPreview({
 }) {
   if (!item) return null;
 
-  const isModule =
-    item.type === "module";
+  const isModule = item.type === "module";
 
   const title = isModule
     ? item.module.title
@@ -1340,35 +1215,23 @@ export default function DayEditor({
   const supabase = createClient();
   const activeDay = day;
 
-  const [
-    isAddingModule,
-    setIsAddingModule,
-  ] = useState(false);
+  const [isAddingModule, setIsAddingModule] =
+    useState(false);
 
-  const [
-    isAddingCheckpoint,
-    setIsAddingCheckpoint,
-  ] = useState(false);
+  const [isAddingCheckpoint, setIsAddingCheckpoint] =
+    useState(false);
 
-  const [
-    isEditingDay,
-    setIsEditingDay,
-  ] = useState(false);
+  const [isEditingDay, setIsEditingDay] =
+    useState(false);
 
-  const [
-    isReordering,
-    setIsReordering,
-  ] = useState(false);
+  const [isReordering, setIsReordering] =
+    useState(false);
 
-  const [
-    reorderError,
-    setReorderError,
-  ] = useState<string | null>(null);
+  const [reorderError, setReorderError] =
+    useState<string | null>(null);
 
-  const [
-    activeDragId,
-    setActiveDragId,
-  ] = useState<string | null>(null);
+  const [activeDragId, setActiveDragId] =
+    useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1405,20 +1268,16 @@ export default function DayEditor({
       )
     );
 
-    const result: RenderedDayContent[] =
-      [];
+    const result: RenderedDayContent[] = [];
 
     const sortedDayContent = [
       ...(activeDay.day_content ?? []),
     ].sort(
-      (a, b) =>
-        a.position - b.position
+      (a, b) => a.position - b.position
     );
 
     for (const item of sortedDayContent) {
-      if (
-        item.content_type === "module"
-      ) {
+      if (item.content_type === "module") {
         const module = moduleMap.get(
           item.content_id
         );
@@ -1434,14 +1293,10 @@ export default function DayEditor({
         continue;
       }
 
-      if (
-        item.content_type ===
-        "checkpoint"
-      ) {
-        const checkpoint =
-          checkpointMap.get(
-            item.content_id
-          );
+      if (item.content_type === "checkpoint") {
+        const checkpoint = checkpointMap.get(
+          item.content_id
+        );
 
         if (checkpoint) {
           result.push({
@@ -1457,10 +1312,7 @@ export default function DayEditor({
   }, [activeDay]);
 
   const moduleNumbers = useMemo(() => {
-    const map = new Map<
-      string,
-      number
-    >();
+    const map = new Map<string, number>();
 
     let count = 0;
 
@@ -1482,21 +1334,16 @@ export default function DayEditor({
     [orderedContent]
   );
 
-  const activeDragItem =
-    useMemo(() => {
-      if (!activeDragId) return null;
+  const activeDragItem = useMemo(() => {
+    if (!activeDragId) return null;
 
-      return (
-        orderedContent.find(
-          (item) =>
-            item.dayContent.id ===
-            activeDragId
-        ) ?? null
-      );
-    }, [
-      activeDragId,
-      orderedContent,
-    ]);
+    return (
+      orderedContent.find(
+        (item) =>
+          item.dayContent.id === activeDragId
+      ) ?? null
+    );
+  }, [activeDragId, orderedContent]);
 
   async function swapPositions(
     table: ReorderTable,
@@ -1505,19 +1352,15 @@ export default function DayEditor({
     targetId: string,
     targetPosition: number
   ) {
-    const temporaryCurrentPosition =
-      -100001;
-    const temporaryTargetPosition =
-      -100002;
+    const temporaryCurrentPosition = -100001;
+    const temporaryTargetPosition = -100002;
 
-    const { error: firstTempError } =
-      await supabase
-        .from(table)
-        .update({
-          position:
-            temporaryCurrentPosition,
-        })
-        .eq("id", currentId);
+    const { error: firstTempError } = await supabase
+      .from(table)
+      .update({
+        position: temporaryCurrentPosition,
+      })
+      .eq("id", currentId);
 
     if (firstTempError) {
       console.error(
@@ -1527,13 +1370,10 @@ export default function DayEditor({
       return false;
     }
 
-    const {
-      error: secondTempError,
-    } = await supabase
+    const { error: secondTempError } = await supabase
       .from(table)
       .update({
-        position:
-          temporaryTargetPosition,
+        position: temporaryTargetPosition,
       })
       .eq("id", targetId);
 
@@ -1548,9 +1388,7 @@ export default function DayEditor({
       return false;
     }
 
-    const {
-      error: firstFinalError,
-    } = await supabase
+    const { error: firstFinalError } = await supabase
       .from(table)
       .update({
         position: targetPosition,
@@ -1561,9 +1399,7 @@ export default function DayEditor({
       return false;
     }
 
-    const {
-      error: secondFinalError,
-    } = await supabase
+    const { error: secondFinalError } = await supabase
       .from(table)
       .update({
         position: currentPosition,
@@ -1607,14 +1443,13 @@ export default function DayEditor({
     setIsReordering(true);
     setReorderError(null);
 
-    const success =
-      await swapPositions(
-        table,
-        current.id,
-        current.position,
-        target.id,
-        target.position
-      );
+    const success = await swapPositions(
+      table,
+      current.id,
+      current.position,
+      target.id,
+      target.position
+    );
 
     if (!success) {
       setReorderError(errorMessage);
@@ -1669,9 +1504,7 @@ export default function DayEditor({
   function handleDragStart(
     event: DragStartEvent
   ) {
-    setActiveDragId(
-      String(event.active.id)
-    );
+    setActiveDragId(String(event.active.id));
     setReorderError(null);
   }
 
@@ -1680,9 +1513,7 @@ export default function DayEditor({
   ) {
     setActiveDragId(null);
 
-    const activeId = String(
-      event.active.id
-    );
+    const activeId = String(event.active.id);
 
     const overId = event.over
       ? String(event.over.id)
@@ -1696,19 +1527,15 @@ export default function DayEditor({
       return;
     }
 
-    const oldIndex =
-      orderedContent.findIndex(
-        (item) =>
-          item.dayContent.id ===
-          activeId
-      );
+    const oldIndex = orderedContent.findIndex(
+      (item) =>
+        item.dayContent.id === activeId
+    );
 
-    const newIndex =
-      orderedContent.findIndex(
-        (item) =>
-          item.dayContent.id ===
-          overId
-      );
+    const newIndex = orderedContent.findIndex(
+      (item) =>
+        item.dayContent.id === overId
+    );
 
     if (
       oldIndex === -1 ||
@@ -1722,9 +1549,7 @@ export default function DayEditor({
     setReorderError(null);
 
     const direction: MoveDirection =
-      newIndex > oldIndex
-        ? "down"
-        : "up";
+      newIndex > oldIndex ? "down" : "up";
 
     const totalMoves = Math.abs(
       newIndex - oldIndex
@@ -1737,16 +1562,13 @@ export default function DayEditor({
       move < totalMoves;
       move += 1
     ) {
-      const { error } =
-        await supabase.rpc(
-          "move_day_content",
-          {
-            target_day_content_id:
-              activeId,
-            move_direction:
-              direction,
-          }
-        );
+      const { error } = await supabase.rpc(
+        "move_day_content",
+        {
+          target_day_content_id: activeId,
+          move_direction: direction,
+        }
+      );
 
       if (error) {
         console.error(
@@ -1792,13 +1614,11 @@ export default function DayEditor({
               </div>
 
               <h2 className="text-2xl font-semibold tracking-[-0.025em] text-[#172033]">
-                {activeDay?.title ??
-                  title}
+                {activeDay?.title ?? title}
               </h2>
 
               <p className="mt-2 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-[#667085]">
-                {activeDay?.description ??
-                  description}
+                {activeDay?.description ?? description}
               </p>
             </div>
 
@@ -1806,14 +1626,8 @@ export default function DayEditor({
               {activeDay && (
                 <button
                   type="button"
-                  onClick={() =>
-                    setIsEditingDay(
-                      true
-                    )
-                  }
-                  disabled={
-                    isReordering
-                  }
+                  onClick={() => setIsEditingDay(true)}
+                  disabled={isReordering}
                   className="rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2 text-xs font-semibold text-[#475467] hover:bg-[#f7f8fa] disabled:opacity-50"
                 >
                   Edit day
@@ -1842,32 +1656,20 @@ export default function DayEditor({
                   </p>
 
                   <p className="mt-1 text-sm text-[#667085]">
-                    {
-                      activeDay.modules
-                        .length
-                    }{" "}
-                    {activeDay.modules
-                      .length === 1
+                    {activeDay.modules.length}{" "}
+                    {activeDay.modules.length === 1
                       ? "module"
                       : "modules"}{" "}
-                    ·{" "}
-                    {
-                      activeDay
-                        .checkpoints
-                        .length
-                    }{" "}
-                    {activeDay.checkpoints
-                      .length === 1
+                    · {activeDay.checkpoints.length}{" "}
+                    {activeDay.checkpoints.length === 1
                       ? "checkpoint"
                       : "checkpoints"}
                   </p>
 
                   <p className="mt-1 text-xs text-[#98a2b3]">
-                    Drag any module,
-                    checkpoint, live
-                    session or information
-                    block to change the
-                    trainee journey.
+                    Drag any module, checkpoint, live
+                    session or information block to
+                    change the trainee journey.
                   </p>
                 </div>
 
@@ -1875,13 +1677,9 @@ export default function DayEditor({
                   <button
                     type="button"
                     onClick={() =>
-                      setIsAddingCheckpoint(
-                        true
-                      )
+                      setIsAddingCheckpoint(true)
                     }
-                    disabled={
-                      isReordering
-                    }
+                    disabled={isReordering}
                     className="rounded-xl border border-[#B9E8EE] bg-white px-4 py-2.5 text-sm font-semibold text-[#07879B] transition hover:bg-[#F0FAFB] disabled:opacity-50"
                   >
                     + Add checkpoint
@@ -1890,13 +1688,9 @@ export default function DayEditor({
                   <button
                     type="button"
                     onClick={() =>
-                      setIsAddingModule(
-                        true
-                      )
+                      setIsAddingModule(true)
                     }
-                    disabled={
-                      isReordering
-                    }
+                    disabled={isReordering}
                     className="rounded-xl bg-[#172033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#263247] disabled:opacity-50"
                   >
                     + Add module
@@ -1917,28 +1711,18 @@ export default function DayEditor({
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#08A9C1]/30 border-t-[#08A9C1]" />
 
                   <p className="text-xs font-medium text-[#08788A]">
-                    Saving new day
-                    order...
+                    Saving new day order...
                   </p>
                 </div>
               )}
 
-              {orderedContent.length >
-              0 ? (
+              {orderedContent.length > 0 ? (
                 <DndContext
                   sensors={sensors}
-                  collisionDetection={
-                    closestCenter
-                  }
-                  onDragStart={
-                    handleDragStart
-                  }
-                  onDragEnd={
-                    handleDragEnd
-                  }
-                  onDragCancel={
-                    handleDragCancel
-                  }
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
                 >
                   <SortableContext
                     items={sortableIds}
@@ -1948,42 +1732,26 @@ export default function DayEditor({
                   >
                     <div className="space-y-4">
                       {orderedContent.map(
-                        (
-                          item,
-                          contentIndex
-                        ) => (
+                        (item, contentIndex) => (
                           <SortableDayItem
-                            key={
-                              item
-                                .dayContent
-                                .id
-                            }
+                            key={item.dayContent.id}
                             item={item}
-                            contentIndex={
-                              contentIndex
-                            }
+                            contentIndex={contentIndex}
                             moduleNumber={
-                              item.type ===
-                              "module"
+                              item.type === "module"
                                 ? moduleNumbers.get(
-                                    item
-                                      .module
-                                      .id
+                                    item.module.id
                                   )
                                 : undefined
                             }
-                            isReordering={
-                              isReordering
-                            }
+                            isReordering={isReordering}
                             onMoveMaterial={
                               handleMoveMaterial
                             }
                             onMoveActivity={
                               handleMoveActivity
                             }
-                            onMoveQuiz={
-                              handleMoveQuiz
-                            }
+                            onMoveQuiz={handleMoveQuiz}
                           />
                         )
                       )}
@@ -1991,25 +1759,18 @@ export default function DayEditor({
                   </SortableContext>
 
                   <DragOverlay>
-                    <DragPreview
-                      item={
-                        activeDragItem
-                      }
-                    />
+                    <DragPreview item={activeDragItem} />
                   </DragOverlay>
                 </DndContext>
               ) : (
                 <div className="rounded-[18px] border border-dashed border-[#d0d5dd] bg-white px-6 py-12 text-center">
                   <p className="text-sm font-medium text-[#344054]">
-                    This day does not
-                    have any content yet.
+                    This day does not have any content yet.
                   </p>
 
                   <p className="mt-1 text-xs text-[#98a2b3]">
-                    Add a module or
-                    checkpoint to begin
-                    building the training
-                    day.
+                    Add a module or checkpoint to begin
+                    building the training day.
                   </p>
                 </div>
               )}
@@ -2017,14 +1778,8 @@ export default function DayEditor({
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#cfd8dc] bg-white/60 px-5 py-5">
                 <button
                   type="button"
-                  onClick={() =>
-                    setIsAddingModule(
-                      true
-                    )
-                  }
-                  disabled={
-                    isReordering
-                  }
+                  onClick={() => setIsAddingModule(true)}
+                  disabled={isReordering}
                   className="rounded-xl bg-[#172033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#263247] disabled:opacity-50"
                 >
                   + Add module
@@ -2033,14 +1788,10 @@ export default function DayEditor({
                 <button
                   type="button"
                   onClick={() =>
-                    setIsAddingCheckpoint(
-                      true
-                    )
+                    setIsAddingCheckpoint(true)
                   }
-                  disabled={
-                    isReordering
-                  }
-                  className="rounded-xl border border-[#B9E8EE] bg-white px-4 py-2.5 text-sm font-semibold text-[#07879B] transition hover:bg-[#F0FAFB] disabled:opacity-50"
+                  disabled={isReordering}
+                  className="rounded-xl border border-[#B9E8EE] bg-white px-4 py-2.5 text-sm font-semibold text-[#07879B] hover:bg-[#F0FAFB] disabled:opacity-50"
                 >
                   + Add checkpoint
                 </button>
@@ -2049,55 +1800,35 @@ export default function DayEditor({
           ) : (
             <div className="rounded-[18px] border border-dashed border-[#d0d5dd] bg-white px-6 py-12 text-center">
               <p className="text-sm font-medium text-[#344054]">
-                Day {dayNumber} content
-                is coming next.
+                Day {dayNumber} content is coming next.
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {isAddingModule &&
-        activeDay && (
-          <AddModuleEditor
-            dayId={activeDay.id}
-            nextPosition={
-              activeDay.modules
-                .length + 1
-            }
-            onClose={() =>
-              setIsAddingModule(
-                false
-              )
-            }
-          />
-        )}
+      {isAddingModule && activeDay && (
+        <AddModuleEditor
+          dayId={activeDay.id}
+          nextPosition={activeDay.modules.length + 1}
+          onClose={() => setIsAddingModule(false)}
+        />
+      )}
 
-      {isAddingCheckpoint &&
-        activeDay && (
-          <AddCheckpointEditor
-            dayId={activeDay.id}
-            nextPosition={
-              activeDay.checkpoints
-                .length + 1
-            }
-            onClose={() =>
-              setIsAddingCheckpoint(
-                false
-              )
-            }
-          />
-        )}
+      {isAddingCheckpoint && activeDay && (
+        <AddCheckpointEditor
+          dayId={activeDay.id}
+          nextPosition={activeDay.checkpoints.length + 1}
+          onClose={() => setIsAddingCheckpoint(false)}
+        />
+      )}
 
-      {isEditingDay &&
-        activeDay && (
-          <DaySettingsEditor
-            day={activeDay}
-            onClose={() =>
-              setIsEditingDay(false)
-            }
-          />
-        )}
+      {isEditingDay && activeDay && (
+        <DaySettingsEditor
+          day={activeDay}
+          onClose={() => setIsEditingDay(false)}
+        />
+      )}
     </div>
   );
 }

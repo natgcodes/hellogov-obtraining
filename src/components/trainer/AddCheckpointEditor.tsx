@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { officialDateTimeToUTC } from "@/lib/datetime";
+import DualDateTime from "@/components/ui/DualDateTime";
 
 type CheckpointType =
   | "assessment"
@@ -55,25 +57,18 @@ export default function AddCheckpointEditor({
   const [errorMessage, setErrorMessage] =
     useState<string | null>(null);
 
+  const scheduledPreview =
+    meetingDate && meetingTime
+      ? officialDateTimeToUTC(
+          meetingDate,
+          meetingTime
+        )
+      : null;
+
   function changeType(type: CheckpointType) {
     setCheckpointType(type);
     setErrorMessage(null);
 
-    /*
-     * Sensible defaults:
-     *
-     * Assessment:
-     * - required
-     * - completion comes from assessment by default
-     *
-     * Trainer Session:
-     * - required
-     * - trainee can mark complete by default
-     *
-     * Information:
-     * - optional
-     * - trainee can mark complete by default
-     */
     if (type === "assessment") {
       setIsRequired(true);
       setAllowLearnerCompletion(false);
@@ -180,12 +175,6 @@ export default function AddCheckpointEditor({
         return;
       }
 
-      /*
-       * The assessment creation RPC currently
-       * creates assessments as required.
-       * Synchronize the trainer's selected
-       * requirement + manual completion setting.
-       */
       const {
         error: checkpointSettingsError,
       } = await supabase
@@ -211,10 +200,6 @@ export default function AddCheckpointEditor({
         return;
       }
 
-      /*
-       * Keep the internal quiz requirement
-       * synchronized as well.
-       */
       const {
         data: createdCheckpoint,
         error: checkpointLookupError,
@@ -294,22 +279,18 @@ export default function AddCheckpointEditor({
       }
 
       if (meetingDate && meetingTime) {
-        const localDate = new Date(
-          `${meetingDate}T${meetingTime}`
+        scheduledAt = officialDateTimeToUTC(
+          meetingDate,
+          meetingTime
         );
 
-        if (
-          Number.isNaN(localDate.getTime())
-        ) {
+        if (!scheduledAt) {
           setErrorMessage(
             "Please enter a valid meeting date and time."
           );
           setIsSaving(false);
           return;
         }
-
-        scheduledAt =
-          localDate.toISOString();
       }
 
       const parsedDuration =
@@ -710,6 +691,29 @@ export default function AddCheckpointEditor({
                     className="w-full rounded-xl border border-[#d0d5dd] bg-white px-3.5 py-2.5 text-sm text-[#172033] outline-none focus:border-[#08A9C1] focus:ring-4 focus:ring-[#08A9C1]/10"
                   />
                 </div>
+              </div>
+
+              {/* OFFICIAL TIMEZONE + LOCAL EQUIVALENCE */}
+
+              <div className="rounded-xl border border-[#B9E8EE] bg-[#F0FAFB] px-4 py-3">
+                <p className="text-xs font-semibold text-[#08788A]">
+                  Official Time · Colombia / Peru (UTC-5)
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-[#667085]">
+                  All session times are entered in
+                  Colombia/Peru time, regardless of
+                  your location.
+                </p>
+
+                {scheduledPreview && (
+                  <div className="mt-3">
+                    <DualDateTime
+                      compact
+                      value={scheduledPreview}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

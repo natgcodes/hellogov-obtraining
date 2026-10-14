@@ -117,9 +117,9 @@ export default function LearnerModuleCard({
                       Learning objective
                     </p>
 
-                    <p className="mt-1 text-[13px] leading-5 text-[var(--teal-deep)]">
-                      {module.objective}
-                    </p>
+                    <p className="mt-1 whitespace-pre-line text-[13px] leading-5 text-[var(--teal-deep)]">
+  {module.objective}
+</p>
                   </div>
                 </div>
               </div>

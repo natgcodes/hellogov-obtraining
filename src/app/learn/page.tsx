@@ -188,7 +188,7 @@ export default async function LearnPage() {
     }
   );
 
-  // ---------------------------------------------------------
+    // ---------------------------------------------------------
   // DERIVED OVERVIEW STATE
   // ---------------------------------------------------------
 
@@ -209,6 +209,13 @@ export default async function LearnPage() {
   const setupIsComplete =
     setupTotal === 0 ||
     setupCompleted >= setupTotal;
+
+  const setupPercent =
+    setupTotal > 0
+      ? Math.round(
+          (setupCompleted / setupTotal) * 100
+        )
+      : 100;
 
   const learnerJourneyWithSetup =
     learnerJourney
@@ -642,7 +649,7 @@ export default async function LearnPage() {
             </div>
           </section>
 
-          {/* =================================================
+                              {/* =================================================
               SETUP
           ================================================= */}
 
@@ -659,34 +666,32 @@ export default async function LearnPage() {
                   </h2>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${
-                    setupIsComplete
-                      ? "bg-[var(--success-soft)] text-[var(--success)]"
-                      : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
-                  }`}
-                >
-                  {setupIsComplete
-                    ? "Setup complete"
-                    : `${setupCompleted}/${setupTotal} complete`}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[13px] font-semibold text-[#07879B]">
+                    {setupPercent}%
+                  </span>
+
+                  <span
+                    className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${
+                      setupIsComplete
+                        ? "bg-[var(--success-soft)] text-[var(--success)]"
+                        : "bg-[var(--surface-muted)] text-[var(--text-secondary)]"
+                    }`}
+                  >
+                    {setupIsComplete
+                      ? "Setup complete"
+                      : `${setupCompleted}/${setupTotal} complete`}
+                  </span>
+                </div>
               </div>
 
               <SetupChecklist
                 items={program.setup_items}
                 progress={progress.setup}
                 programId={program.id}
-                title={
-                  program.setup_section?.title
-                }
-                description={
-                  program.setup_section
-                    ?.description
-                }
-                instructions={
-                  program.setup_section
-                    ?.instructions
-                }
+                title={program.setup_section?.title}
+                description={program.setup_section?.description}
+                instructions={program.setup_section?.instructions}
               />
             </section>
           )}

@@ -52,6 +52,7 @@ export type ReviewQueueItem = {
   learner_name: string | null;
   learner_email: string | null;
   attempt_number?: number;
+  max_attempts: number;
   submitted_at?: string | null;
   score?: number | null;
   pending_answers: number;

@@ -4,7 +4,11 @@ import AppShell from "@/components/layout/AppShell";
 import AddUserModal from "@/components/trainer/AddUserModal";
 import DeleteUserButton from "@/components/trainer/DeleteUserButton";
 import EditUserModal from "@/components/trainer/EditUserModal";
+
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
+import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
 
 type UserProfile = {
   id: string;
@@ -13,6 +17,68 @@ type UserProfile = {
   role: string;
   team_lead: string | null;
 };
+
+type UserStatus =
+  | "not_logged_in"
+  | "logged_in"
+  | "in_progress"
+  | "completed";
+
+type Enrollment = {
+  learner_id: string;
+  status: string;
+};
+
+type LearnerProgress = {
+  learner_id: string;
+  progress_percent: number | null;
+};
+
+// ============================================================
+// USER STATUS
+// ============================================================
+
+function getUserStatus({
+  role,
+  lastSignInAt,
+  enrollmentStatus,
+  progressPercent,
+}: {
+  role: string;
+  lastSignInAt: string | null;
+  enrollmentStatus: string | null;
+  progressPercent: number;
+}): UserStatus {
+  // Never logged in
+  if (!lastSignInAt) {
+    return "not_logged_in";
+  }
+
+  // Trainers do not complete learner onboarding
+  if (role === "trainer") {
+    return "logged_in";
+  }
+
+  // Completed onboarding
+  if (enrollmentStatus === "completed") {
+    return "completed";
+  }
+
+  // Started onboarding
+  if (
+    enrollmentStatus === "in_progress" ||
+    progressPercent > 0
+  ) {
+    return "in_progress";
+  }
+
+  // Logged in but has not started onboarding
+  return "logged_in";
+}
+
+// ============================================================
+// PAGE
+// ============================================================
 
 export default async function TrainerUsersPage() {
   const supabase = await createClient();
@@ -33,14 +99,11 @@ export default async function TrainerUsersPage() {
   // TRAINER ACCESS
   // ---------------------------------------------------------
 
-  const { data: currentProfile } =
-    await supabase
-      .from("profiles")
-      .select(
-        "full_name, email, role"
-      )
-      .eq("id", user.id)
-      .single();
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("full_name, email, role")
+    .eq("id", user.id)
+    .single();
 
   if (
     !currentProfile ||
@@ -55,32 +118,156 @@ export default async function TrainerUsersPage() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select(
-      "id, full_name, email, role, team_lead"
-    )
+    .select("id, full_name, email, role, team_lead")
     .in("role", ["learner", "trainer"])
     .order("full_name", {
       ascending: true,
     });
 
   if (error) {
-    console.error(
-      "Unable to load users:",
-      error
-    );
+    console.error("Unable to load users:", error);
   }
 
   const users = (data ?? []) as UserProfile[];
 
   const trainers = users.filter(
-    (profile) =>
-      profile.role === "trainer"
+    (profile) => profile.role === "trainer"
   );
 
   const trainees = users.filter(
-    (profile) =>
-      profile.role === "learner"
+    (profile) => profile.role === "learner"
   );
+
+  // ---------------------------------------------------------
+  // FETCH AUTH LOGIN INFORMATION
+  // ---------------------------------------------------------
+
+  const admin = createAdminClient();
+
+  const lastSignInMap = new Map<string, string | null>();
+
+  const {
+    data: authUsers,
+    error: authUsersError,
+  } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+
+  if (authUsersError) {
+    console.error(
+      "Unable to load login information:",
+      authUsersError
+    );
+  }
+
+  for (const authUser of authUsers?.users ?? []) {
+    lastSignInMap.set(
+      authUser.id,
+      authUser.last_sign_in_at ?? null
+    );
+  }
+
+  // ---------------------------------------------------------
+  // FETCH LEARNER ENROLLMENT STATUS
+  // ---------------------------------------------------------
+
+  const {
+    data: enrollments,
+    error: enrollmentsError,
+  } = await admin
+    .from("program_enrollments")
+    .select("learner_id, status")
+    .eq("program_id", HELLOGOV_PROGRAM_ID);
+
+  if (enrollmentsError) {
+    console.error(
+      "Unable to load enrollment statuses:",
+      enrollmentsError
+    );
+  }
+
+  const enrollmentMap = new Map<string, string>();
+
+  for (const enrollment of (enrollments ?? []) as Enrollment[]) {
+    enrollmentMap.set(
+      enrollment.learner_id,
+      enrollment.status
+    );
+  }
+
+  // ---------------------------------------------------------
+  // FETCH LEARNER PROGRESS
+  //
+  // Uses the same RPC as Trainer > Trainees.
+  // ---------------------------------------------------------
+
+  const program = await getTrainerProgram();
+
+  const progressMap = new Map<string, number>();
+
+  let progressErrorMessage: string | null = null;
+
+  if (program) {
+    const {
+      data: learnerProgress,
+      error: progressError,
+    } = await supabase.rpc(
+      "get_trainer_learners",
+      {
+        target_program_id: program.id,
+      }
+    );
+
+    if (progressError) {
+      console.error(
+        "Unable to load learner progress:",
+        progressError
+      );
+
+      progressErrorMessage =
+        "Some learner progress information is temporarily unavailable.";
+    }
+
+    for (const learner of
+      (learnerProgress ?? []) as LearnerProgress[]) {
+      progressMap.set(
+        learner.learner_id,
+        Number(learner.progress_percent ?? 0)
+      );
+    }
+  } else {
+    progressErrorMessage =
+      "The onboarding program could not be found.";
+  }
+
+  // ---------------------------------------------------------
+  // RESOLVE USER STATUSES
+  // ---------------------------------------------------------
+
+  const userStatuses = new Map<string, UserStatus>();
+
+  for (const profile of users) {
+    userStatuses.set(
+      profile.id,
+      getUserStatus({
+        role: profile.role,
+
+        lastSignInAt:
+          lastSignInMap.get(profile.id) ?? null,
+
+        enrollmentStatus:
+          enrollmentMap.get(profile.id) ?? null,
+
+        progressPercent:
+          progressMap.get(profile.id) ?? 0,
+      })
+    );
+  }
+
+  // ---------------------------------------------------------
+  // PAGE
+  // ---------------------------------------------------------
 
   return (
     <AppShell
@@ -103,8 +290,7 @@ export default async function TrainerUsersPage() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">
-                Manage Learning Center
-                access for trainees and
+                Manage Learning Center access for trainees and
                 trainers.
               </p>
             </div>
@@ -112,12 +298,20 @@ export default async function TrainerUsersPage() {
             <AddUserModal />
           </section>
 
-          {/* ERROR */}
+          {/* ERRORS */}
 
           {error && (
             <div className="mt-6 rounded-[14px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] font-medium text-red-700">
-              We couldn&apos;t load the
-              user list.
+              We couldn&apos;t load the user list.
+            </div>
+          )}
+
+          {(authUsersError ||
+            enrollmentsError ||
+            progressErrorMessage) && (
+            <div className="mt-6 rounded-[14px] border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] font-medium text-amber-800">
+              {progressErrorMessage ||
+                "Some user activity information is temporarily unavailable."}
             </div>
           )}
 
@@ -153,17 +347,14 @@ export default async function TrainerUsersPage() {
                 </h2>
 
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                  Select a user to edit their
-                  account information, role or
-                  Team Lead.
+                  Select a user to edit their account information,
+                  role or Team Lead.
                 </p>
               </div>
 
               <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">
                 {users.length}{" "}
-                {users.length === 1
-                  ? "account"
-                  : "accounts"}
+                {users.length === 1 ? "account" : "accounts"}
               </span>
             </div>
 
@@ -174,8 +365,7 @@ export default async function TrainerUsersPage() {
                 </p>
 
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                  Add a trainee or trainer to
-                  get started.
+                  Add a trainee or trainer to get started.
                 </p>
               </div>
             ) : (
@@ -183,21 +373,10 @@ export default async function TrainerUsersPage() {
                 <table className="w-full min-w-[860px] text-left">
                   <thead className="bg-[#FAFBFC]">
                     <tr className="border-b border-[var(--border-soft)]">
-                      <TableHeader>
-                        User
-                      </TableHeader>
-
-                      <TableHeader>
-                        Role
-                      </TableHeader>
-
-                      <TableHeader>
-                        Team Lead
-                      </TableHeader>
-
-                      <TableHeader>
-                        Access
-                      </TableHeader>
+                      <TableHeader>User</TableHeader>
+                      <TableHeader>Role</TableHeader>
+                      <TableHeader>Team Lead</TableHeader>
+                      <TableHeader>Status</TableHeader>
 
                       <th className="px-6 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                         Actions
@@ -206,64 +385,64 @@ export default async function TrainerUsersPage() {
                   </thead>
 
                   <tbody className="divide-y divide-[var(--border-soft)]">
-                    {users.map(
-                      (profile) => (
-                        <tr
-                          key={profile.id}
-                          className="transition-colors hover:bg-[#FAFCFC]"
-                        >
-                          <td className="px-6 py-4">
-                            <EditUserModal
-                              user={profile}
-                              isCurrentUser={
-                                profile.id ===
-                                user.id
-                              }
-                            />
-                          </td>
+                    {users.map((profile) => (
+                      <tr
+                        key={profile.id}
+                        className="transition-colors hover:bg-[#FAFCFC]"
+                      >
+                        {/* USER */}
 
-                          <td className="px-4 py-4">
-                            <RoleBadge
-                              role={
-                                profile.role
-                              }
-                            />
-                          </td>
+                        <td className="px-6 py-4">
+                          <EditUserModal
+                            user={profile}
+                            isCurrentUser={
+                              profile.id === user.id
+                            }
+                          />
+                        </td>
 
-                          <td className="px-4 py-4 text-[12px] text-[var(--text-secondary)]">
-                            {profile.role ===
-                            "learner"
-                              ? profile.team_lead ||
-                                "—"
-                              : "—"}
-                          </td>
+                        {/* ROLE */}
 
-                          <td className="px-4 py-4">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              Active
-                            </span>
-                          </td>
+                        <td className="px-4 py-4">
+                          <RoleBadge role={profile.role} />
+                        </td>
 
-                          <td className="px-6 py-4 text-right">
-                            <DeleteUserButton
-                              userId={
-                                profile.id
-                              }
-                              userName={
-                                profile.full_name ||
-                                profile.email ||
-                                "this user"
-                              }
-                              isCurrentUser={
-                                profile.id ===
-                                user.id
-                              }
-                            />
-                          </td>
-                        </tr>
-                      )
-                    )}
+                        {/* TEAM LEAD */}
+
+                        <td className="px-4 py-4 text-[12px] text-[var(--text-secondary)]">
+                          {profile.role === "learner"
+                            ? profile.team_lead || "—"
+                            : "—"}
+                        </td>
+
+                        {/* STATUS */}
+
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            status={
+                              userStatuses.get(profile.id) ??
+                              "not_logged_in"
+                            }
+                          />
+                        </td>
+
+                        {/* ACTIONS */}
+
+                        <td className="px-6 py-4 text-right">
+                          <DeleteUserButton
+                            userId={profile.id}
+                            userName={
+                              profile.full_name ||
+                              profile.email ||
+                              "this user"
+                            }
+                            isCurrentUser={
+                              profile.id === user.id
+                            }
+                          />
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -274,6 +453,10 @@ export default async function TrainerUsersPage() {
     </AppShell>
   );
 }
+
+// ============================================================
+// METRIC
+// ============================================================
 
 function Metric({
   label,
@@ -301,6 +484,10 @@ function Metric({
   );
 }
 
+// ============================================================
+// TABLE HEADER
+// ============================================================
+
 function TableHeader({
   children,
 }: {
@@ -313,11 +500,11 @@ function TableHeader({
   );
 }
 
-function RoleBadge({
-  role,
-}: {
-  role: string;
-}) {
+// ============================================================
+// ROLE BADGE
+// ============================================================
+
+function RoleBadge({ role }: { role: string }) {
   const isTrainer = role === "trainer";
 
   return (
@@ -329,6 +516,46 @@ function RoleBadge({
       }
     >
       {isTrainer ? "Trainer" : "Trainee"}
+    </span>
+  );
+}
+
+// ============================================================
+// STATUS BADGE
+// ============================================================
+
+function StatusBadge({
+  status,
+}: {
+  status: UserStatus;
+}) {
+  const styles: Record<UserStatus, string> = {
+    not_logged_in:
+      "bg-amber-50 text-amber-700",
+
+    logged_in:
+      "bg-[#EAF8FA] text-[#07879B]",
+
+    in_progress:
+      "bg-blue-50 text-blue-700",
+
+    completed:
+      "bg-emerald-50 text-emerald-700",
+  };
+
+  const labels: Record<UserStatus, string> = {
+    not_logged_in: "Not Logged In",
+    logged_in: "Logged In",
+    in_progress: "In Progress",
+    completed: "Completed",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${styles[status]}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {labels[status]}
     </span>
   );
 }

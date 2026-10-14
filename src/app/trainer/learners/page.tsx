@@ -18,6 +18,32 @@ type TrainerLearner = {
   needs_review: number;
 };
 
+// ============================================================
+// RESOLVE LEARNER STATUS
+// ============================================================
+
+function getLearnerStatus(
+  enrollmentStatus: string,
+  progressPercent: number
+) {
+  if (enrollmentStatus === "completed") {
+    return "completed";
+  }
+
+  if (
+    enrollmentStatus === "in_progress" ||
+    progressPercent > 0
+  ) {
+    return "in_progress";
+  }
+
+  return enrollmentStatus || "not_started";
+}
+
+// ============================================================
+// PAGE
+// ============================================================
+
 export default async function TrainerLearnersPage() {
   const supabase = await createClient();
 
@@ -65,6 +91,10 @@ export default async function TrainerLearnersPage() {
     );
   }
 
+  // ---------------------------------------------------------
+  // LEARNERS
+  // ---------------------------------------------------------
+
   const { data, error } = await supabase.rpc(
     "get_trainer_learners",
     {
@@ -73,6 +103,10 @@ export default async function TrainerLearnersPage() {
   );
 
   const learners = (data ?? []) as TrainerLearner[];
+
+  // ---------------------------------------------------------
+  // METRICS
+  // ---------------------------------------------------------
 
   const totalLearners = learners.length;
 
@@ -276,6 +310,16 @@ export default async function TrainerLearnersPage() {
                           learner.needs_review ?? 0
                         );
 
+                      // -------------------------------------
+                      // RESOLVE STATUS USING REAL PROGRESS
+                      // -------------------------------------
+
+                      const learnerStatus =
+                        getLearnerStatus(
+                          learner.enrollment_status,
+                          progress
+                        );
+
                       return (
                         <tr
                           key={learner.learner_id}
@@ -375,10 +419,7 @@ export default async function TrainerLearnersPage() {
                           <td className="px-4 py-4">
                             {pendingReviews > 0 ? (
                               <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
-                                {pendingReviews}{" "}
-                                {pendingReviews === 1
-                                  ? "pending"
-                                  : "pending"}
+                                {pendingReviews} pending
                               </span>
                             ) : (
                               <span className="text-[12px] text-[var(--text-muted)]">
@@ -391,9 +432,7 @@ export default async function TrainerLearnersPage() {
 
                           <td className="px-4 py-4">
                             <StatusBadge
-                              status={
-                                learner.enrollment_status
-                              }
+                              status={learnerStatus}
                             />
                           </td>
 
@@ -421,6 +460,10 @@ export default async function TrainerLearnersPage() {
   );
 }
 
+// ============================================================
+// METRIC
+// ============================================================
+
 function Metric({
   label,
   value,
@@ -446,6 +489,10 @@ function Metric({
     </div>
   );
 }
+
+// ============================================================
+// STATUS BADGE
+// ============================================================
 
 function StatusBadge({
   status,
@@ -473,6 +520,10 @@ function StatusBadge({
     </span>
   );
 }
+
+// ============================================================
+// INITIALS
+// ============================================================
 
 function getInitials(
   fullName: string | null,

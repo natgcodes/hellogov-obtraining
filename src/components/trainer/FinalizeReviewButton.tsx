@@ -4,23 +4,24 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type FinalizeReviewButtonProps = {
+type Props = {
   attemptId: string;
-  moduleId?: string;
+  moduleId?: string | null;
+  isFinalized?: boolean;
 };
 
 type FinalizeResult = {
   score: number;
   passed: boolean;
   status: string;
-  module_status: string;
+  module_status: string | null;
   program_status: string;
 };
 
 export default function FinalizeReviewButton({
   attemptId,
-}: FinalizeReviewButtonProps) {
-  const supabase = createClient();
+  isFinalized = false,
+}: Props) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
@@ -28,13 +29,14 @@ export default function FinalizeReviewButton({
   const [result, setResult] = useState<FinalizeResult | null>(null);
 
   async function handleFinalize() {
-    if (loading) return;
+    if (loading || isFinalized || result) return;
 
     setLoading(true);
     setError(null);
-    setResult(null);
 
     try {
+      const supabase = createClient();
+
       const { data, error: finalizeError } = await supabase.rpc(
         "finalize_quiz_review_with_progress",
         {
@@ -42,27 +44,17 @@ export default function FinalizeReviewButton({
         }
       );
 
-      if (finalizeError) {
-        throw finalizeError;
-      }
+      if (finalizeError) throw finalizeError;
 
       const finalResult = data?.[0] as FinalizeResult | undefined;
 
       if (!finalResult) {
-        throw new Error("No result was returned after finalizing the review.");
+        throw new Error(
+          "No result was returned after finalizing the review."
+        );
       }
 
       setResult(finalResult);
-
-      /*
-       * Refresh is intentional here.
-       *
-       * Unlike the learner QuizPlayer bug we fixed earlier,
-       * this does NOT start another quiz attempt.
-       *
-       * It refreshes the trainer review page so its server-rendered
-       * attempt status/score reflect the newly graded attempt.
-       */
       router.refresh();
     } catch (err) {
       console.error("Finalize review error:", err);
@@ -77,15 +69,27 @@ export default function FinalizeReviewButton({
     }
   }
 
+  if (isFinalized) {
+    return (
+      <span className="inline-flex rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+        Review completed
+      </span>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <button
         type="button"
         onClick={handleFinalize}
-        disabled={loading}
+        disabled={loading || result !== null}
         className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold !text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? "Finalizing..." : "Finalize review"}
+        {loading
+          ? "Finalizing..."
+          : result
+            ? "Review completed"
+            : "Finalize review"}
       </button>
 
       {error && (
@@ -95,34 +99,17 @@ export default function FinalizeReviewButton({
       )}
 
       {result && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-sm font-semibold text-emerald-900">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <p className="font-semibold">
             Review finalized successfully.
           </p>
 
-          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-emerald-800">
-            <span>Score: {Number(result.score).toFixed(2)}%</span>
-
-            <span>
-              Result: {result.passed ? "Passed" : "Not passed"}
-            </span>
-
-            <span>
-              Module: {formatStatus(result.module_status)}
-            </span>
-
-            <span>
-              Program: {formatStatus(result.program_status)}
-            </span>
-          </div>
+          <p className="mt-1 text-xs">
+            Score: {Number(result.score).toFixed(2)}% ·{" "}
+            {result.passed ? "Passed" : "Not passed"}
+          </p>
         </div>
       )}
     </div>
   );
-}
-
-function formatStatus(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

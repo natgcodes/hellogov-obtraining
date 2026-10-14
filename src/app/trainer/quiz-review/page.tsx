@@ -1,7 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
+import QuizReviewLibrary, {
+  type QuizLibraryItem,
+} from "@/components/trainer/QuizReviewLibrary";
+
 import { createClient } from "@/lib/supabase/server";
 import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
 
@@ -10,20 +13,15 @@ type QuizRecord = {
   title: string;
   is_published: boolean;
   module_id: string | null;
-};
-
-type LibraryItem = {
-  id: string;
-  title: string;
-  dayNumber: number;
-  dayTitle: string;
-  sectionTitle: string;
-  type: "Quiz" | "Checkpoint";
-  published: boolean;
+  created_at: string | null;
 };
 
 export default async function QuizReviewPage() {
   const supabase = await createClient();
+
+  // ---------------------------------------------------------
+  // AUTHENTICATION
+  // ---------------------------------------------------------
 
   const {
     data: { user },
@@ -51,6 +49,10 @@ export default async function QuizReviewPage() {
     );
   }
 
+  // ---------------------------------------------------------
+  // FETCH DAYS
+  // ---------------------------------------------------------
+
   const { data: days, error: daysError } = await supabase
     .from("days")
     .select("id,day_number,title")
@@ -58,6 +60,10 @@ export default async function QuizReviewPage() {
     .order("day_number");
 
   const dayIds = (days ?? []).map((day) => day.id);
+
+  // ---------------------------------------------------------
+  // FETCH MODULES
+  // ---------------------------------------------------------
 
   const { data: modules, error: modulesError } =
     dayIds.length > 0
@@ -71,6 +77,10 @@ export default async function QuizReviewPage() {
     (module) => module.id
   );
 
+  // ---------------------------------------------------------
+  // FETCH MODULE QUIZZES AND CHECKPOINTS
+  // ---------------------------------------------------------
+
   const [
     { data: quizzes, error: quizzesError },
     { data: checkpoints, error: checkpointsError },
@@ -78,7 +88,9 @@ export default async function QuizReviewPage() {
     moduleIds.length > 0
       ? supabase
           .from("quizzes")
-          .select("id,title,is_published,module_id")
+          .select(
+            "id,title,is_published,module_id,created_at"
+          )
           .in("module_id", moduleIds)
       : Promise.resolve({ data: [], error: null }),
 
@@ -91,6 +103,10 @@ export default async function QuizReviewPage() {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  // ---------------------------------------------------------
+  // BUILD LOOKUP MAPS
+  // ---------------------------------------------------------
+
   const dayMap = new Map(
     (days ?? []).map((day) => [day.id, day])
   );
@@ -102,6 +118,10 @@ export default async function QuizReviewPage() {
     ])
   );
 
+  // ---------------------------------------------------------
+  // FETCH CHECKPOINT QUIZZES
+  // ---------------------------------------------------------
+
   const checkpointQuizIds = [
     ...new Set(
       (checkpoints ?? [])
@@ -110,15 +130,26 @@ export default async function QuizReviewPage() {
     ),
   ];
 
-  const { data: checkpointQuizzes, error: checkpointQuizzesError } =
+  const {
+    data: checkpointQuizzes,
+    error: checkpointQuizzesError,
+  } =
     checkpointQuizIds.length > 0
       ? await supabase
           .from("quizzes")
-          .select("id,title,is_published,module_id")
+          .select(
+            "id,title,is_published,module_id,created_at"
+          )
           .in("id", checkpointQuizIds)
       : { data: [], error: null };
 
-  const items: LibraryItem[] = [];
+  // ---------------------------------------------------------
+  // BUILD LIBRARY ITEMS
+  // ---------------------------------------------------------
+
+  const items: QuizLibraryItem[] = [];
+
+  // MODULE QUIZZES
 
   for (const quiz of (quizzes ?? []) as QuizRecord[]) {
     const module = quiz.module_id
@@ -139,8 +170,11 @@ export default async function QuizReviewPage() {
       sectionTitle: module.title,
       type: "Quiz",
       published: quiz.is_published,
+      createdAt: quiz.created_at,
     });
   }
+
+  // CHECKPOINT QUIZZES
 
   const checkpointQuizMap = new Map(
     ((checkpointQuizzes ?? []) as QuizRecord[]).map(
@@ -167,14 +201,23 @@ export default async function QuizReviewPage() {
       sectionTitle: checkpoint.title,
       type: "Checkpoint",
       published: quiz.is_published,
+      createdAt: quiz.created_at,
     });
   }
+
+  // ---------------------------------------------------------
+  // SORT LIBRARY
+  // ---------------------------------------------------------
 
   items.sort(
     (a, b) =>
       a.dayNumber - b.dayNumber ||
       a.title.localeCompare(b.title)
   );
+
+  // ---------------------------------------------------------
+  // ERRORS
+  // ---------------------------------------------------------
 
   const errors = [
     daysError?.message,
@@ -184,6 +227,10 @@ export default async function QuizReviewPage() {
     checkpointQuizzesError?.message,
   ].filter((message): message is string => Boolean(message));
 
+  // ---------------------------------------------------------
+  // PAGE
+  // ---------------------------------------------------------
+
   return (
     <AppShell
       role="trainer"
@@ -192,6 +239,9 @@ export default async function QuizReviewPage() {
     >
       <div className="px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
         <main className="mx-auto w-full max-w-[1440px]">
+
+          {/* PAGE HEADER */}
+
           <section>
             <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--teal)]">
               Assessment Resources
@@ -207,6 +257,8 @@ export default async function QuizReviewPage() {
             </p>
           </section>
 
+          {/* ERROR MESSAGES */}
+
           {errors.map((error, index) => (
             <div
               key={index}
@@ -216,62 +268,10 @@ export default async function QuizReviewPage() {
             </div>
           ))}
 
-          <div className="mt-7 overflow-hidden rounded-[14px] border border-[var(--border)] bg-white">
-            <div className="border-b border-[var(--border-soft)] px-5 py-4">
-              <h2 className="text-[15px] font-semibold">
-                Quiz Library
-              </h2>
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                {items.length} assessments available
-              </p>
-            </div>
+          {/* QUIZ LIBRARY WITH DATE FILTER */}
 
-            {items.length === 0 ? (
-              <p className="p-6 text-sm text-[var(--text-secondary)]">
-                No quizzes or checkpoints found.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--border-soft)]">
-                {items.map((item) => (
-                  <div
-                    key={`${item.type}-${item.id}`}
-                    className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                          {item.title}
-                        </span>
+          <QuizReviewLibrary items={items} />
 
-                        <span className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-medium">
-                          {item.type}
-                        </span>
-
-                        {!item.published && (
-                          <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">
-                            Unpublished
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1.5 text-[12px] text-[var(--text-secondary)]">
-                        Day {item.dayNumber} ·{" "}
-                        {item.dayTitle} ·{" "}
-                        {item.sectionTitle}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={`/trainer/quiz-review/${item.id}`}
-                      className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold text-white transition hover:opacity-90"
-                    >
-                      View Questions →
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </main>
       </div>
     </AppShell>

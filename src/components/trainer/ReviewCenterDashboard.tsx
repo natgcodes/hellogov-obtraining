@@ -11,6 +11,7 @@ export type ReviewRecord = {
   attemptNumber: number;
   maxAttempts: number | null;
   isCheckpoint: boolean;
+  dayNumber: number | null;
   submittedAt: string | null;
   gradedAt: string | null;
   score: number | null;
@@ -30,6 +31,14 @@ type Props = {
 type SectionKey = "pending" | "manual" | "automatic" | "previous";
 
 type Accent = "amber" | "teal" | "emerald" | "slate";
+
+type DateFilter =
+  | "all"
+  | "today"
+  | "yesterday"
+  | "last7"
+  | "last30"
+  | "custom";
 
 const PAGE_SIZE = 5;
 
@@ -53,6 +62,69 @@ function formatDate(value: string | null) {
     hour: "numeric",
     minute: "2-digit",
   }).format(date);
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDateDaysAgo(days: number) {
+  const date = new Date();
+
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() - days);
+
+  return getLocalDateKey(date);
+}
+
+function matchesDateFilter(
+  submittedAt: string | null,
+  dateFilter: DateFilter,
+  startDate: string,
+  endDate: string
+) {
+  if (dateFilter === "all") return true;
+
+  if (!submittedAt) return false;
+
+  const date = new Date(submittedAt);
+
+  if (Number.isNaN(date.getTime())) return false;
+
+  const recordDate = getLocalDateKey(date);
+
+  switch (dateFilter) {
+    case "today":
+      return recordDate === getDateDaysAgo(0);
+
+    case "yesterday":
+      return recordDate === getDateDaysAgo(1);
+
+    case "last7":
+      return (
+        recordDate >= getDateDaysAgo(6) &&
+        recordDate <= getDateDaysAgo(0)
+      );
+
+    case "last30":
+      return (
+        recordDate >= getDateDaysAgo(29) &&
+        recordDate <= getDateDaysAgo(0)
+      );
+
+    case "custom":
+      return (
+        (!startDate || recordDate >= startDate) &&
+        (!endDate || recordDate <= endDate)
+      );
+
+    default:
+      return true;
+  }
 }
 
 function formatAttempt(record: ReviewRecord) {
@@ -110,6 +182,12 @@ function ReviewRow({ record }: { record: ReviewRecord }) {
             {record.isCheckpoint && (
               <span className="shrink-0 rounded-[6px] bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#07879B]">
                 CHECKPOINT
+              </span>
+            )}
+
+            {record.dayNumber !== null && (
+              <span className="shrink-0 rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+                Day {record.dayNumber}
               </span>
             )}
           </div>
@@ -276,8 +354,21 @@ export default function ReviewCenterDashboard({
   history,
 }: Props) {
   const [search, setSearch] = useState("");
+
+  // TRAINING DAY FILTER
+
+  const [dayFilter, setDayFilter] = useState("all");
+
+  // EXISTING FILTERS
+
   const [typeFilter, setTypeFilter] = useState("all");
   const [resultFilter, setResultFilter] = useState("all");
+
+  // DATE FILTER
+
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [expanded, setExpanded] = useState<
     Record<SectionKey, boolean>
@@ -296,6 +387,20 @@ export default function ReviewCenterDashboard({
   }
 
   // ============================================================
+  // AVAILABLE TRAINING DAYS
+  // ============================================================
+
+  const availableDays = useMemo(() => {
+    return [
+      ...new Set(
+        [...pending, ...history]
+          .map((record) => record.dayNumber)
+          .filter((day): day is number => day !== null)
+      ),
+    ].sort((a, b) => a - b);
+  }, [pending, history]);
+
+  // ============================================================
   // FILTER RECORDS
   // ============================================================
 
@@ -311,10 +416,17 @@ export default function ReviewCenterDashboard({
           record.learnerEmail,
           record.reviewerName ?? "",
           record.reviewerEmail ?? "",
+          record.dayNumber !== null
+            ? `Day ${record.dayNumber}`
+            : "",
         ]
           .join(" ")
           .toLowerCase()
           .includes(query);
+
+      const matchesDay =
+        dayFilter === "all" ||
+        record.dayNumber === Number(dayFilter);
 
       const matchesType =
         typeFilter === "all" ||
@@ -332,9 +444,32 @@ export default function ReviewCenterDashboard({
           record.status === "graded" &&
           record.passed === false);
 
-      return matchesSearch && matchesType && matchesResult;
+      const matchesDate = matchesDateFilter(
+        record.submittedAt,
+        dateFilter,
+        startDate,
+        endDate
+      );
+
+      return (
+        matchesSearch &&
+        matchesDay &&
+        matchesType &&
+        matchesResult &&
+        matchesDate
+      );
     });
-  }, [pending, history, search, typeFilter, resultFilter]);
+  }, [
+    pending,
+    history,
+    search,
+    dayFilter,
+    typeFilter,
+    resultFilter,
+    dateFilter,
+    startDate,
+    endDate,
+  ]);
 
   // ============================================================
   // GROUP RECORDS
@@ -366,30 +501,17 @@ export default function ReviewCenterDashboard({
   // SUMMARY COUNTS
   // ============================================================
 
-  const pendingCount = pending.length;
-
-  const manualCount = history.filter(
-    (record) =>
-      record.status === "graded" &&
-      record.gradingMethod === "manual"
-  ).length;
-
-  const automaticCount = history.filter(
-    (record) =>
-      record.status === "graded" &&
-      record.gradingMethod === "automatic"
-  ).length;
-
-  const previousCount = history.filter(
-    (record) =>
-      record.status === "graded" &&
-      record.gradingMethod === null
-  ).length;
+  const pendingCount = pendingRecords.length;
+  const manualCount = manualRecords.length;
+  const automaticCount = automaticRecords.length;
+  const previousCount = previousRecords.length;
 
   const hasFilters =
     search.trim() !== "" ||
+    dayFilter !== "all" ||
     typeFilter !== "all" ||
-    resultFilter !== "all";
+    resultFilter !== "all" ||
+    dateFilter !== "all";
 
   // ============================================================
   // SUMMARY CARDS
@@ -421,6 +543,20 @@ export default function ReviewCenterDashboard({
         ]
       : []),
   ];
+
+  // ============================================================
+  // CLEAR FILTERS
+  // ============================================================
+
+  function clearFilters() {
+    setSearch("");
+    setDayFilter("all");
+    setTypeFilter("all");
+    setResultFilter("all");
+    setDateFilter("all");
+    setStartDate("");
+    setEndDate("");
+  }
 
   return (
     <div>
@@ -458,7 +594,10 @@ export default function ReviewCenterDashboard({
       ====================================================== */}
 
       <div className="mt-6 rounded-[18px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-xs)]">
-        <div className="flex flex-col gap-3 lg:flex-row">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+
+          {/* SEARCH */}
+
           <input
             type="search"
             value={search}
@@ -467,6 +606,25 @@ export default function ReviewCenterDashboard({
             aria-label="Search reviews"
             className="min-w-0 flex-1 rounded-[10px] border border-[var(--border)] bg-[#FAFBFC] px-4 py-3 text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:bg-white focus:ring-2 focus:ring-[#08A9C1]/10"
           />
+
+          {/* TRAINING DAY FILTER */}
+
+          <select
+            value={dayFilter}
+            onChange={(event) => setDayFilter(event.target.value)}
+            aria-label="Filter by training day"
+            className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
+          >
+            <option value="all">All days</option>
+
+            {availableDays.map((day) => (
+              <option key={day} value={String(day)}>
+                Day {day}
+              </option>
+            ))}
+          </select>
+
+          {/* ASSESSMENT TYPE FILTER */}
 
           <select
             value={typeFilter}
@@ -478,6 +636,8 @@ export default function ReviewCenterDashboard({
             <option value="quiz">Quizzes</option>
             <option value="checkpoint">Checkpoints</option>
           </select>
+
+          {/* RESULT FILTER */}
 
           <select
             value={resultFilter}
@@ -491,20 +651,88 @@ export default function ReviewCenterDashboard({
             <option value="failed">Not passed</option>
           </select>
 
+          {/* DATE FILTER */}
+
+          <select
+            value={dateFilter}
+            onChange={(event) =>
+              setDateFilter(event.target.value as DateFilter)
+            }
+            aria-label="Filter by submission date"
+            className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
+          >
+            <option value="all">All dates</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7">Last 7 days</option>
+            <option value="last30">Last 30 days</option>
+            <option value="custom">Custom range</option>
+          </select>
+
+          {/* CLEAR FILTERS */}
+
           {hasFilters && (
             <button
               type="button"
-              onClick={() => {
-                setSearch("");
-                setTypeFilter("all");
-                setResultFilter("all");
-              }}
+              onClick={clearFilters}
               className="rounded-[10px] px-4 py-3 text-[12px] font-semibold text-[#07879B] transition hover:bg-[#EAF8FA]"
             >
               Clear
             </button>
           )}
         </div>
+
+        {/* ======================================================
+            CUSTOM DATE RANGE
+        ====================================================== */}
+
+        {dateFilter === "custom" && (
+          <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[var(--border-soft)] pt-4">
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="review-start-date"
+                className="text-[11px] font-medium text-[var(--text-secondary)]"
+              >
+                From
+              </label>
+
+              <input
+                id="review-start-date"
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(event) =>
+                  setStartDate(event.target.value)
+                }
+                className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-2.5 text-[13px] text-[var(--text-primary)] outline-none focus:border-[#08A9C1]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="review-end-date"
+                className="text-[11px] font-medium text-[var(--text-secondary)]"
+              >
+                To
+              </label>
+
+              <input
+                id="review-end-date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(event) =>
+                  setEndDate(event.target.value)
+                }
+                className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-2.5 text-[13px] text-[var(--text-primary)] outline-none focus:border-[#08A9C1]"
+              />
+            </div>
+
+            <p className="pb-2 text-[11px] text-[var(--text-muted)]">
+              Filter assessments by submission date.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ======================================================
@@ -512,6 +740,7 @@ export default function ReviewCenterDashboard({
       ====================================================== */}
 
       <div className="mt-6 grid items-start gap-5 lg:grid-cols-2">
+
         {/* LEFT COLUMN */}
 
         <div className="min-w-0 space-y-5">
@@ -561,7 +790,7 @@ export default function ReviewCenterDashboard({
               hasFilters
                 ? "No manually reviewed assessments match your filters."
                 : "No manually reviewed assessments found."
-            }
+              }
           />
 
           {previousCount > 0 && (

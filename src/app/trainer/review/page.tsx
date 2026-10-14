@@ -39,6 +39,10 @@ type HistoryItem = {
 export default async function ReviewCenterPage() {
   const supabase = await createClient();
 
+  // ============================================================
+  // AUTHENTICATION
+  // ============================================================
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -68,7 +72,7 @@ export default async function ReviewCenterPage() {
   }
 
   // ============================================================
-  // FETCH PROGRAM QUIZZES AND CHECKPOINTS
+  // FETCH PROGRAM MODULES, CHECKPOINTS AND REVIEW QUEUE
   // ============================================================
 
   const [
@@ -78,12 +82,33 @@ export default async function ReviewCenterPage() {
   ] = await Promise.all([
     supabase
       .from("modules")
-      .select("id,days!inner(program_id)")
+      .select(
+        `
+        id,
+        day_id,
+        days!inner(
+          id,
+          day_number,
+          program_id
+        )
+        `
+      )
       .eq("days.program_id", program.id),
 
     supabase
       .from("checkpoints")
-      .select("id,quiz_id,days!inner(program_id)")
+      .select(
+        `
+        id,
+        quiz_id,
+        day_id,
+        days!inner(
+          id,
+          day_number,
+          program_id
+        )
+        `
+      )
       .eq("days.program_id", program.id),
 
     supabase.rpc("get_quiz_review_queue", {
@@ -91,19 +116,56 @@ export default async function ReviewCenterPage() {
     }),
   ]);
 
+  // ============================================================
+  // BUILD MODULE DAY MAP
+  // ============================================================
+
+  const moduleDayMap = new Map<string, number>();
+
+  for (const module of programModules ?? []) {
+    const day = Array.isArray(module.days)
+      ? module.days[0]
+      : module.days;
+
+    if (day?.day_number != null) {
+      moduleDayMap.set(module.id, day.day_number);
+    }
+  }
+
   const moduleIds = (programModules ?? []).map(
     (module) => module.id
   );
 
-  const checkpointQuizIds = new Set(
-    (programCheckpoints ?? [])
-      .map((checkpoint) => checkpoint.quiz_id)
-      .filter((id): id is string => Boolean(id))
-  );
+  // ============================================================
+  // BUILD CHECKPOINT QUIZ DAY MAP
+  // ============================================================
+
+  const checkpointQuizDayMap = new Map<string, number>();
+
+  const checkpointQuizIds = new Set<string>();
+
+  for (const checkpoint of programCheckpoints ?? []) {
+    if (!checkpoint.quiz_id) continue;
+
+    checkpointQuizIds.add(checkpoint.quiz_id);
+
+    const day = Array.isArray(checkpoint.days)
+      ? checkpoint.days[0]
+      : checkpoint.days;
+
+    if (day?.day_number != null) {
+      checkpointQuizDayMap.set(
+        checkpoint.quiz_id,
+        day.day_number
+      );
+    }
+  }
 
   // ============================================================
-  // FETCH MODULE QUIZ IDS
+  // FETCH MODULE QUIZZES AND BUILD QUIZ DAY MAP
   // ============================================================
+
+  const quizDayMap = new Map<string, number>();
 
   let moduleQuizIds: string[] = [];
   let quizzesErrorMessage: string | null = null;
@@ -111,14 +173,32 @@ export default async function ReviewCenterPage() {
   if (moduleIds.length > 0) {
     const { data, error } = await supabase
       .from("quizzes")
-      .select("id")
+      .select("id,module_id")
       .in("module_id", moduleIds);
 
     if (error) {
       quizzesErrorMessage = error.message;
     } else {
       moduleQuizIds = (data ?? []).map((quiz) => quiz.id);
+
+      for (const quiz of data ?? []) {
+        if (!quiz.module_id) continue;
+
+        const dayNumber = moduleDayMap.get(quiz.module_id);
+
+        if (dayNumber != null) {
+          quizDayMap.set(quiz.id, dayNumber);
+        }
+      }
     }
+  }
+
+  // ============================================================
+  // ADD CHECKPOINT QUIZZES TO DAY MAP
+  // ============================================================
+
+  for (const [quizId, dayNumber] of checkpointQuizDayMap) {
+    quizDayMap.set(quizId, dayNumber);
   }
 
   // ============================================================
@@ -187,6 +267,7 @@ export default async function ReviewCenterPage() {
   ];
 
   const reviewerMap = new Map<string, LearnerInfo>();
+
   let reviewersErrorMessage: string | null = null;
 
   if (reviewerIds.length > 0) {
@@ -220,9 +301,15 @@ export default async function ReviewCenterPage() {
     learnerEmail: item.learner_email || "",
     attemptNumber: item.attempt_number ?? 1,
     maxAttempts: item.max_attempts ?? null,
+
     isCheckpoint:
       item.quiz_id != null &&
       checkpointQuizIds.has(item.quiz_id),
+
+    dayNumber: item.quiz_id
+      ? quizDayMap.get(item.quiz_id) ?? null
+      : null,
+
     submittedAt: item.submitted_at ?? null,
     gradedAt: null,
     score: null,
@@ -258,7 +345,11 @@ export default async function ReviewCenterPage() {
       learnerEmail: learner?.email || "",
       attemptNumber: item.attempt_number,
       maxAttempts: quiz?.max_attempts ?? null,
+
       isCheckpoint: checkpointQuizIds.has(item.quiz_id),
+
+      dayNumber: quizDayMap.get(item.quiz_id) ?? null,
+
       submittedAt: item.submitted_at,
       gradedAt: item.graded_at,
       score: item.score,
@@ -303,19 +394,13 @@ export default async function ReviewCenterPage() {
 
           <section className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              {/* SECTION LABEL */}
-
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--teal)]">
                 Assessment Operations
               </p>
 
-              {/* PAGE TITLE */}
-
               <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[30px]">
                 Review Center
               </h1>
-
-              {/* DESCRIPTION */}
 
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">
                 Manage pending submissions, review learner assessments,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
 
 type UserRole = "learner" | "trainer";
 
@@ -342,6 +343,56 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
+// AUTOMATIC LEARNER ENROLLMENT
+// -------------------------------------------------------
+
+if (role === "learner") {
+  const { error: enrollmentError } = await admin
+    .from("program_enrollments")
+    .upsert(
+      {
+        program_id: HELLOGOV_PROGRAM_ID,
+        learner_id: createdUser.id,
+        status: "not_started",
+      },
+      {
+        onConflict: "program_id,learner_id",
+        ignoreDuplicates: true,
+      }
+    );
+
+  if (enrollmentError) {
+    console.error(
+      "Unable to enroll new learner:",
+      enrollmentError
+    );
+
+    // Roll back the new account to avoid leaving
+    // a learner without a program enrollment.
+    const { error: rollbackError } =
+      await admin.auth.admin.deleteUser(createdUser.id);
+
+    if (rollbackError) {
+      console.error(
+        "Unable to rollback learner creation:",
+        rollbackError
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "The account could not be enrolled in the onboarding program.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+
+    // -------------------------------------------------------
     // SUCCESS
     //
     // IMPORTANT:
@@ -629,6 +680,44 @@ export async function PATCH(request: Request) {
         }
       );
     }
+
+// -------------------------------------------------------
+// ENROLL USER WHEN CHANGING TO LEARNER
+// -------------------------------------------------------
+
+if (role === "learner") {
+  const { error: enrollmentError } = await admin
+    .from("program_enrollments")
+    .upsert(
+      {
+        program_id: HELLOGOV_PROGRAM_ID,
+        learner_id: userId,
+        status: "not_started",
+      },
+      {
+        onConflict: "program_id,learner_id",
+        ignoreDuplicates: true,
+      }
+    );
+
+  if (enrollmentError) {
+    console.error(
+      "Unable to enroll learner after role update:",
+      enrollmentError
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "The user profile was updated, but enrollment in the onboarding program failed.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
 
     return NextResponse.json({
       success: true,

@@ -19,6 +19,7 @@ type QuizInfo = {
 type LearnerInfo = {
   full_name: string | null;
   email: string | null;
+  account_status?: "active" | "deactivated";
 };
 
 type HistoryItem = {
@@ -288,6 +289,13 @@ export default async function ReviewCenterPage() {
     }
   }
 
+  // Account status is independent from enrollment/progress status.
+  const { data: accountProfiles } = await supabase.from("profiles")
+    .select("email, account_status").eq("role", "learner");
+  const deactivatedEmails = new Set((accountProfiles ?? [])
+    .filter((item) => item.account_status === "deactivated" && item.email)
+    .map((item) => item.email!.toLowerCase()));
+
   // ============================================================
   // FORMAT PENDING REVIEWS
   // ============================================================
@@ -299,6 +307,7 @@ export default async function ReviewCenterPage() {
     quizTitle: item.quiz_title,
     learnerName: item.learner_name || "Learner",
     learnerEmail: item.learner_email || "",
+    accountStatus: deactivatedEmails.has((item.learner_email || "").toLowerCase()) ? "deactivated" : "active",
     attemptNumber: item.attempt_number ?? 1,
     maxAttempts: item.max_attempts ?? null,
 
@@ -343,6 +352,7 @@ export default async function ReviewCenterPage() {
       quizTitle: quiz?.title ?? "Quiz",
       learnerName: learner?.full_name || "Learner",
       learnerEmail: learner?.email || "",
+      accountStatus: deactivatedEmails.has((learner?.email || "").toLowerCase()) ? "deactivated" : "active",
       attemptNumber: item.attempt_number,
       maxAttempts: quiz?.max_attempts ?? null,
 

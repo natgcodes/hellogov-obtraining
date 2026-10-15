@@ -8,6 +8,7 @@ export type ReviewRecord = {
   quizTitle: string;
   learnerName: string;
   learnerEmail: string;
+  accountStatus: "active" | "deactivated";
   attemptNumber: number;
   maxAttempts: number | null;
   isCheckpoint: boolean;
@@ -33,7 +34,8 @@ type SectionKey =
   | "manual"
   | "automatic"
   | "previous"
-  | "cancelled";
+  | "cancelled"
+  | "deactivated";
 
 type Accent = "amber" | "teal" | "emerald" | "slate";
 
@@ -410,6 +412,7 @@ export default function ReviewCenterDashboard({
   // EXISTING FILTERS
 
   const [typeFilter, setTypeFilter] = useState("all");
+  const [accountFilter, setAccountFilter] = useState("all");
   const [resultFilter, setResultFilter] = useState("all");
 
   // DATE FILTER
@@ -426,6 +429,7 @@ export default function ReviewCenterDashboard({
     automatic: false,
     previous: false,
     cancelled: false,
+    deactivated: false,
   });
 
   function toggleSection(key: SectionKey) {
@@ -477,6 +481,8 @@ export default function ReviewCenterDashboard({
         dayFilter === "all" ||
         record.dayNumber === Number(dayFilter);
 
+      const matchesAccount = accountFilter === "all" || record.accountStatus === accountFilter;
+
       const matchesType =
         typeFilter === "all" ||
         (typeFilter === "checkpoint" && record.isCheckpoint) ||
@@ -505,6 +511,7 @@ export default function ReviewCenterDashboard({
       return (
         matchesSearch &&
         matchesDay &&
+        matchesAccount &&
         matchesType &&
         matchesResult &&
         matchesDate
@@ -515,6 +522,7 @@ export default function ReviewCenterDashboard({
     history,
     search,
     dayFilter,
+    accountFilter,
     typeFilter,
     resultFilter,
     dateFilter,
@@ -526,29 +534,37 @@ export default function ReviewCenterDashboard({
   // GROUP RECORDS
   // ============================================================
 
-  const pendingRecords = filtered.filter(
+  const activeRecords = filtered.filter(
+    (record) => record.accountStatus !== "deactivated"
+  );
+
+  const deactivatedRecords = filtered.filter(
+    (record) => record.accountStatus === "deactivated"
+  );
+
+  const pendingRecords = activeRecords.filter(
     (record) => record.status === "needs_review"
   );
 
-  const manualRecords = filtered.filter(
+  const manualRecords = activeRecords.filter(
     (record) =>
       record.status === "graded" &&
       record.gradingMethod === "manual"
   );
 
-  const automaticRecords = filtered.filter(
+  const automaticRecords = activeRecords.filter(
     (record) =>
       record.status === "graded" &&
       record.gradingMethod === "automatic"
   );
 
-  const previousRecords = filtered.filter(
+  const previousRecords = activeRecords.filter(
     (record) =>
       record.status === "graded" &&
       record.gradingMethod === null
   );
 
-  const cancelledRecords = filtered.filter(
+  const cancelledRecords = activeRecords.filter(
     (record) => record.status === "cancelled"
   );
 
@@ -561,11 +577,13 @@ export default function ReviewCenterDashboard({
   const automaticCount = automaticRecords.length;
   const previousCount = previousRecords.length;
   const cancelledCount = cancelledRecords.length;
+  const deactivatedCount = deactivatedRecords.length;
 
   const hasFilters =
     search.trim() !== "" ||
     dayFilter !== "all" ||
     typeFilter !== "all" ||
+    accountFilter !== "all" ||
     resultFilter !== "all" ||
     dateFilter !== "all";
 
@@ -603,6 +621,11 @@ export default function ReviewCenterDashboard({
       value: cancelledCount,
       color: "text-slate-600",
     },
+    {
+      label: "Deactivated Learners",
+      value: deactivatedCount,
+      color: "text-slate-600",
+    },
   ];
 
   // ============================================================
@@ -613,6 +636,7 @@ export default function ReviewCenterDashboard({
     setSearch("");
     setDayFilter("all");
     setTypeFilter("all");
+    setAccountFilter("all");
     setResultFilter("all");
     setDateFilter("all");
     setStartDate("");
@@ -685,6 +709,12 @@ export default function ReviewCenterDashboard({
                 Day {day}
               </option>
             ))}
+          </select>
+
+          <select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} aria-label="Filter by account status" className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)]">
+            <option value="all">All accounts</option>
+            <option value="active">Active accounts</option>
+            <option value="deactivated">Deactivated accounts</option>
           </select>
 
           {/* ASSESSMENT TYPE FILTER */}
@@ -873,6 +903,21 @@ export default function ReviewCenterDashboard({
               }
             />
           )}
+
+          <ReviewSection
+            title="Deactivated Learners"
+            description="Assessment history for deactivated learners, including submissions still awaiting review. Original quiz statuses and grades are preserved."
+            records={deactivatedRecords}
+            sectionKey="deactivated"
+            expanded={expanded.deactivated}
+            onToggle={toggleSection}
+            accent="slate"
+            emptyMessage={
+              hasFilters
+                ? "No deactivated learner assessments match your filters."
+                : "No assessments from deactivated learners found."
+            }
+          />
 
           <ReviewSection
             title="Quiz Cancelled"

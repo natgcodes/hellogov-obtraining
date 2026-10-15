@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
 import AddUserModal from "@/components/trainer/AddUserModal";
-import DeleteUserButton from "@/components/trainer/DeleteUserButton";
+import AccountStatusButton from "@/components/trainer/AccountStatusButton";
 import EditUserModal from "@/components/trainer/EditUserModal";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,6 +16,7 @@ type UserProfile = {
   email: string | null;
   role: string;
   team_lead: string | null;
+  account_status: "active" | "deactivated";
 };
 
 type UserStatus =
@@ -118,7 +119,7 @@ export default async function TrainerUsersPage() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, team_lead")
+    .select("id, full_name, email, role, team_lead, account_status")
     .in("role", ["learner", "trainer"])
     .order("full_name", {
       ascending: true,
@@ -418,27 +419,25 @@ export default async function TrainerUsersPage() {
                         {/* STATUS */}
 
                         <td className="px-4 py-4">
-                          <StatusBadge
-                            status={
-                              userStatuses.get(profile.id) ??
-                              "not_logged_in"
-                            }
-                          />
+                          {profile.account_status === "deactivated" ? (
+                            <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">Deactivated</span>
+                          ) : (
+                            <StatusBadge status={userStatuses.get(profile.id) ?? "not_logged_in"} />
+                          )}
                         </td>
 
                         {/* ACTIONS */}
 
                         <td className="px-6 py-4 text-right">
-                          <DeleteUserButton
+                          <AccountStatusButton
                             userId={profile.id}
                             userName={
                               profile.full_name ||
                               profile.email ||
                               "this user"
                             }
-                            isCurrentUser={
-                              profile.id === user.id
-                            }
+                            isCurrentUser={profile.id === user.id}
+                            accountStatus={profile.account_status}
                           />
                         </td>
                       </tr>

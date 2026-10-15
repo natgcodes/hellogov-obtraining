@@ -102,13 +102,14 @@ async function getAuthorizedTrainer() {
     error: trainerProfileError,
   } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     trainerProfileError ||
-    trainerProfile?.role !== "trainer"
+    (trainerProfile?.role !== "trainer" ||
+    trainerProfile?.account_status !== "active")
   ) {
     return {
       supabase,
@@ -754,122 +755,9 @@ if (role === "learner") {
 // DELETE USER
 // ===========================================================
 
-export async function DELETE(request: Request) {
-  try {
-    const auth = await getAuthorizedTrainer();
-
-    if (auth.error || !auth.user) {
-      return auth.error;
-    }
-
-    const body =
-      (await request.json()) as DeleteUserBody;
-
-    const userId = body.userId?.trim();
-
-    if (!userId) {
-      return NextResponse.json(
-        {
-          error: "User ID is required.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (userId === auth.user.id) {
-      return NextResponse.json(
-        {
-          error:
-            "You cannot delete your own account.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const admin = createAdminClient();
-
-    const {
-      data: createdProgram,
-      error: programCheckError,
-    } = await admin
-      .from("programs")
-      .select("id")
-      .eq("created_by", userId)
-      .limit(1)
-      .maybeSingle();
-
-    if (programCheckError) {
-      console.error(
-        "Unable to check program ownership:",
-        programCheckError
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "We couldn't verify whether this user can be deleted.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    if (createdProgram) {
-      return NextResponse.json(
-        {
-          error:
-            "This trainer cannot be deleted because they are the creator of a program.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
-    const { error: deleteError } =
-      await admin.auth.admin.deleteUser(
-        userId
-      );
-
-    if (deleteError) {
-      console.error(
-        "Unable to delete user:",
-        deleteError
-      );
-
-      return NextResponse.json(
-        {
-          error:
-            "We couldn't delete this account. Please try again.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error) {
-    console.error(
-      "Unexpected delete-user error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "Something went wrong while deleting the account.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
+export async function DELETE() {
+  return NextResponse.json(
+    { error: "Permanent deletion is disabled. Deactivate the account instead to preserve training records." },
+    { status: 405 }
+  );
 }

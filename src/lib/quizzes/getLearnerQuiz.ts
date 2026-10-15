@@ -46,12 +46,29 @@ export async function getLearnerQuiz(
     .eq("is_published", true)
     .single();
 
-  if (quizError || !quiz) {
+  // ---------------------------------------------------------
+  // HANDLE QUIZ LOADING ERRORS
+  //
+  // A missing or unpublished quiz returns null.
+  // A technical Supabase error throws an exception.
+  // ---------------------------------------------------------
+
+  if (quizError) {
+    if (quizError.code === "PGRST116") {
+      return null;
+    }
+
     console.error(
       "Error loading learner quiz:",
       quizError
     );
 
+    throw new Error(
+      "Unable to load assessment. Please try again."
+    );
+  }
+
+  if (!quiz) {
     return null;
   }
 
@@ -218,6 +235,8 @@ export async function getLearnerQuiz(
       questionLoadError
     );
 
-    return null;
+    throw new Error(
+      "Unable to load assessment questions. Please try again."
+    );
   }
 }

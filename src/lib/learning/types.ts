@@ -87,6 +87,7 @@ export type ProgressMap = {
   materials: Record<string, boolean>;
   activities: Record<string, string>;
   quizzes: Record<string, boolean>;
+  manuallyCompletedQuizzes: Record<string, boolean>;
   modules: Record<string, string>;
   percent: number;
 };

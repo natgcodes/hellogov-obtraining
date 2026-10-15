@@ -20,7 +20,7 @@ export type ReviewRecord = {
   gradingMethod: "manual" | "automatic" | null;
   reviewerName: string | null;
   reviewerEmail: string | null;
-  status: "needs_review" | "graded";
+  status: "needs_review" | "graded" | "cancelled";
 };
 
 type Props = {
@@ -28,7 +28,12 @@ type Props = {
   history: ReviewRecord[];
 };
 
-type SectionKey = "pending" | "manual" | "automatic" | "previous";
+type SectionKey =
+  | "pending"
+  | "manual"
+  | "automatic"
+  | "previous"
+  | "cancelled";
 
 type Accent = "amber" | "teal" | "emerald" | "slate";
 
@@ -164,57 +169,70 @@ function ResultBadge({ passed }: { passed: boolean | null }) {
 
 function ReviewRow({ record }: { record: ReviewRecord }) {
   const isPending = record.status === "needs_review";
+  const isCancelled = record.status === "cancelled";
 
-  return (
-    <Link
-      href={`/trainer/review/${record.id}`}
-      className="group block border-b border-[var(--border-soft)] px-4 py-4 transition-colors last:border-b-0 hover:bg-[var(--surface-soft)] sm:px-5"
-    >
-      <div className="flex items-start justify-between gap-3">
-        {/* LEFT SIDE */}
+  const rowContent = (
+    <div className="flex items-start justify-between gap-3">
+      {/* LEFT SIDE */}
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="min-w-0 break-words text-[13px] font-semibold text-[var(--text-primary)] transition-colors group-hover:text-[var(--teal)]">
-              {record.quizTitle}
-            </p>
-
-            {record.isCheckpoint && (
-              <span className="shrink-0 rounded-[6px] bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#07879B]">
-                CHECKPOINT
-              </span>
-            )}
-
-            {record.dayNumber !== null && (
-              <span className="shrink-0 rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
-                Day {record.dayNumber}
-              </span>
-            )}
-          </div>
-
-          <p className="mt-1 truncate text-[12px] text-[var(--text-secondary)]">
-            {record.learnerName}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p
+            className={`min-w-0 break-words text-[13px] font-semibold ${
+              isCancelled
+                ? "text-[var(--text-secondary)]"
+                : "text-[var(--text-primary)] transition-colors group-hover:text-[var(--teal)]"
+            }`}
+          >
+            {record.quizTitle}
           </p>
 
-          {record.learnerEmail && (
-            <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-              {record.learnerEmail}
-            </p>
+          {record.isCheckpoint && (
+            <span className="shrink-0 rounded-[6px] bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#07879B]">
+              CHECKPOINT
+            </span>
           )}
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
-            <span>{formatAttempt(record)}</span>
-
-            <span>
-              {formatDate(
-                isPending ? record.submittedAt : record.gradedAt
-              )}
+          {record.dayNumber !== null && (
+            <span className="shrink-0 rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+              Day {record.dayNumber}
             </span>
-          </div>
+          )}
 
-          {/* REVIEWER INFORMATION */}
+          {isCancelled && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+              Quiz Cancelled
+            </span>
+          )}
+        </div>
 
-          {!isPending && record.gradingMethod === "manual" && (
+        <p className="mt-1 truncate text-[12px] text-[var(--text-secondary)]">
+          {record.learnerName}
+        </p>
+
+        {record.learnerEmail && (
+          <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
+            {record.learnerEmail}
+          </p>
+        )}
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-muted)]">
+          <span>{formatAttempt(record)}</span>
+
+          <span>
+            {formatDate(
+              isPending || isCancelled
+                ? record.submittedAt
+                : record.gradedAt
+            )}
+          </span>
+        </div>
+
+        {/* REVIEWER INFORMATION */}
+
+        {!isPending &&
+          !isCancelled &&
+          record.gradingMethod === "manual" && (
             <p className="mt-2 text-[11px] text-[var(--text-secondary)]">
               Reviewed by{" "}
               <span className="font-semibold text-[var(--text-primary)]">
@@ -224,32 +242,62 @@ function ReviewRow({ record }: { record: ReviewRecord }) {
               </span>
             </p>
           )}
-        </div>
+      </div>
 
-        {/* RIGHT SIDE */}
+      {/* RIGHT SIDE */}
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {isPending ? (
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
-              {record.pendingAnswers} pending
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        {isCancelled ? (
+          <>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+              Cancelled
             </span>
-          ) : (
-            <>
-              <ResultBadge passed={record.passed} />
 
-              <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                {record.score === null
-                  ? "—"
-                  : `${Number(record.score).toFixed(0)}%`}
-              </span>
-            </>
-          )}
+            <span className="text-[13px] font-semibold text-[var(--text-secondary)]">
+              {record.score === null
+                ? "—"
+                : `${Number(record.score).toFixed(0)}%`}
+            </span>
+          </>
+        ) : isPending ? (
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+            {record.pendingAnswers} pending
+          </span>
+        ) : (
+          <>
+            <ResultBadge passed={record.passed} />
 
+            <span className="text-[13px] font-semibold text-[var(--text-primary)]">
+              {record.score === null
+                ? "—"
+                : `${Number(record.score).toFixed(0)}%`}
+            </span>
+          </>
+        )}
+
+        {!isCancelled && (
           <span className="text-lg text-[var(--text-muted)] transition-colors group-hover:text-[var(--teal)]">
             →
           </span>
-        </div>
+        )}
       </div>
+    </div>
+  );
+
+  if (isCancelled) {
+    return (
+      <div className="border-b border-[var(--border-soft)] bg-slate-50/50 px-4 py-4 last:border-b-0 sm:px-5">
+        {rowContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/trainer/review/${record.id}`}
+      className="group block border-b border-[var(--border-soft)] px-4 py-4 transition-colors last:border-b-0 hover:bg-[var(--surface-soft)] sm:px-5"
+    >
+      {rowContent}
     </Link>
   );
 }
@@ -377,6 +425,7 @@ export default function ReviewCenterDashboard({
     manual: false,
     automatic: false,
     previous: false,
+    cancelled: false,
   });
 
   function toggleSection(key: SectionKey) {
@@ -442,7 +491,9 @@ export default function ReviewCenterDashboard({
           record.passed === true) ||
         (resultFilter === "failed" &&
           record.status === "graded" &&
-          record.passed === false);
+          record.passed === false) ||
+        (resultFilter === "cancelled" &&
+          record.status === "cancelled");
 
       const matchesDate = matchesDateFilter(
         record.submittedAt,
@@ -497,6 +548,10 @@ export default function ReviewCenterDashboard({
       record.gradingMethod === null
   );
 
+  const cancelledRecords = filtered.filter(
+    (record) => record.status === "cancelled"
+  );
+
   // ============================================================
   // SUMMARY COUNTS
   // ============================================================
@@ -505,6 +560,7 @@ export default function ReviewCenterDashboard({
   const manualCount = manualRecords.length;
   const automaticCount = automaticRecords.length;
   const previousCount = previousRecords.length;
+  const cancelledCount = cancelledRecords.length;
 
   const hasFilters =
     search.trim() !== "" ||
@@ -542,6 +598,11 @@ export default function ReviewCenterDashboard({
           },
         ]
       : []),
+    {
+      label: "Quiz Cancelled",
+      value: cancelledCount,
+      color: "text-slate-600",
+    },
   ];
 
   // ============================================================
@@ -568,7 +629,9 @@ export default function ReviewCenterDashboard({
         className={`mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 ${
           summaryCards.length === 3
             ? "lg:grid-cols-3"
-            : "lg:grid-cols-4"
+            : summaryCards.length === 4
+              ? "lg:grid-cols-4"
+              : "lg:grid-cols-5"
         }`}
       >
         {summaryCards.map((stat) => (
@@ -649,6 +712,7 @@ export default function ReviewCenterDashboard({
             <option value="pending">Pending</option>
             <option value="passed">Passed</option>
             <option value="failed">Not passed</option>
+            <option value="cancelled">Cancelled</option>
           </select>
 
           {/* DATE FILTER */}
@@ -790,7 +854,7 @@ export default function ReviewCenterDashboard({
               hasFilters
                 ? "No manually reviewed assessments match your filters."
                 : "No manually reviewed assessments found."
-              }
+            }
           />
 
           {previousCount > 0 && (
@@ -809,6 +873,21 @@ export default function ReviewCenterDashboard({
               }
             />
           )}
+
+          <ReviewSection
+            title="Quiz Cancelled"
+            description="Cancelled attempts kept for historical reference. These submissions cannot be opened or graded."
+            records={cancelledRecords}
+            sectionKey="cancelled"
+            expanded={expanded.cancelled}
+            onToggle={toggleSection}
+            accent="slate"
+            emptyMessage={
+              hasFilters
+                ? "No cancelled assessments match your filters."
+                : "No cancelled assessments found."
+            }
+          />
         </div>
       </div>
     </div>

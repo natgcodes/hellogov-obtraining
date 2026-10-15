@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+
 import AppShell from "@/components/layout/AppShell";
 import ManualAnswerGrader from "@/components/trainer/ManualAnswerGrader";
 import FinalizeReviewButton from "@/components/trainer/FinalizeReviewButton";
+
 import { createClient } from "@/lib/supabase/server";
 
 type Props = {
@@ -66,6 +68,10 @@ export default async function ReviewAttemptPage({
 
   const supabase = await createClient();
 
+  // ============================================================
+  // AUTHENTICATION
+  // ============================================================
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -84,9 +90,9 @@ export default async function ReviewAttemptPage({
     redirect("/learn");
   }
 
-  // ----------------------------------------------------------
+  // ============================================================
   // ATTEMPT INFORMATION
-  // ----------------------------------------------------------
+  // ============================================================
 
   const { data: attempt, error: attemptError } = await supabase
     .from("quiz_attempts")
@@ -130,9 +136,67 @@ export default async function ReviewAttemptPage({
     notFound();
   }
 
-  // ----------------------------------------------------------
+  // ============================================================
+  // CANCELLED ATTEMPT
+  //
+  // Do not load answers or render grading controls.
+  // The original attempt remains stored in the database.
+  // ============================================================
+
+  if (attempt.status === "cancelled") {
+    return (
+      <AppShell role="trainer">
+        <main className="mx-auto max-w-5xl px-6 py-10">
+          <Link
+            href="/trainer/review"
+            className="text-sm font-medium text-slate-500 hover:text-slate-900"
+          >
+            ← Review Center
+          </Link>
+
+          <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
+            <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+              Quiz Cancelled
+            </span>
+
+            <h1 className="mt-5 text-2xl font-semibold tracking-tight text-slate-950">
+              {quiz.title}
+            </h1>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {learner?.full_name || "Learner"}
+              {learner?.email ? ` · ${learner.email}` : ""}
+            </p>
+
+            <div className="mt-7 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h2 className="text-sm font-semibold text-slate-800">
+                This quiz attempt has been cancelled.
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                This submission has been retained for historical
+                reference but is no longer eligible for grading.
+                Any new attempt must be reviewed separately.
+              </p>
+            </div>
+
+            <div className="mt-7">
+              <Link
+                href="/trainer/review"
+                className="inline-flex items-center justify-center rounded-xl bg-[#07879B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#066D7D]"
+              >
+                Return to Review Center
+              </Link>
+            </div>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  // ============================================================
   // SUBMISSION DETAILS
-  // ----------------------------------------------------------
+  // ============================================================
 
   const { data: submissionData, error: submissionError } =
     await supabase.rpc("get_learner_submission_detail", {
@@ -148,12 +212,9 @@ export default async function ReviewAttemptPage({
 
   const rows = (submissionData ?? []) as SubmissionRow[];
 
-  // ----------------------------------------------------------
+  // ============================================================
   // GROUP MULTI-ROW ANSWERS
-  //
-  // Multiple choice and matching answers can return more than
-  // one database row for the same quiz answer.
-  // ----------------------------------------------------------
+  // ============================================================
 
   const groupedMap = new Map<string, GroupedAnswer>();
 
@@ -244,6 +305,10 @@ export default async function ReviewAttemptPage({
         answer.questionType === "file_upload") &&
       answer.pointsAwarded === null
   ).length;
+
+  // ============================================================
+  // REVIEW PAGE
+  // ============================================================
 
   return (
     <AppShell role="trainer">
@@ -348,33 +413,30 @@ export default async function ReviewAttemptPage({
           ))}
         </div>
 
-        {answers.length > 0 && attempt.status === "needs_review" && (
-  <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="font-semibold text-slate-950">
-                  Finalize assessment review
-                </h2>
+        {answers.length > 0 &&
+          attempt.status === "needs_review" && (
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="font-semibold text-slate-950">
+                    Finalize assessment review
+                  </h2>
 
-                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                  Finalizing recalculates the learner&apos;s final
-                  score, pass status, module progress, and program
-                  progress.
-                </p>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                    Finalizing recalculates the learner&apos;s final
+                    score, pass status, module progress, and program
+                    progress.
+                  </p>
+                </div>
+
+                <FinalizeReviewButton
+                  attemptId={attempt.id}
+                  moduleId={quiz.module_id}
+                  isFinalized={attempt.status === "graded"}
+                />
               </div>
-
-              <FinalizeReviewButton
-
-  attemptId={attempt.id}
-
-  moduleId={quiz.module_id}
-
-  isFinalized={attempt.status === "graded"}
-
-/>
             </div>
-          </div>
-        )}
+          )}
       </main>
     </AppShell>
   );

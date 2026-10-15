@@ -242,7 +242,7 @@ export default async function ReviewCenterPage() {
         )
         `
       )
-      .eq("status", "graded")
+      .in("status", ["graded", "cancelled"])
       .in("quiz_id", programQuizIds)
       .order("graded_at", { ascending: false })
       .limit(500);
@@ -358,7 +358,7 @@ export default async function ReviewCenterPage() {
       gradingMethod: item.grading_method,
       reviewerName: reviewer?.full_name ?? null,
       reviewerEmail: reviewer?.email ?? null,
-      status: "graded",
+      status: item.status === "cancelled" ? "cancelled" : "graded",
     };
   });
 

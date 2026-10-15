@@ -2,6 +2,7 @@ import Link from "next/link";
 import MaterialCard from "./MaterialCard";
 import ActivityCard from "./ActivityCard";
 import QuizCompletionButton from "./QuizCompletionButton";
+
 import type {
   LearnerModule,
   ProgressMap,
@@ -46,11 +47,9 @@ export default function LearnerModuleCard({
   readOnly = false,
 }: Props) {
   const status =
-    progress.modules[module.id] ??
-    "not_started";
+    progress.modules[module.id] ?? "not_started";
 
-  const statusStyle =
-    getStatusStyles(status);
+  const statusStyle = getStatusStyles(status);
 
   const totalItems =
     module.materials.length +
@@ -82,9 +81,7 @@ export default function LearnerModuleCard({
               {totalItems > 0 && (
                 <span className="text-[11px] text-[var(--text-muted)]">
                   {totalItems}{" "}
-                  {totalItems === 1
-                    ? "item"
-                    : "items"}
+                  {totalItems === 1 ? "item" : "items"}
                 </span>
               )}
             </div>
@@ -118,8 +115,8 @@ export default function LearnerModuleCard({
                     </p>
 
                     <p className="mt-1 whitespace-pre-line text-[13px] leading-5 text-[var(--teal-deep)]">
-  {module.objective}
-</p>
+                      {module.objective}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -154,8 +151,7 @@ export default function LearnerModuleCard({
                 </p>
 
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  Review the resources for this
-                  module.
+                  Review the resources for this module.
                 </p>
               </div>
 
@@ -165,21 +161,17 @@ export default function LearnerModuleCard({
             </div>
 
             <div className="space-y-3">
-              {module.materials.map(
-                (material) => (
-                  <MaterialCard
-                    key={material.id}
-                    material={material}
-                    moduleId={module.id}
-                    completed={
-                      progress.materials[
-                        material.id
-                      ] ?? false
-                    }
-                    readOnly={readOnly}
-                  />
-                )
-              )}
+              {module.materials.map((material) => (
+                <MaterialCard
+                  key={material.id}
+                  material={material}
+                  moduleId={module.id}
+                  completed={
+                    progress.materials[material.id] ?? false
+                  }
+                  readOnly={readOnly}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -195,8 +187,7 @@ export default function LearnerModuleCard({
                 </p>
 
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  Apply what you learned before
-                  moving forward.
+                  Apply what you learned before moving forward.
                 </p>
               </div>
 
@@ -206,21 +197,18 @@ export default function LearnerModuleCard({
             </div>
 
             <div className="space-y-3">
-              {module.activities.map(
-                (activity) => (
-                  <ActivityCard
-                    key={activity.id}
-                    activity={activity}
-                    moduleId={module.id}
-                    status={
-                      progress.activities[
-                        activity.id
-                      ] ?? "not_started"
-                    }
-                    readOnly={readOnly}
-                  />
-                )
-              )}
+              {module.activities.map((activity) => (
+                <ActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  moduleId={module.id}
+                  status={
+                    progress.activities[activity.id] ??
+                    "not_started"
+                  }
+                  readOnly={readOnly}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -236,8 +224,7 @@ export default function LearnerModuleCard({
                 </p>
 
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  Check your understanding of the
-                  module.
+                  Check your understanding of the module.
                 </p>
               </div>
 
@@ -247,69 +234,69 @@ export default function LearnerModuleCard({
             </div>
 
             <div className="space-y-3">
-              {module.quizzes.map(
-                (quiz) => (
-                  <div
-                    key={quiz.id}
-                    className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-4 transition hover:border-[var(--teal-border)] hover:bg-white"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal-soft)] text-[13px] font-semibold text-[var(--teal-deep)]">
-                            ?
-                          </div>
-
-                          <div className="min-w-0">
-                            <h5 className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
-                              {quiz.title}
-                            </h5>
-
-                            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-                              Passing score:{" "}
-                              {quiz.passing_score}% ·{" "}
-                              {quiz.max_attempts}{" "}
-                              {quiz.max_attempts === 1
-                                ? "attempt"
-                                : "attempts"}
-                            </p>
-                          </div>
+              {module.quizzes.map((quiz) => (
+                <div
+                  key={quiz.id}
+                  className="rounded-[14px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-4 transition hover:border-[var(--teal-border)] hover:bg-white"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal-soft)] text-[13px] font-semibold text-[var(--teal-deep)]">
+                          ?
                         </div>
 
-                        {quiz.description && (
-                          <p className="mt-3 max-w-2xl text-[12px] leading-5 text-[var(--text-secondary)]">
-                            {quiz.description}
+                        <div className="min-w-0">
+                          <h5 className="truncate text-[13px] font-semibold text-[var(--text-primary)]">
+                            {quiz.title}
+                          </h5>
+
+                          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                            Passing score: {quiz.passing_score}% ·{" "}
+                            {quiz.max_attempts}{" "}
+                            {quiz.max_attempts === 1
+                              ? "attempt"
+                              : "attempts"}
                           </p>
-                        )}
+                        </div>
                       </div>
 
-                      {readOnly ? (
-                        <span className="inline-flex shrink-0 items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-[12px] font-semibold text-[var(--text-muted)]">
-                          Read only
-                        </span>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Link
-                            href={`/learn/quiz/${quiz.id}`}
-                            className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
-                          >
-                            Start quiz
-                          </Link>
-
-                          <QuizCompletionButton
-                            quizId={quiz.id}
-                            completed={
-                              progress.quizzes[
-                                quiz.id
-                              ] ?? false
-                            }
-                          />
-                        </div>
+                      {quiz.description && (
+                        <p className="mt-3 max-w-2xl text-[12px] leading-5 text-[var(--text-secondary)]">
+                          {quiz.description}
+                        </p>
                       )}
                     </div>
+
+                    {readOnly ? (
+                      <span className="inline-flex shrink-0 items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-[12px] font-semibold text-[var(--text-muted)]">
+                        Read only
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/learn/quiz/${quiz.id}`}
+                          className="inline-flex shrink-0 items-center justify-center rounded-[9px] bg-[var(--teal)] px-4 py-2.5 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)] hover:!text-white"
+                        >
+                          Start quiz
+                        </Link>
+
+                        <QuizCompletionButton
+                          quizId={quiz.id}
+                          completed={
+                            progress.quizzes[quiz.id] ?? false
+                          }
+                          manuallyCompleted={
+                            progress.manuallyCompletedQuizzes[
+                              quiz.id
+                            ] ?? false
+                          }
+                        />
+                      </div>
+                    )}
                   </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -323,8 +310,8 @@ export default function LearnerModuleCard({
             </p>
 
             <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-              Training materials have not been
-              added to this module yet.
+              Training materials have not been added to this
+              module yet.
             </p>
           </div>
         )}

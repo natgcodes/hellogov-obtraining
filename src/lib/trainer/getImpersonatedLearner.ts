@@ -17,6 +17,7 @@ function emptyProgress(): ProgressMap {
     materials: {},
     activities: {},
     quizzes: {},
+    manuallyCompletedQuizzes: {},
     modules: {},
     percent: 0,
   };
@@ -90,6 +91,7 @@ export async function getImpersonatedLearnerProgress(
     materials: {},
     activities: {},
     quizzes: {},
+    manuallyCompletedQuizzes: {},
     modules: {},
     percent,
   };

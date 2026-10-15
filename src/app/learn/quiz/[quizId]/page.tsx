@@ -107,10 +107,54 @@ export default async function LearnerQuizPage({
 
   // ---------------------------------------------------------
   // LOAD LEARNER-SAFE QUIZ
+  //
+  // Technical errors must display an informative message
+  // instead of producing a generic Next.js error page.
   // ---------------------------------------------------------
 
-  const quiz =
-    await getLearnerQuiz(quizId);
+  let quiz: Awaited<
+    ReturnType<typeof getLearnerQuiz>
+  > = null;
+
+  try {
+    quiz = await getLearnerQuiz(quizId);
+  } catch (quizLoadError) {
+    console.error(
+      "Unable to load learner assessment:",
+      quizLoadError
+    );
+
+    return (
+      <AppShell
+        role="learner"
+        userName={profile.full_name}
+        userEmail={profile.email}
+        learnerJourney={learnerJourney}
+      >
+        <div className="mx-auto max-w-4xl px-6 py-10">
+          <div className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-white p-8 shadow-[var(--shadow-sm)]">
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+              Unable to load assessment
+            </h1>
+
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+              We couldn&apos;t load this assessment
+              right now. Please try again in a moment.
+              If the problem continues, contact your
+              trainer.
+            </p>
+
+            <Link
+              href="/learn"
+              className="mt-6 inline-flex rounded-[10px] bg-[var(--teal)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+            >
+              Back to training
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!quiz) {
     notFound();
@@ -217,6 +261,10 @@ export default async function LearnerQuizPage({
 
   // ---------------------------------------------------------
   // CHECK DAY ACCESS
+  //
+  // Do not silently redirect learners to Home when
+  // Supabase cannot verify access or the day is locked.
+  // Display an informative message instead.
   // ---------------------------------------------------------
 
   const {
@@ -229,17 +277,45 @@ export default async function LearnerQuizPage({
     }
   );
 
-  if (unlockError) {
-    console.error(
-      "Unable to check day access:",
-      unlockError
+  if (unlockError || !unlocked) {
+    if (unlockError) {
+      console.error(
+        "Unable to check day access:",
+        unlockError
+      );
+    }
+
+    return (
+      <AppShell
+        role="learner"
+        userName={profile.full_name}
+        userEmail={profile.email}
+        learnerJourney={learnerJourney}
+      >
+        <div className="mx-auto max-w-4xl px-6 py-10">
+          <div className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-white p-8 shadow-[var(--shadow-sm)]">
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+              {unlockError
+                ? "Unable to load assessment"
+                : "Assessment unavailable"}
+            </h1>
+
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+              {unlockError
+                ? "We couldn't verify access to this assessment. Please try again in a moment."
+                : "This assessment is not currently available. Please contact your trainer if you believe this is a mistake."}
+            </p>
+
+            <Link
+              href={`/learn/day/${dayId}`}
+              className="mt-6 inline-flex rounded-[10px] bg-[var(--teal)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+            >
+              Back to training
+            </Link>
+          </div>
+        </div>
+      </AppShell>
     );
-
-    redirect("/learn");
-  }
-
-  if (!unlocked) {
-    redirect("/learn");
   }
 
   // ---------------------------------------------------------

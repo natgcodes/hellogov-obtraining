@@ -1,0 +1,12 @@
+"use client";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+type Person={id:string;full_name:string|null;email:string|null;role:string;account_status:string};
+export default function TeamAssignments({people,initial}:{people:Person[];initial:{team_leader_id:string;learner_id:string}[]}){
+ const router=useRouter();const tls=people.filter(p=>p.role==="team_leader"&&p.account_status==="active");const agents=people.filter(p=>p.role==="learner"&&p.account_status==="active");
+ const [tl,setTl]=useState(tls[0]?.id??"");const [selected,setSelected]=useState(new Set(initial.filter(a=>a.team_leader_id===(tls[0]?.id??"")).map(a=>a.learner_id)));
+ const [busy,setBusy]=useState("");const [error,setError]=useState("");
+ function choose(id:string){setTl(id);setSelected(new Set(initial.filter(a=>a.team_leader_id===id).map(a=>a.learner_id)));}
+ async function toggle(id:string){const assigned=!selected.has(id);setBusy(id);setError("");try{const res=await fetch("/api/trainer/team-assignments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({teamLeaderId:tl,learnerId:id,assigned})});const data=await res.json();if(!res.ok)throw new Error(data.error||"Unable to update");setSelected(old=>{const next=new Set(old);if(assigned)next.add(id);else next.delete(id);return next;});router.refresh();}catch(e){setError(e instanceof Error?e.message:"Unexpected error");}finally{setBusy("");}}
+ return <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-6"><h2 className="text-lg font-semibold">Team Leader Assignments</h2><p className="mt-1 text-sm text-slate-500">Assign active Trainees to one or more Team Leaders. Changes take effect immediately.</p>{!tls.length?<p className="mt-4 text-sm">Create a Team Leader account to begin.</p>:<><select className="mt-4 w-full rounded-lg border p-2 text-sm" value={tl} onChange={e=>choose(e.target.value)}>{tls.map(p=><option key={p.id} value={p.id}>{p.full_name||p.email}</option>)}</select><div className="mt-4 grid gap-2 sm:grid-cols-2">{agents.map(p=><label key={p.id} className="flex items-center gap-3 rounded-lg border border-slate-100 p-3 text-sm"><input type="checkbox" checked={selected.has(p.id)} disabled={!!busy} onChange={()=>toggle(p.id)}/>{p.full_name||p.email}</label>)}</div>{!agents.length&&<p className="mt-4 text-sm">No active Trainees found.</p>}</>}{error&&<p className="mt-3 text-sm text-red-600">{error}</p>}</section>;
+}

@@ -4,6 +4,7 @@ import AppShell from "@/components/layout/AppShell";
 import AddUserModal from "@/components/trainer/AddUserModal";
 import AccountStatusButton from "@/components/trainer/AccountStatusButton";
 import EditUserModal from "@/components/trainer/EditUserModal";
+import TeamAssignments from "@/components/trainer/TeamAssignments";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -120,7 +121,7 @@ export default async function TrainerUsersPage() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, email, role, team_lead, account_status")
-    .in("role", ["learner", "trainer"])
+    .in("role", ["learner", "trainer", "observer", "cross_training", "team_leader"])
     .order("full_name", {
       ascending: true,
     });
@@ -144,6 +145,7 @@ export default async function TrainerUsersPage() {
   // ---------------------------------------------------------
 
   const admin = createAdminClient();
+  const {data:assignmentRows} = await admin.from("team_leader_assignments").select("team_leader_id,learner_id");
 
   const lastSignInMap = new Map<string, string | null>();
 
@@ -291,8 +293,7 @@ export default async function TrainerUsersPage() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">
-                Manage Learning Center access for trainees and
-                trainers.
+                Manage Learning Center access, roles, and team assignments.
               </p>
             </div>
 
@@ -337,6 +338,8 @@ export default async function TrainerUsersPage() {
               helper="Training administrators"
             />
           </section>
+
+          <TeamAssignments people={users} initial={assignmentRows??[]} />
 
           {/* USERS */}
 
@@ -514,7 +517,7 @@ function RoleBadge({ role }: { role: string }) {
           : "inline-flex rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]"
       }
     >
-      {isTrainer ? "Trainer" : "Trainee"}
+      {({trainer:"Trainer",learner:"Trainee",observer:"Observer",cross_training:"Cross-Training",team_leader:"Team Leader"} as Record<string,string>)[role] ?? role}
     </span>
   );
 }

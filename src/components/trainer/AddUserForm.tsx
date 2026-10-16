@@ -6,7 +6,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-type UserRole = "learner" | "trainer";
+type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
 
 type CreatedAccount = {
   fullName: string;
@@ -75,12 +75,11 @@ export default function AddUserForm() {
     }
 
     const allowedEmail =
-      cleanEmail.endsWith("@ivisa.com") ||
-      cleanEmail.endsWith("@hellogov.com");
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
 
     if (!allowedEmail) {
       setError(
-        "Only @ivisa.com and @hellogov.com email addresses are allowed."
+        "Please enter a valid email address."
       );
       return;
     }
@@ -103,7 +102,7 @@ export default function AddUserForm() {
             email: cleanEmail,
             role,
             teamLead:
-              role === "learner"
+              role !== "trainer"
                 ? cleanTeamLead || null
                 : null,
           }),
@@ -434,8 +433,7 @@ export default function AddUserForm() {
           />
 
           <p className="mt-1.5 text-xs text-slate-400">
-            Only @ivisa.com and @hellogov.com
-            accounts are allowed.
+            Enter a valid email address.
           </p>
         </div>
 
@@ -474,15 +472,16 @@ export default function AddUserForm() {
               Trainee
             </option>
 
-            <option value="trainer">
-              Trainer
-            </option>
+            <option value="trainer">Trainer</option>
+            <option value="observer">Observer</option>
+            <option value="cross_training">Cross-Training</option>
+            <option value="team_leader">Team Leader</option>
           </select>
         </div>
 
         {/* TEAM LEAD */}
 
-        {role === "learner" && (
+        {role !== "trainer" && (
           <div>
             <label
               htmlFor="new-user-team-lead"

@@ -27,7 +27,12 @@ type AppShellProps = {
   children: ReactNode;
   userName?: string | null;
   userEmail?: string | null;
-  role: "learner" | "trainer";
+  role:
+    | "learner"
+    | "trainer"
+    | "observer"
+    | "cross_training"
+    | "team_leader";
   learnerJourney?: LearnerJourney;
 
   impersonation?: {
@@ -262,13 +267,11 @@ export default function AppShell({
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const isTrainer = role === "trainer";
+  const isTeamLeader = role === "team_leader";
   const isImpersonating = Boolean(impersonation);
 
   const showTrainerNavigation =
     isTrainer && !isImpersonating;
-
-  const showLearnerNavigation =
-    !isTrainer || isImpersonating;
 
   const learnerBasePath = isImpersonating
     ? `/trainer/impersonate/${impersonation!.learnerId}`
@@ -285,6 +288,10 @@ export default function AppShell({
   const profileLabel = showTrainerNavigation
     ? "My Profile"
     : "Profile";
+
+  // ============================================================
+  // TRAINER NAVIGATION
+  // ============================================================
 
   const trainerNavigation: NavigationItem[] = [
     {
@@ -312,11 +319,10 @@ export default function AppShell({
       href: "/trainer/review",
       icon: "review",
     },
-{
+    {
       label: "Quiz Review",
       href: "/trainer/quiz-review",
       icon: "submissions",
-
     },
     {
       label: "Q&A",
@@ -330,22 +336,45 @@ export default function AppShell({
     },
   ];
 
+  // ============================================================
+  // FALLBACK LEARNER NAVIGATION
+  //
+  // Certification is included only when unlocked.
+  // ============================================================
+
   const fallbackLearnerNavigation: NavigationItem[] = [
+    ...(isTeamLeader && !isImpersonating
+      ? [
+          {
+            label: "My Team",
+            href: "/team",
+            icon: "dashboard" as IconName,
+          },
+        ]
+      : []),
+
     {
       label: "Overview",
       href: learnerBasePath,
       icon: "home",
     },
+
     {
       label: "Submissions",
       href: `${learnerBasePath}/submissions`,
       icon: "submissions",
     },
-    {
-      label: "Certification",
-      href: `${learnerBasePath}/certification`,
-      icon: "certificate",
-    },
+
+    ...(learnerJourney?.certificationUnlocked
+      ? [
+          {
+            label: "Certification",
+            href: `${learnerBasePath}/certification`,
+            icon: "certificate" as IconName,
+          },
+        ]
+      : []),
+
     {
       label: "Next Steps",
       href: `${learnerBasePath}/post-training`,
@@ -417,6 +446,10 @@ export default function AppShell({
     learnerJourney!.setupCompleted >=
       learnerJourney!.setupTotal;
 
+  // ============================================================
+  // STANDARD NAVIGATION ITEM
+  // ============================================================
+
   function renderStandardNavItem(
     item: NavigationItem,
     mobile = false
@@ -466,6 +499,10 @@ export default function AppShell({
       </Link>
     );
   }
+
+  // ============================================================
+  // LEARNER JOURNEY NAVIGATION
+  // ============================================================
 
   function renderJourneyNavigation(
     mobile = false
@@ -552,9 +589,7 @@ export default function AppShell({
               </span>
 
               <span className="shrink-0 text-[11px] font-semibold text-[var(--text-muted)]">
-                {
-                  learnerJourney.setupCompleted
-                }
+                {learnerJourney.setupCompleted}
                 /
                 {learnerJourney.setupTotal}
               </span>
@@ -599,14 +634,10 @@ export default function AppShell({
                   }
 
                   if (mobile) {
-                    setMobileMenuOpen(
-                      false
-                    );
+                    setMobileMenuOpen(false);
                   }
                 }}
-                aria-disabled={
-                  !accessible
-                }
+                aria-disabled={!accessible}
                 className={`flex min-h-10 items-center rounded-[10px] text-[14px] transition-colors ${
                   collapsed
                     ? "justify-center px-2"
@@ -644,16 +675,14 @@ export default function AppShell({
                   <>
                     <span
                       className={`shrink-0 font-medium ${
-                        active ||
-                        current
+                        active || current
                           ? "text-[var(--teal-deep)]"
                           : accessible
                             ? "text-[var(--text-secondary)]"
                             : "text-[var(--text-muted)]"
                       }`}
                     >
-                      Day{" "}
-                      {day.dayNumber}
+                      Day {day.dayNumber}
                     </span>
 
                     <span
@@ -672,61 +701,44 @@ export default function AppShell({
           }
         )}
 
-        <Link
-          href={
-            learnerJourney.certificationUnlocked
-              ? `${learnerBasePath}/certification`
-              : learnerBasePath
-          }
-          title={
-            collapsed
-              ? "Certification"
-              : undefined
-          }
-          onClick={(event) => {
-            if (
-              !learnerJourney.certificationUnlocked
-            ) {
-              event.preventDefault();
-              return;
-            }
+        {/* =================================================
+            CERTIFICATION — ONLY WHEN UNLOCKED
+        ================================================= */}
 
-            if (mobile) {
-              setMobileMenuOpen(false);
+        {learnerJourney.certificationUnlocked && (
+          <Link
+            href={`${learnerBasePath}/certification`}
+            title={
+              collapsed
+                ? "Certification"
+                : undefined
             }
-          }}
-          aria-disabled={
-            !learnerJourney.certificationUnlocked
-          }
-          className={`mt-2 flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
-            collapsed
-              ? "justify-center px-2"
-              : "gap-3 px-3"
-          } ${
-            pathname.startsWith(
-              `${learnerBasePath}/certification`
-            )
-              ? "bg-[var(--teal-soft)] text-[var(--teal-deep)]"
-              : learnerJourney.certificationUnlocked
-                ? "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
-                : "cursor-default text-[var(--text-muted)]"
-          }`}
-        >
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-            {learnerJourney.certificationUnlocked ? (
+            onClick={() => {
+              if (mobile) {
+                setMobileMenuOpen(false);
+              }
+            }}
+            className={`mt-2 flex min-h-10 items-center rounded-[10px] text-[14px] font-medium transition-colors ${
+              collapsed
+                ? "justify-center px-2"
+                : "gap-3 px-3"
+            } ${
+              pathname.startsWith(
+                `${learnerBasePath}/certification`
+              )
+                ? "bg-[var(--teal-soft)] text-[var(--teal-deep)]"
+                : "text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
               <Icon name="certificate" />
-            ) : (
-              <Icon
-                name="lock"
-                className="h-[15px] w-[15px]"
-              />
-            )}
-          </span>
+            </span>
 
-          {!collapsed && (
-            <span>Certification</span>
-          )}
-        </Link>
+            {!collapsed && (
+              <span>Certification</span>
+            )}
+          </Link>
+        )}
 
         {renderStandardNavItem(
           {
@@ -739,6 +751,10 @@ export default function AppShell({
       </nav>
     );
   }
+
+  // ============================================================
+  // TRAINER NAVIGATION
+  // ============================================================
 
   function renderTrainerNavigation(
     mobile = false
@@ -754,6 +770,10 @@ export default function AppShell({
       </nav>
     );
   }
+
+  // ============================================================
+  // APP SHELL
+  // ============================================================
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
@@ -891,11 +911,7 @@ export default function AppShell({
                   <p className="mt-1.5 text-[11px] leading-[1.55] text-[var(--text-secondary)]">
                     You are viewing this
                     onboarding as{" "}
-                    {
-                      impersonation!
-                        .learnerName
-                    }
-                    .
+                    {impersonation!.learnerName}.
                   </p>
                 </div>
               ) : (
@@ -1049,7 +1065,7 @@ export default function AppShell({
                     </div>
 
                     <div className="p-1.5">
-                      {/* PROFILE - AVAILABLE TO TRAINERS AND TRAINEES */}
+                      {/* PROFILE */}
 
                       <Link
                         href={profilePath}
@@ -1077,9 +1093,7 @@ export default function AppShell({
                           <path d="M5 20c.8-4 3.1-6 7-6s6.2 2 7 6" />
                         </svg>
 
-                        <span>
-                          {profileLabel}
-                        </span>
+                        <span>{profileLabel}</span>
                       </Link>
 
                       {isImpersonating && (
@@ -1106,9 +1120,7 @@ export default function AppShell({
                         type="button"
                         role="menuitem"
                         onClick={() => {
-                          setUserMenuOpen(
-                            false
-                          );
+                          setUserMenuOpen(false);
                           handleLogout();
                         }}
                         disabled={loggingOut}
@@ -1167,9 +1179,7 @@ export default function AppShell({
                 <Link
                   href={shellHomePath}
                   onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
+                    setMobileMenuOpen(false)
                   }
                   className="flex items-center gap-3"
                 >
@@ -1186,9 +1196,7 @@ export default function AppShell({
                 <button
                   type="button"
                   onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
+                    setMobileMenuOpen(false)
                   }
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-[var(--text-muted)] hover:bg-[var(--surface-soft)]"
                   aria-label="Close navigation"
@@ -1205,20 +1213,15 @@ export default function AppShell({
                 </p>
 
                 {showTrainerNavigation
-                  ? renderTrainerNavigation(
-                      true
-                    )
-                  : renderJourneyNavigation(
-                      true
-                    )}
+                  ? renderTrainerNavigation(true)
+                  : renderJourneyNavigation(true)}
               </div>
 
               <div className="mt-auto border-t border-[var(--border-soft)] p-4">
                 {isImpersonating && (
                   <div className="mb-4 rounded-[10px] border border-[#08A9C1]/20 bg-[#F3FBFC] px-3 py-3">
                     <p className="text-[11px] font-semibold text-[#07879B]">
-                      Read-only trainee
-                      preview
+                      Read-only trainee preview
                     </p>
                   </div>
                 )}
@@ -1246,9 +1249,7 @@ export default function AppShell({
                 <Link
                   href={profilePath}
                   onClick={() =>
-                    setMobileMenuOpen(
-                      false
-                    )
+                    setMobileMenuOpen(false)
                   }
                   className="mt-4 flex w-full items-center justify-center rounded-[9px] border border-[var(--border)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-soft)]"
                 >
@@ -1259,9 +1260,7 @@ export default function AppShell({
                   <Link
                     href={`/trainer/learners/${impersonation!.learnerId}`}
                     onClick={() =>
-                      setMobileMenuOpen(
-                        false
-                      )
+                      setMobileMenuOpen(false)
                     }
                     className="mt-3 flex w-full items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-[#F3FBFC] px-4 py-2.5 text-sm font-semibold text-[#07879B]"
                   >

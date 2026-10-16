@@ -388,60 +388,29 @@ export default async function ImpersonateLearnerPage({
                   }
                 )}
 
-                {/* CERTIFICATION */}
+                {/* CERTIFICATION — ONLY WHEN UNLOCKED */}
 
-                <div className="relative flex min-w-0 flex-1 flex-col items-center">
-                  <div
-                    className={`absolute right-1/2 top-[14px] h-[2px] w-full ${
-                      allDaysComplete
-                        ? "bg-[#08A9C1]"
-                        : "bg-[#dce7ea]"
-                    }`}
-                  />
+                {learnerJourney?.certificationUnlocked && (
+                  <div className="relative flex min-w-0 flex-1 flex-col items-center">
+                    <div
+                      className="absolute right-1/2 top-[14px] h-[2px] w-full bg-[#08A9C1]"
+                    />
 
-                  <div
-                    className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 ${
-                      learnerJourney?.certificationUnlocked
-                        ? "border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]"
-                        : "border-[#d7e3e7] bg-white text-[#9bb0b8]"
-                    }`}
-                  >
-                    {learnerJourney?.certificationUnlocked ? (
+                    <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]">
                       <span className="text-[11px]">
                         ◇
                       </span>
-                    ) : (
-                      <svg
-                        className="h-3 w-3"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <rect
-                          x="6"
-                          y="10"
-                          width="12"
-                          height="9"
-                          rx="2"
-                        />
+                    </div>
 
-                        <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10" />
-                      </svg>
-                    )}
+                    <p className="mt-2 text-center text-[11px] font-semibold text-[var(--text-muted)]">
+                      Certification
+                    </p>
+
+                    <p className="mt-0.5 text-center text-[10px] text-[var(--text-muted)]">
+                      Final Assessment
+                    </p>
                   </div>
-
-                  <p className="mt-2 text-center text-[11px] font-semibold text-[var(--text-muted)]">
-                    Certification
-                  </p>
-
-                  <p className="mt-0.5 text-center text-[10px] text-[var(--text-muted)]">
-                    Final Assessment
-                  </p>
-                </div>
+                )}
               </div>
             </div>
           </section>
@@ -665,14 +634,14 @@ export default async function ImpersonateLearnerPage({
               </div>
 
               <SetupChecklist
-  items={program.setup_items}
-  progress={progress.setup}
-  programId={program.id}
-  title={program.setup_section?.title}
-  description={program.setup_section?.description}
-  instructions={program.setup_section?.instructions}
-  readOnly
-/>
+                items={program.setup_items}
+                progress={progress.setup}
+                programId={program.id}
+                title={program.setup_section?.title}
+                description={program.setup_section?.description}
+                instructions={program.setup_section?.instructions}
+                readOnly
+              />
             </section>
           )}
 
@@ -866,48 +835,37 @@ export default async function ImpersonateLearnerPage({
                 }
               )}
 
-              {/* CERTIFICATION */}
+              {/* CERTIFICATION — ONLY WHEN UNLOCKED */}
 
-              <div className="flex flex-col gap-4 border-t border-[var(--border-soft)] bg-[var(--surface-soft)]/50 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
-                <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-[13px] ${
-                      learnerJourney?.certificationUnlocked
-                        ? "border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]"
-                        : "border-[var(--border)] bg-white text-[var(--text-muted)]"
-                    }`}
-                  >
-                    ◇
+              {learnerJourney?.certificationUnlocked && (
+                <div className="flex flex-col gap-4 border-t border-[var(--border-soft)] bg-[var(--surface-soft)]/50 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#08A9C1] bg-[#EAF8FA] text-[13px] text-[#07879B]">
+                      ◇
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                        Final Step
+                      </p>
+
+                      <h3 className="mt-1 text-[15px] font-semibold text-[var(--text-primary)]">
+                        Certification
+                      </h3>
+
+                      <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
+                        All training days completed.
+                      </p>
+                    </div>
                   </div>
 
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                      Final Step
-                    </p>
-
-                    <h3 className="mt-1 text-[15px] font-semibold text-[var(--text-primary)]">
-                      Certification
-                    </h3>
-
-                    <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                      Available after all training
-                      days are complete.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="shrink-0 pl-[52px] sm:pl-0">
-                  {learnerJourney?.certificationUnlocked ? (
+                  <div className="shrink-0 pl-[52px] sm:pl-0">
                     <span className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-muted)] px-3.5 text-[12px] font-semibold text-[var(--text-muted)]">
                       Read only
                     </span>
-                  ) : (
-                    <span className="text-[11px] font-medium text-[var(--text-muted)]">
-                      Locked
-                    </span>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
         </div>

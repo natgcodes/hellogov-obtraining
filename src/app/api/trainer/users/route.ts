@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
 
-type UserRole = "learner" | "trainer";
+type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
 
 type CreateUserBody = {
   fullName?: string;
@@ -31,10 +31,7 @@ type DeleteUserBody = {
 // ===========================================================
 
 function isAllowedCompanyEmail(email: string) {
-  return (
-    email.endsWith("@ivisa.com") ||
-    email.endsWith("@hellogov.com")
-  );
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 function generateTemporaryPassword() {
@@ -189,7 +186,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Only @ivisa.com and @hellogov.com email addresses are allowed.",
+            "Please enter a valid email address.",
         },
         {
           status: 400,
@@ -198,13 +195,12 @@ export async function POST(request: Request) {
     }
 
     if (
-      role !== "learner" &&
-      role !== "trainer"
+      !["learner", "trainer", "observer", "cross_training", "team_leader"].includes(role ?? "")
     ) {
       return NextResponse.json(
         {
           error:
-            "Role must be learner or trainer.",
+            "Invalid account role.",
         },
         {
           status: 400,
@@ -302,7 +298,7 @@ export async function POST(request: Request) {
             email,
             role,
             team_lead:
-              role === "learner"
+              role !== "trainer"
                 ? teamLead
                 : null,
           },
@@ -347,7 +343,7 @@ export async function POST(request: Request) {
 // AUTOMATIC LEARNER ENROLLMENT
 // -------------------------------------------------------
 
-if (role === "learner") {
+if (role !== "trainer") {
   const { error: enrollmentError } = await admin
     .from("program_enrollments")
     .upsert(
@@ -409,7 +405,7 @@ if (role === "learner") {
           email,
           role,
           teamLead:
-            role === "learner"
+            role !== "trainer"
               ? teamLead
               : null,
         },
@@ -502,7 +498,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Only @ivisa.com and @hellogov.com email addresses are allowed.",
+            "Please enter a valid email address.",
         },
         {
           status: 400,
@@ -511,13 +507,12 @@ export async function PATCH(request: Request) {
     }
 
     if (
-      role !== "learner" &&
-      role !== "trainer"
+      !["learner", "trainer", "observer", "cross_training", "team_leader"].includes(role ?? "")
     ) {
       return NextResponse.json(
         {
           error:
-            "Role must be learner or trainer.",
+            "Invalid account role.",
         },
         {
           status: 400,
@@ -571,6 +566,14 @@ export async function PATCH(request: Request) {
           status: 404,
         }
       );
+    }
+
+    if (existingProfile.role === "trainer" && role !== "trainer") {
+      const { count, error: countError } = await admin.from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "trainer").eq("account_status", "active");
+      if (countError || (count ?? 0) <= 1) return NextResponse.json(
+        { error: "At least one active Trainer must remain." }, { status: 400 });
     }
 
     // -------------------------------------------------------
@@ -635,7 +638,7 @@ export async function PATCH(request: Request) {
           email,
           role,
           team_lead:
-            role === "learner"
+            role !== "trainer"
               ? teamLead
               : null,
         })
@@ -686,7 +689,7 @@ export async function PATCH(request: Request) {
 // ENROLL USER WHEN CHANGING TO LEARNER
 // -------------------------------------------------------
 
-if (role === "learner") {
+if (role !== "trainer") {
   const { error: enrollmentError } = await admin
     .from("program_enrollments")
     .upsert(
@@ -728,7 +731,7 @@ if (role === "learner") {
         email,
         role,
         teamLead:
-          role === "learner"
+          role !== "trainer"
             ? teamLead
             : null,
       },

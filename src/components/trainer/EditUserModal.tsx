@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-type UserRole = "learner" | "trainer";
+type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
 
 type EditableUser = {
   id: string;
@@ -38,9 +38,7 @@ export default function EditUserModal({
 
   const [role, setRole] =
     useState<UserRole>(
-      user.role === "trainer"
-        ? "trainer"
-        : "learner"
+      (user.role as UserRole)
     );
 
   const [teamLead, setTeamLead] =
@@ -93,9 +91,7 @@ export default function EditUserModal({
     setFullName(user.full_name ?? "");
     setEmail(user.email ?? "");
     setRole(
-      user.role === "trainer"
-        ? "trainer"
-        : "learner"
+      (user.role as UserRole)
     );
     setTeamLead(user.team_lead ?? "");
     setError(null);
@@ -171,7 +167,7 @@ export default function EditUserModal({
             email: cleanEmail,
             role,
             teamLead:
-              role === "learner"
+              role !== "trainer"
                 ? cleanTeamLead || null
                 : null,
           }),
@@ -365,6 +361,9 @@ export default function EditUserModal({
                     <option value="trainer">
                       Trainer
                     </option>
+                    <option value="observer">Observer</option>
+                    <option value="cross_training">Cross-Training</option>
+                    <option value="team_leader">Team Leader</option>
                   </select>
 
                   {isCurrentUser && (

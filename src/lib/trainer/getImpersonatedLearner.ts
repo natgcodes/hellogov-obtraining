@@ -114,6 +114,10 @@ export async function getImpersonatedLearnerJourney(
 
   const supabase = await createClient();
 
+  // ---------------------------------------------------------
+  // LOAD TRAINEE JOURNEY DAYS
+  // ---------------------------------------------------------
+
   const { data, error } = await supabase.rpc(
     "get_trainer_impersonated_journey_days",
     {
@@ -131,8 +135,11 @@ export async function getImpersonatedLearnerJourney(
     return undefined;
   }
 
-  const rows =
-    (data ?? []) as JourneyDayRow[];
+  // ---------------------------------------------------------
+  // NORMALIZE DAY STATES
+  // ---------------------------------------------------------
+
+  const rows = (data ?? []) as JourneyDayRow[];
 
   const days = rows.map((day) => ({
     id: day.id,
@@ -142,9 +149,46 @@ export async function getImpersonatedLearnerJourney(
     completed: day.completed,
   }));
 
-  const certificationUnlocked =
+  // ---------------------------------------------------------
+  // GLOBAL CERTIFICATION ACCESS
+  //
+  // Certification requires BOTH:
+  // 1. All training days completed.
+  // 2. Trainer-enabled access for the program.
+  //
+  // If the settings cannot be retrieved,
+  // certification remains locked.
+  // ---------------------------------------------------------
+
+  const {
+    data: programSettings,
+    error: settingsError,
+  } = await supabase
+    .from("programs")
+    .select("certification_enabled")
+    .eq("id", HELLOGOV_PROGRAM_ID)
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error(
+      "Unable to load certification access for impersonated trainee:",
+      settingsError
+    );
+  }
+
+  const certificationEnabled =
+    programSettings?.certification_enabled === true;
+
+  const allDaysCompleted =
     days.length > 0 &&
     days.every((day) => day.completed);
+
+  const certificationUnlocked =
+    certificationEnabled && allDaysCompleted;
+
+  // ---------------------------------------------------------
+  // RESULT
+  // ---------------------------------------------------------
 
   return {
     setupCompleted:

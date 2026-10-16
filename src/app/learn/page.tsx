@@ -112,7 +112,7 @@ export default async function LearnPage() {
 
     return (
       <AppShell
-        role="learner"
+        role={profile.role as "learner" | "observer" | "cross_training" | "team_leader"}
         userName={profile.full_name}
         userEmail={profile.email}
       >
@@ -288,7 +288,7 @@ export default async function LearnPage() {
 
   return (
     <AppShell
-      role="learner"
+      role={profile.role as "learner" | "observer" | "cross_training" | "team_leader"}
       userName={profile.full_name}
       userEmail={profile.email}
       learnerJourney={learnerJourneyWithSetup}
@@ -430,7 +430,7 @@ export default async function LearnPage() {
                     Only appears after ALL published days
                     have been completed. */}
 
-                {allDaysComplete && (
+                {allDaysComplete && learnerJourney?.certificationUnlocked && (
                   <div className="relative flex min-w-0 flex-1 flex-col items-center">
                     <div className="absolute right-1/2 top-[14px] h-[2px] w-full bg-[#08A9C1]" />
 
@@ -891,7 +891,7 @@ export default async function LearnPage() {
                   Hidden until ALL published days are complete.
               ================================================= */}
 
-              {allDaysComplete && (
+              {allDaysComplete && learnerJourney?.certificationUnlocked && (
                 <div className="flex flex-col gap-4 border-t border-[var(--border-soft)] bg-[var(--surface-soft)]/50 px-5 py-5 sm:flex-row sm:items-center sm:px-6">
                   <div className="flex min-w-0 flex-1 items-center gap-4">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#08A9C1] bg-[#EAF8FA] text-[13px] text-[#07879B]">

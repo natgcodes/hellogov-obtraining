@@ -7,6 +7,7 @@ import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
 
 type TrainerLearner = {
   learner_id: string;
+  user_role?: string;
   full_name: string | null;
   email: string | null;
   enrollment_status: string;
@@ -44,7 +45,22 @@ function getLearnerStatus(
 // PAGE
 // ============================================================
 
-export default async function TrainerLearnersPage() {
+type PageProps = {
+  searchParams: Promise<{ tab?: string; role?: string }>;
+};
+
+const roleLabels: Record<string, string> = {
+  observer: "Observer",
+  cross_training: "Cross-Training",
+  team_leader: "Team Leader",
+};
+
+export default async function TrainerLearnersPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const otherRolesTab = params.tab === "other";
+  const selectedRole = ["observer", "cross_training", "team_leader"].includes(params.role ?? "")
+    ? params.role
+    : "all";
   const supabase = await createClient();
 
   const {
@@ -96,13 +112,14 @@ export default async function TrainerLearnersPage() {
   // ---------------------------------------------------------
 
   const { data, error } = await supabase.rpc(
-    "get_trainer_learners",
-    {
-      target_program_id: program.id,
-    }
+    otherRolesTab ? "get_trainer_other_roles" : "get_trainer_learners",
+    { target_program_id: program.id }
   );
 
-  const learners = (data ?? []) as TrainerLearner[];
+  const roster = (data ?? []) as TrainerLearner[];
+  const learners = otherRolesTab && selectedRole !== "all"
+    ? roster.filter((person) => person.user_role === selectedRole)
+    : roster;
 
   // ---------------------------------------------------------
   // METRICS
@@ -148,13 +165,12 @@ export default async function TrainerLearnersPage() {
               </p>
 
               <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[30px]">
-                Trainees
+                {otherRolesTab ? "Other Roles" : "Trainees"}
               </h1>
 
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">
-                Track onboarding progress,
-                assessments and certification
-                status for every trainee.
+                Track onboarding progress, assessments and certification status
+                {otherRolesTab ? " for observers, cross-training users and team leaders." : " for every trainee."}
               </p>
             </div>
 
@@ -169,6 +185,36 @@ export default async function TrainerLearnersPage() {
             </Link>
           </section>
 
+          {/* ROSTER TABS */}
+          <nav aria-label="Onboarding roster" className="mt-7 flex gap-2 border-b border-[var(--border)]">
+            <Link href="/trainer/learners" aria-current={!otherRolesTab ? "page" : undefined}
+              className={`border-b-2 px-4 py-3 text-[13px] font-semibold transition ${!otherRolesTab ? "border-[#08A9C1] text-[#07879B]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}>
+              Trainees
+            </Link>
+            <Link href="/trainer/learners?tab=other" aria-current={otherRolesTab ? "page" : undefined}
+              className={`border-b-2 px-4 py-3 text-[13px] font-semibold transition ${otherRolesTab ? "border-[#08A9C1] text-[#07879B]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"}`}>
+              Other Roles
+            </Link>
+          </nav>
+
+          {otherRolesTab && (
+            <div className="mt-5 flex flex-wrap items-center gap-2" aria-label="Filter by role">
+              {[
+                { value: "all", label: "All Roles" },
+                { value: "observer", label: "Observer" },
+                { value: "cross_training", label: "Cross-Training" },
+                { value: "team_leader", label: "Team Leader" },
+              ].map((option) => (
+                <Link key={option.value}
+                  href={option.value === "all" ? "/trainer/learners?tab=other" : `/trainer/learners?tab=other&role=${option.value}`}
+                  aria-current={selectedRole === option.value ? "true" : undefined}
+                  className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${selectedRole === option.value ? "border-[#08A9C1] bg-[#EAF8FA] text-[#07879B]" : "border-[var(--border)] bg-white text-[var(--text-secondary)] hover:bg-[#FAFCFC]"}`}>
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
           {/* ERROR */}
 
           {error && (
@@ -181,7 +227,7 @@ export default async function TrainerLearnersPage() {
 
           <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Metric
-              label="Trainees"
+              label={otherRolesTab ? "Other Roles" : "Trainees"}
               value={totalLearners}
               helper="Enrolled in onboarding"
             />
@@ -191,7 +237,7 @@ export default async function TrainerLearnersPage() {
               value={`${Math.round(
                 averageProgress
               )}%`}
-              helper="Across all trainees"
+              helper={otherRolesTab ? "Across selected roles" : "Across all trainees"}
             />
 
             <Metric
@@ -217,11 +263,7 @@ export default async function TrainerLearnersPage() {
                 </h2>
 
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                  {totalLearners}{" "}
-                  {totalLearners === 1
-                    ? "trainee"
-                    : "trainees"}{" "}
-                  enrolled
+                  {totalLearners} {otherRolesTab ? (totalLearners === 1 ? "person" : "people") : (totalLearners === 1 ? "trainee" : "trainees")} enrolled
                 </p>
               </div>
             </div>
@@ -251,12 +293,11 @@ export default async function TrainerLearnersPage() {
                 </div>
 
                 <p className="mt-3 text-[13px] font-semibold text-[var(--text-primary)]">
-                  No trainees yet
+                  {otherRolesTab ? "No users in this role" : "No trainees yet"}
                 </p>
 
                 <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                  No trainees have started this
-                  program yet.
+                  {otherRolesTab ? "No enrolled users match this filter." : "No trainees have started this program yet."}
                 </p>
               </div>
             ) : (
@@ -265,8 +306,14 @@ export default async function TrainerLearnersPage() {
                   <thead className="bg-[#FAFBFC]">
                     <tr className="border-b border-[var(--border-soft)]">
                       <th className="px-6 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
-                        Trainee
+                        {otherRolesTab ? "Name" : "Trainee"}
                       </th>
+
+                      {otherRolesTab && (
+                        <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                          Role
+                        </th>
+                      )}
 
                       <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
                         Progress
@@ -339,7 +386,7 @@ export default async function TrainerLearnersPage() {
                               <div className="min-w-0">
                                 <p className="max-w-[220px] truncate text-[13px] font-semibold text-[var(--text-primary)]">
                                   {learner.full_name ||
-                                    "Trainee"}
+                                    "User"}
                                 </p>
 
                                 <p className="mt-0.5 max-w-[220px] truncate text-[11px] text-[var(--text-muted)]">
@@ -349,6 +396,14 @@ export default async function TrainerLearnersPage() {
                               </div>
                             </div>
                           </td>
+
+                          {otherRolesTab && (
+                            <td className="px-4 py-4">
+                              <span className="inline-flex rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">
+                                {roleLabels[learner.user_role ?? ""] ?? learner.user_role ?? "—"}
+                              </span>
+                            </td>
+                          )}
 
                           {/* PROGRESS */}
 

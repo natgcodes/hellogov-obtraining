@@ -1,5 +1,6 @@
 import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type TopicScore = { topic: string; average: number; count: number };
 export type RankedLearner = {
@@ -27,11 +28,13 @@ type Attempt = { learner_id: string; quiz_id: string; score: number | null; atte
 
 // Each quiz contributes at most once per learner: their latest graded attempt.
 // In-progress/ungraded/cancelled attempts do not count as zero.
-export async function getTrainerLeaderboard(): Promise<LeaderboardData> {
-  const supabase = await createClient();
+export async function getTrainerLeaderboard(
+  options?: { role?: "learner" | "team_leader"; learnerIds?: string[]; useAdmin?: boolean }
+): Promise<LeaderboardData> {
+  const supabase = options?.useAdmin ? createAdminClient() : await createClient();
   const empty: LeaderboardData = { learners: [], classAverage: null, topics: [], expectedCount: 0, warning: null };
   const [profilesResult, enrollmentsResult, daysResult] = await Promise.all([
-    supabase.from("profiles").select("id,full_name,email,account_status").eq("role", "learner"),
+    supabase.from("profiles").select("id,full_name,email,account_status").eq("role", options?.role ?? "learner"),
     supabase.from("program_enrollments").select("learner_id").eq("program_id", HELLOGOV_PROGRAM_ID),
     supabase.from("days").select("id").eq("program_id", HELLOGOV_PROGRAM_ID),
   ]);
@@ -39,7 +42,7 @@ export async function getTrainerLeaderboard(): Promise<LeaderboardData> {
     return { ...empty, warning: "Could not load learner or program information." };
   }
   const active = new Map((profilesResult.data ?? []).filter(p => p.account_status !== "deactivated").map(p => [p.id, p]));
-  const learnerIds = [...new Set((enrollmentsResult.data ?? []).map(e => e.learner_id))].filter(id => active.has(id));
+  const learnerIds = [...new Set((enrollmentsResult.data ?? []).map(e => e.learner_id))].filter(id => active.has(id) && (!options?.learnerIds || options.learnerIds.includes(id)));
   const dayIds = (daysResult.data ?? []).map(d => d.id);
   if (!learnerIds.length) return empty;
   if (!dayIds.length) return { ...empty, warning: "No program days found." };

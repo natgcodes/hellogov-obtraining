@@ -49,7 +49,6 @@ export async function getLearnerJourney(
   // ---------------------------------------------------------
   // JOURNEY DAY STATES
   //
-  // This is now the only database query required here.
   // Program/setup information is already available on
   // LearnPage through getLearnerProgram + getLearnerProgress.
   // ---------------------------------------------------------
@@ -62,8 +61,7 @@ export async function getLearnerJourney(
   } = await supabase.rpc(
     "get_learner_journey_days",
     {
-      target_program_id:
-        HELLOGOV_PROGRAM_ID,
+      target_program_id: HELLOGOV_PROGRAM_ID,
     }
   );
 
@@ -90,31 +88,52 @@ export async function getLearnerJourney(
   // ---------------------------------------------------------
 
   const journeyRows =
-    (journeyDaysData ??
-      []) as JourneyDayRow[];
+    (journeyDaysData ?? []) as JourneyDayRow[];
 
-  const dayStates =
-    journeyRows.map((day) => ({
-      id: day.id,
-      dayNumber:
-        day.day_number,
-      title:
-        day.title,
-      unlocked:
-        day.unlocked,
-      completed:
-        day.completed,
-    }));
+  const dayStates = journeyRows.map((day) => ({
+    id: day.id,
+    dayNumber: day.day_number,
+    title: day.title,
+    unlocked: day.unlocked,
+    completed: day.completed,
+  }));
 
   // ---------------------------------------------------------
-  // CERTIFICATION
+  // CERTIFICATION ACCESS
+  //
+  // Certification requires BOTH:
+  // 1. All training days completed.
+  // 2. Trainer-enabled access for the program.
+  //
+  // If the settings cannot be retrieved,
+  // certification remains locked.
   // ---------------------------------------------------------
+
+  const {
+    data: programSettings,
+    error: settingsError,
+  } = await supabase
+    .from("programs")
+    .select("certification_enabled")
+    .eq("id", HELLOGOV_PROGRAM_ID)
+    .maybeSingle();
+
+  if (settingsError) {
+    console.error(
+      "Unable to load certification access settings:",
+      settingsError
+    );
+  }
+
+  const certificationEnabled =
+    programSettings?.certification_enabled === true;
+
+  const allDaysCompleted =
+    dayStates.length > 0 &&
+    dayStates.every((day) => day.completed);
 
   const certificationUnlocked =
-    dayStates.length > 0 &&
-    dayStates.every(
-      (day) => day.completed
-    );
+    certificationEnabled && allDaysCompleted;
 
   // ---------------------------------------------------------
   // FINAL PERFORMANCE
@@ -136,8 +155,7 @@ export async function getLearnerJourney(
     setupTotal:
       options.setupTotal ?? 0,
 
-    days:
-      dayStates,
+    days: dayStates,
 
     certificationUnlocked,
   };

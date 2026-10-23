@@ -132,6 +132,12 @@ export default function TeamLeaderFeedbackWorkspace({
   const [recipientFilter, setRecipientFilter] = useState("all");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
 
+  // Track which feedback publications are expanded.
+  // All publications are collapsed by default.
+  const [expandedFeedback, setExpandedFeedback] = useState<
+    Record<string, boolean>
+  >({});
+
   const loadData = useCallback(async () => {
     try {
       const result = (await feedbackRequest("GET")) as ApiData;
@@ -225,6 +231,13 @@ export default function TeamLeaderFeedbackWorkspace({
     search,
     profileMap,
   ]);
+
+  function toggleFeedback(feedbackId: string) {
+    setExpandedFeedback((current) => ({
+      ...current,
+      [feedbackId]: !current[feedbackId],
+    }));
+  }
 
   function openCreate() {
     setForm(emptyForm);
@@ -534,6 +547,7 @@ export default function TeamLeaderFeedbackWorkspace({
           <p className="text-[13px] font-semibold">
             No feedback yet
           </p>
+
           <p className="mt-2 text-[12px] text-[var(--text-muted)]">
             {isTrainer
               ? "Published feedback will appear here."
@@ -550,11 +564,15 @@ export default function TeamLeaderFeedbackWorkspace({
             const canEdit =
               isTrainer && item.author_id === currentUserId;
 
+            const isExpanded = expandedFeedback[item.id] === true;
+
             return (
               <article
                 key={item.id}
                 className="overflow-hidden rounded-[17px] border border-[var(--border)] bg-white shadow-[var(--shadow-xs)]"
               >
+                {/* FEEDBACK HEADER */}
+
                 <div className="p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -578,6 +596,8 @@ export default function TeamLeaderFeedbackWorkspace({
                     )}
                   </div>
 
+                  {/* RECIPIENT AND AGENT */}
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]">
                       To: {getDisplayName(profileMap.get(item.team_leader_id))}
@@ -591,80 +611,116 @@ export default function TeamLeaderFeedbackWorkspace({
                     )}
                   </div>
 
+                  {/* TITLE */}
+
                   <h3 className="mt-4 text-[15px] font-semibold text-[var(--text-primary)]">
                     {item.title}
                   </h3>
 
-                  <p className="mt-3 whitespace-pre-wrap text-[12px] leading-6 text-[var(--text-secondary)]">
+                  {/* COLLAPSED PREVIEW / EXPANDED CONTENT */}
+
+                  <p
+                    className={`mt-3 whitespace-pre-wrap text-[12px] leading-6 text-[var(--text-secondary)] ${
+                      isExpanded ? "" : "line-clamp-3"
+                    }`}
+                  >
                     {item.content}
                   </p>
+
+                  {/* EXPAND / COLLAPSE CONTROLS */}
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleFeedback(item.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={`feedback-conversation-${item.id}`}
+                      className="inline-flex min-h-9 items-center gap-2 rounded-[9px] bg-[#EAF8FA] px-3 text-[11px] font-semibold text-[#07879B] transition hover:bg-[#D9F1F5]"
+                    >
+                      {isExpanded ? "Show Less ↑" : "Read More ↓"}
+                    </button>
+
+                    <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                      {itemReplies.length}{" "}
+                      {itemReplies.length === 1 ? "reply" : "replies"}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="border-t border-[var(--border-soft)] bg-[#FAFCFC] px-5 py-5 sm:px-6">
-                  <p className="text-[11px] font-semibold text-[var(--text-primary)]">
-                    Conversation ({itemReplies.length})
-                  </p>
+                {/* CONVERSATION — ONLY VISIBLE WHEN EXPANDED */}
 
-                  <div className="mt-4 space-y-3">
-                    {itemReplies.length === 0 ? (
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        No replies yet.
-                      </p>
-                    ) : (
-                      itemReplies.map((reply) => (
-                        <div
-                          key={reply.id}
-                          className="rounded-[11px] border border-[var(--border-soft)] bg-white p-4"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-[11px] font-semibold text-[#07879B]">
-                              {getDisplayName(
-                                profileMap.get(reply.author_id)
-                              )}
-                            </p>
+                {isExpanded && (
+                  <div
+                    id={`feedback-conversation-${item.id}`}
+                    className="border-t border-[var(--border-soft)] bg-[#FAFCFC] px-5 py-5 sm:px-6"
+                  >
+                    <p className="text-[11px] font-semibold text-[var(--text-primary)]">
+                      Conversation ({itemReplies.length})
+                    </p>
 
-                            <p className="text-[10px] text-[var(--text-muted)]">
-                              {formatDate(reply.created_at)}
+                    <div className="mt-4 space-y-3">
+                      {itemReplies.length === 0 ? (
+                        <p className="text-[11px] text-[var(--text-muted)]">
+                          No replies yet.
+                        </p>
+                      ) : (
+                        itemReplies.map((reply) => (
+                          <div
+                            key={reply.id}
+                            className="rounded-[11px] border border-[var(--border-soft)] bg-white p-4"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-[11px] font-semibold text-[#07879B]">
+                                {getDisplayName(
+                                  profileMap.get(reply.author_id)
+                                )}
+                              </p>
+
+                              <p className="text-[10px] text-[var(--text-muted)]">
+                                {formatDate(reply.created_at)}
+                              </p>
+                            </div>
+
+                            <p className="mt-2 whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)]">
+                              {reply.content}
                             </p>
                           </div>
+                        ))
+                      )}
+                    </div>
 
-                          <p className="mt-2 whitespace-pre-wrap text-[12px] leading-5 text-[var(--text-secondary)]">
-                            {reply.content}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                    {/* REPLY FORM */}
 
-                  <div className="mt-4">
-                    <textarea
-                      rows={3}
-                      maxLength={10000}
-                      value={replyDrafts[item.id] ?? ""}
-                      onChange={(event) =>
-                        setReplyDrafts((current) => ({
-                          ...current,
-                          [item.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Write a reply..."
-                      className="w-full resize-y rounded-[10px] border border-[var(--border)] bg-white px-3 py-3 text-[12px] leading-5 outline-none focus:border-[#08A9C1]"
-                    />
-
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={
-                          saving || !replyDrafts[item.id]?.trim()
+                    <div className="mt-4">
+                      <textarea
+                        rows={3}
+                        maxLength={10000}
+                        value={replyDrafts[item.id] ?? ""}
+                        onChange={(event) =>
+                          setReplyDrafts((current) => ({
+                            ...current,
+                            [item.id]: event.target.value,
+                          }))
                         }
-                        onClick={() => sendReply(item.id)}
-                        className="min-h-9 rounded-[9px] bg-[#08A9C1] px-4 text-[11px] font-semibold text-white disabled:opacity-50"
-                      >
-                        Send Reply
-                      </button>
+                        placeholder="Write a reply..."
+                        className="w-full resize-y rounded-[10px] border border-[var(--border)] bg-white px-3 py-3 text-[12px] leading-5 outline-none focus:border-[#08A9C1]"
+                      />
+
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          disabled={
+                            saving || !replyDrafts[item.id]?.trim()
+                          }
+                          onClick={() => sendReply(item.id)}
+                          className="min-h-9 rounded-[9px] bg-[#08A9C1] px-4 text-[11px] font-semibold text-white disabled:opacity-50"
+                        >
+                          Send Reply
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </article>
             );
           })}

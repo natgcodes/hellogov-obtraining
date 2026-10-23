@@ -526,6 +526,25 @@ export default function AppShell({
 
     return (
       <nav className="space-y-1">
+        {/* =================================================
+            TEAM LEADER — MY TEAM DASHBOARD
+        ================================================= */}
+
+        {isTeamLeader && !isImpersonating && (
+          <>
+            {renderStandardNavItem(
+              {
+                label: "My Team",
+                href: "/team",
+                icon: "dashboard",
+              },
+              mobile
+            )}
+
+            <div className="mx-2 my-3 border-t border-[var(--border-soft)]" />
+          </>
+        )}
+
         {renderStandardNavItem(
           {
             label: "Overview",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RequestBody = {
   action?: string;
@@ -89,6 +90,9 @@ export async function GET() {
     return errorResponse("Unauthorized", 403);
   }
 
+  // Feedback visibility is always determined through
+  // the authenticated Supabase client and its RLS policies.
+
   const feedbackQuery = supabase
     .from("team_leader_feedback")
     .select("*")
@@ -100,8 +104,10 @@ export async function GET() {
     feedbackQuery.eq("team_leader_id", user.id);
   }
 
-  const { data: feedback, error: feedbackError } =
-    await feedbackQuery;
+  const {
+    data: feedback,
+    error: feedbackError,
+  } = await feedbackQuery;
 
   if (feedbackError) {
     console.error(
@@ -127,6 +133,9 @@ export async function GET() {
     created_at: string;
   }[] = [];
 
+  // Only retrieve replies belonging to feedback
+  // already accessible to the current user.
+
   if (feedbackIds.length > 0) {
     const { data, error } = await supabase
       .from("team_leader_feedback_replies")
@@ -151,8 +160,9 @@ export async function GET() {
     replies = data ?? [];
   }
 
-  // Team Leaders only need the profiles referenced
-  // by their own feedback and conversations.
+  // ----------------------------------------------------------
+  // COLLECT PROFILE IDS REFERENCED IN VISIBLE FEEDBACK
+  // ----------------------------------------------------------
 
   const relatedIds = new Set<string>();
 
@@ -177,6 +187,10 @@ export async function GET() {
   }[] = [];
 
   if (role === "trainer") {
+    // Trainers retain their existing profile access.
+    // This also provides the available Team Leaders
+    // and agents for the feedback creation form.
+
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, email, role")
@@ -189,6 +203,11 @@ export async function GET() {
       .order("full_name");
 
     if (error) {
+      console.error(
+        "Unable to load trainer profiles:",
+        error
+      );
+
       return errorResponse(
         "Unable to load profiles.",
         500
@@ -197,12 +216,26 @@ export async function GET() {
 
     profiles = data ?? [];
   } else if (relatedIds.size > 0) {
-    const { data, error } = await supabase
+    // Team Leaders may not have RLS permission
+    // to read Trainer or Learner profiles directly.
+    //
+    // Use the server-only admin client exclusively
+    // for the profiles referenced by feedback and
+    // replies that this Team Leader can already see.
+
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
       .from("profiles")
       .select("id, full_name, email, role")
       .in("id", [...relatedIds]);
 
     if (error) {
+      console.error(
+        "Unable to load related feedback profiles:",
+        error
+      );
+
       return errorResponse(
         "Unable to load related profiles.",
         500
@@ -211,6 +244,10 @@ export async function GET() {
 
     profiles = data ?? [];
   }
+
+  // ----------------------------------------------------------
+  // TEAM ASSIGNMENTS — TRAINERS ONLY
+  // ----------------------------------------------------------
 
   let assignments: {
     team_leader_id: string;
@@ -286,12 +323,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: feedback, error: lookupError } =
-      await supabase
-        .from("team_leader_feedback")
-        .select("id, team_leader_id")
-        .eq("id", body.feedbackId!)
-        .maybeSingle();
+    const {
+      data: feedback,
+      error: lookupError,
+    } = await supabase
+      .from("team_leader_feedback")
+      .select("id, team_leader_id")
+      .eq("id", body.feedbackId!)
+      .maybeSingle();
 
     if (lookupError || !feedback) {
       return errorResponse(
@@ -447,12 +486,14 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const { data: existing, error: lookupError } =
-    await supabase
-      .from("team_leader_feedback")
-      .select("id, author_id")
-      .eq("id", body.id!)
-      .maybeSingle();
+  const {
+    data: existing,
+    error: lookupError,
+  } = await supabase
+    .from("team_leader_feedback")
+    .select("id, author_id")
+    .eq("id", body.id!)
+    .maybeSingle();
 
   if (lookupError || !existing) {
     return errorResponse(

@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import TeamLeaderFeedbackWorkspace from "@/components/trainer/TeamLeaderFeedbackWorkspace";
+
 type Tab =
   | "team"
   | "observations"
   | "requests"
-  | "trainee_notes";
+  | "trainee_notes"
+  | "team_leader_feedback";
 
 type Category =
   | "general"
@@ -114,6 +117,10 @@ const tabs: {
   {
     id: "trainee_notes",
     label: "Trainee Notes",
+  },
+  {
+    id: "team_leader_feedback",
+    label: "Feedback for Team Leaders",
   },
 ];
 
@@ -681,7 +688,8 @@ export default function TrainerNotesWorkspace({
           <p className="mt-2 max-w-[680px] text-[12px] leading-5 text-[var(--text-secondary)]">
             One shared space for training notes,
             trainee observations, open questions,
-            and requests to the Training Lead.
+            requests to the Training Lead,
+            and feedback for Team Leaders.
           </p>
         </div>
 
@@ -692,15 +700,16 @@ export default function TrainerNotesWorkspace({
             </span>
           )}
 
-          {activeTab !== "trainee_notes" && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="min-h-10 rounded-[10px] bg-[#08A9C1] px-4 text-[11px] font-semibold text-white transition hover:bg-[#078FA4]"
-            >
-              + New Note
-            </button>
-          )}
+          {activeTab !== "trainee_notes" &&
+            activeTab !== "team_leader_feedback" && (
+              <button
+                type="button"
+                onClick={openCreate}
+                className="min-h-10 rounded-[10px] bg-[#08A9C1] px-4 text-[11px] font-semibold text-white transition hover:bg-[#078FA4]"
+              >
+                + New Note
+              </button>
+            )}
         </div>
       </div>
 
@@ -745,6 +754,8 @@ export default function TrainerNotesWorkspace({
                   setSearch("");
                   setAuthorFilter("all");
                   setStatusFilter("all");
+                  setShowForm(false);
+                  setForm(emptyForm);
                   setError("");
                 }}
                 className={`border-b-2 px-1 pb-3 text-[12px] font-semibold transition ${
@@ -762,300 +773,313 @@ export default function TrainerNotesWorkspace({
 
       {/* FILTERS */}
 
-      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-[17px] font-semibold text-[var(--text-primary)]">
-            {activeTabLabel}
-          </h2>
+      {activeTab !== "team_leader_feedback" && (
+        <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-[17px] font-semibold text-[var(--text-primary)]">
+              {activeTabLabel}
+            </h2>
 
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {activeTab === "trainee_notes"
-              ? "Notes saved by trainees during their onboarding modules."
-              : "Shared notes and updates from the Training team."}
-          </p>
-        </div>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {activeTab === "trainee_notes"
+                ? "Notes saved by trainees during their onboarding modules."
+                : "Shared notes and updates from the Training team."}
+            </p>
+          </div>
 
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
-            placeholder="Search notes..."
-            className="min-h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px] outline-none focus:border-[#08A9C1] sm:w-[220px]"
-          />
-
-          {activeTab !== "trainee_notes" && (
-            <select
-              value={authorFilter}
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={search}
               onChange={(event) =>
-                setAuthorFilter(
-                  event.target.value
-                )
+                setSearch(event.target.value)
               }
-              className="min-h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-[11px] text-[var(--text-secondary)]"
-            >
-              <option value="all">
-                All Trainers
-              </option>
+              placeholder="Search notes..."
+              className="min-h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px] outline-none focus:border-[#08A9C1] sm:w-[220px]"
+            />
 
-              {trainers.map((trainer) => (
-                <option
-                  key={trainer.id}
-                  value={trainer.id}
-                >
-                  {trainer.full_name ??
-                    trainer.email ??
-                    "Trainer"}
+            {activeTab !== "trainee_notes" && (
+              <select
+                value={authorFilter}
+                onChange={(event) =>
+                  setAuthorFilter(
+                    event.target.value
+                  )
+                }
+                className="min-h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-[11px] text-[var(--text-secondary)]"
+              >
+                <option value="all">
+                  All Trainers
                 </option>
-              ))}
-            </select>
-          )}
 
-          {activeTab === "requests" && (
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(
-                  event.target.value
-                )
-              }
-              className="min-h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-[11px]"
-            >
-              <option value="all">
-                All Statuses
-              </option>
+                {trainers.map((trainer) => (
+                  <option
+                    key={trainer.id}
+                    value={trainer.id}
+                  >
+                    {trainer.full_name ??
+                      trainer.email ??
+                      "Trainer"}
+                  </option>
+                ))}
+              </select>
+            )}
 
-              <option value="open">
-                Open
-              </option>
+            {activeTab === "requests" && (
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(
+                    event.target.value
+                  )
+                }
+                className="min-h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-[11px]"
+              >
+                <option value="all">
+                  All Statuses
+                </option>
 
-              <option value="in_progress">
-                In Progress
-              </option>
+                <option value="open">
+                  Open
+                </option>
 
-              <option value="resolved">
-                Resolved
-              </option>
-            </select>
-          )}
-        </div>
-      </div>
+                <option value="in_progress">
+                  In Progress
+                </option>
 
-      {/* ERRORS */}
-
-      {error && (
-        <div className="mt-5 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
-          {error}
+                <option value="resolved">
+                  Resolved
+                </option>
+              </select>
+            )}
+          </div>
         </div>
       )}
 
+      {/* ERRORS */}
+
+      {activeTab !== "team_leader_feedback" &&
+        error && (
+          <div className="mt-5 rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
+            {error}
+          </div>
+        )}
+
       {/* CREATE / EDIT FORM */}
 
-      {showForm && (
-        <section className="mt-6 rounded-[18px] border border-[#08A9C1]/30 bg-white p-5 shadow-[var(--shadow-xs)] sm:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#07879B]">
-                Workspace
-              </p>
+      {activeTab !== "team_leader_feedback" &&
+        showForm && (
+          <section className="mt-6 rounded-[18px] border border-[#08A9C1]/30 bg-white p-5 shadow-[var(--shadow-xs)] sm:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#07879B]">
+                  Workspace
+                </p>
 
-              <h3 className="mt-1 text-[17px] font-semibold text-[var(--text-primary)]">
-                {form.id
-                  ? "Edit Note"
-                  : "Create New Note"}
-              </h3>
-            </div>
+                <h3 className="mt-1 text-[17px] font-semibold text-[var(--text-primary)]">
+                  {form.id
+                    ? "Edit Note"
+                    : "Create New Note"}
+                </h3>
+              </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setShowForm(false)
-              }
-              className="text-[20px] text-[var(--text-muted)]"
-              aria-label="Close form"
-            >
-              ×
-            </button>
-          </div>
-
-          <form
-            onSubmit={saveNote}
-            className="mt-5 space-y-4"
-          >
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Category
-                </span>
-
-                <select
-                  value={form.category}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      category:
-                        event.target
-                          .value as Category,
-                    }))
-                  }
-                  className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
-                >
-                  {Object.entries(
-                    categoryLabels
-                  ).map(([value, label]) => (
-                    <option
-                      key={value}
-                      value={value}
-                    >
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Related Trainee (Optional)
-                </span>
-
-                <select
-                  value={form.traineeId}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      traineeId:
-                        event.target.value,
-                    }))
-                  }
-                  className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
-                >
-                  <option value="">
-                    No specific trainee
-                  </option>
-
-                  {trainees.map((trainee) => (
-                    <option
-                      key={trainee.id}
-                      value={trainee.id}
-                    >
-                      {trainee.full_name ??
-                        trainee.email ??
-                        "Trainee"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            {form.category ===
-              "observation" && (
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
-                  Observation Type
-                </span>
-
-                <select
-                  value={
-                    form.observationType
-                  }
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      observationType:
-                        event.target.value,
-                    }))
-                  }
-                  className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
-                >
-                  <option value="general">
-                    General Observation
-                  </option>
-
-                  <option value="positive">
-                    Positive Feedback
-                  </option>
-
-                  <option value="improvement">
-                    Opportunity for Improvement
-                  </option>
-                </select>
-              </label>
-            )}
-
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
-                Title
-              </span>
-
-              <input
-                required
-                maxLength={200}
-                value={form.title}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    title:
-                      event.target.value,
-                  }))
-                }
-                placeholder="e.g. Day 2 Review — Order Status"
-                className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px] outline-none focus:border-[#08A9C1]"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
-                Notes / Description
-              </span>
-
-              <textarea
-                required
-                rows={6}
-                maxLength={20000}
-                value={form.content}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    content:
-                      event.target.value,
-                  }))
-                }
-                placeholder="Write your notes, observations, questions, or follow-ups here..."
-                className="w-full resize-y rounded-[10px] border border-[var(--border)] bg-white px-3 py-3 text-[12px] leading-5 outline-none focus:border-[#08A9C1]"
-              />
-            </label>
-
-            <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() =>
                   setShowForm(false)
                 }
-                className="min-h-10 rounded-[10px] border border-[var(--border)] px-4 text-[11px] font-semibold text-[var(--text-secondary)]"
+                className="text-[20px] text-[var(--text-muted)]"
+                aria-label="Close form"
               >
-                Cancel
-              </button>
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="min-h-10 rounded-[10px] bg-[#08A9C1] px-5 text-[11px] font-semibold text-white disabled:opacity-50"
-              >
-                {saving
-                  ? "Saving..."
-                  : form.id
-                    ? "Save Changes"
-                    : "Create Note"}
+                ×
               </button>
             </div>
-          </form>
-        </section>
-      )}
 
-      {/* TRAINEE MODULE NOTES */}
+            <form
+              onSubmit={saveNote}
+              className="mt-5 space-y-4"
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
+                    Category
+                  </span>
 
-      {activeTab === "trainee_notes" ? (
+                  <select
+                    value={form.category}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        category:
+                          event.target
+                            .value as Category,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
+                  >
+                    {Object.entries(
+                      categoryLabels
+                    ).map(([value, label]) => (
+                      <option
+                        key={value}
+                        value={value}
+                      >
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
+                    Related Trainee (Optional)
+                  </span>
+
+                  <select
+                    value={form.traineeId}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        traineeId:
+                          event.target.value,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
+                  >
+                    <option value="">
+                      No specific trainee
+                    </option>
+
+                    {trainees.map((trainee) => (
+                      <option
+                        key={trainee.id}
+                        value={trainee.id}
+                      >
+                        {trainee.full_name ??
+                          trainee.email ??
+                          "Trainee"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {form.category ===
+                "observation" && (
+                <label className="block">
+                  <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
+                    Observation Type
+                  </span>
+
+                  <select
+                    value={
+                      form.observationType
+                    }
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        observationType:
+                          event.target.value,
+                      }))
+                    }
+                    className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px]"
+                  >
+                    <option value="general">
+                      General Observation
+                    </option>
+
+                    <option value="positive">
+                      Positive Feedback
+                    </option>
+
+                    <option value="improvement">
+                      Opportunity for Improvement
+                    </option>
+                  </select>
+                </label>
+              )}
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
+                  Title
+                </span>
+
+                <input
+                  required
+                  maxLength={200}
+                  value={form.title}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      title:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Day 2 Review — Order Status"
+                  className="min-h-11 w-full rounded-[10px] border border-[var(--border)] bg-white px-3 text-[12px] outline-none focus:border-[#08A9C1]"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]">
+                  Notes / Description
+                </span>
+
+                <textarea
+                  required
+                  rows={6}
+                  maxLength={20000}
+                  value={form.content}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      content:
+                        event.target.value,
+                    }))
+                  }
+                  placeholder="Write your notes, observations, questions, or follow-ups here..."
+                  className="w-full resize-y rounded-[10px] border border-[var(--border)] bg-white px-3 py-3 text-[12px] leading-5 outline-none focus:border-[#08A9C1]"
+                />
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowForm(false)
+                  }
+                  className="min-h-10 rounded-[10px] border border-[var(--border)] px-4 text-[11px] font-semibold text-[var(--text-secondary)]"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="min-h-10 rounded-[10px] bg-[#08A9C1] px-5 text-[11px] font-semibold text-white disabled:opacity-50"
+                >
+                  {saving
+                    ? "Saving..."
+                    : form.id
+                      ? "Save Changes"
+                      : "Create Note"}
+                </button>
+              </div>
+            </form>
+          </section>
+        )}
+
+      {/* FEEDBACK FOR TEAM LEADERS */}
+
+      {activeTab === "team_leader_feedback" ? (
+        <div className="mt-6">
+          <TeamLeaderFeedbackWorkspace
+            currentUserId={currentUserId}
+            role="trainer"
+          />
+        </div>
+      ) : activeTab === "trainee_notes" ? (
+        /* TRAINEE MODULE NOTES */
+
         <div className="mt-6 space-y-3">
           {filteredTraineeNotes.length ===
           0 ? (

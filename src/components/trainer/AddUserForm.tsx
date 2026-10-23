@@ -1,12 +1,15 @@
 "use client";
 
-import {
-  FormEvent,
-  useState,
-} from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
+type UserRole =
+  | "learner"
+  | "trainer"
+  | "observer"
+  | "cross_training"
+  | "team_leader"
+  | "executive";
 
 type CreatedAccount = {
   fullName: string;
@@ -18,29 +21,22 @@ type CreatedAccount = {
 export default function AddUserForm() {
   const router = useRouter();
 
-  const [fullName, setFullName] =
-    useState("");
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<UserRole>("learner");
+  const [teamLead, setTeamLead] = useState("");
 
-  const [email, setEmail] =
-    useState("");
-
-  const [role, setRole] =
-    useState<UserRole>("learner");
-
-  const [teamLead, setTeamLead] =
-    useState("");
-
-  const [saving, setSaving] =
-    useState(false);
-
-  const [error, setError] =
-    useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [createdAccount, setCreatedAccount] =
     useState<CreatedAccount | null>(null);
 
-  const [copied, setCopied] =
-    useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // =========================================================
+  // CREATE USER
+  // =========================================================
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -52,25 +48,16 @@ export default function AddUserForm() {
     }
 
     const cleanName = fullName.trim();
-
-    const cleanEmail = email
-      .trim()
-      .toLowerCase();
-
-    const cleanTeamLead =
-      teamLead.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanTeamLead = teamLead.trim();
 
     if (!cleanName) {
-      setError(
-        "Please enter the user's full name."
-      );
+      setError("Please enter the user's full name.");
       return;
     }
 
     if (!cleanEmail) {
-      setError(
-        "Please enter an email address."
-      );
+      setError("Please enter an email address.");
       return;
     }
 
@@ -78,9 +65,7 @@ export default function AddUserForm() {
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail);
 
     if (!allowedEmail) {
-      setError(
-        "Please enter a valid email address."
-      );
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -94,28 +79,26 @@ export default function AddUserForm() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             fullName: cleanName,
             email: cleanEmail,
             role,
             teamLead:
-              role !== "trainer"
+              role !== "trainer" &&
+              role !== "executive"
                 ? cleanTeamLead || null
                 : null,
           }),
         }
       );
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          result?.error ||
-            "Unable to create user."
+          result?.error || "Unable to create user."
         );
       }
 
@@ -129,8 +112,7 @@ export default function AddUserForm() {
         fullName: cleanName,
         email: cleanEmail,
         role,
-        temporaryPassword:
-          result.temporaryPassword,
+        temporaryPassword: result.temporaryPassword,
       });
 
       router.refresh();
@@ -149,6 +131,10 @@ export default function AddUserForm() {
       setSaving(false);
     }
   }
+
+  // =========================================================
+  // COPY PASSWORD
+  // =========================================================
 
   async function copyPassword() {
     if (!createdAccount) {
@@ -176,6 +162,10 @@ export default function AddUserForm() {
       );
     }
   }
+
+  // =========================================================
+  // COPY CREDENTIALS
+  // =========================================================
 
   async function copyCredentials() {
     if (!createdAccount) {
@@ -210,6 +200,10 @@ export default function AddUserForm() {
       );
     }
   }
+
+  // =========================================================
+  // RESET FORM
+  // =========================================================
 
   function createAnotherUser() {
     setFullName("");
@@ -255,9 +249,8 @@ export default function AddUserForm() {
             </p>
 
             <p className="mt-1 text-xs leading-5 text-emerald-700">
-              {createdAccount.fullName} can
-              sign in immediately using these
-              credentials.
+              {createdAccount.fullName} can sign in
+              immediately using these credentials.
             </p>
           </div>
         </div>
@@ -265,6 +258,8 @@ export default function AddUserForm() {
         {/* CREDENTIALS */}
 
         <div className="space-y-5 px-6 py-6">
+          {/* EMAIL */}
+
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.08em] text-slate-400">
               Email
@@ -276,6 +271,8 @@ export default function AddUserForm() {
               </p>
             </div>
           </div>
+
+          {/* TEMPORARY PASSWORD */}
 
           <div>
             <div className="flex items-center justify-between gap-3">
@@ -294,12 +291,12 @@ export default function AddUserForm() {
 
             <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <p className="break-all font-mono text-sm font-semibold tracking-[0.04em] text-slate-900">
-                {
-                  createdAccount.temporaryPassword
-                }
+                {createdAccount.temporaryPassword}
               </p>
             </div>
           </div>
+
+          {/* SECURITY NOTICE */}
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-sm font-semibold text-amber-900">
@@ -313,11 +310,15 @@ export default function AddUserForm() {
             </p>
           </div>
 
+          {/* ERROR */}
+
           {error && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               {error}
             </div>
           )}
+
+          {/* COPIED */}
 
           {copied && (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
@@ -342,9 +343,7 @@ export default function AddUserForm() {
             onClick={copyCredentials}
             className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            {copied
-              ? "Copied"
-              : "Copy credentials"}
+            {copied ? "Copied" : "Copy credentials"}
           </button>
         </div>
       </div>
@@ -372,9 +371,9 @@ export default function AddUserForm() {
         </h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          Create access for a trainee or
-          trainer in the HelloGov Learning
-          Center.
+          Create Learning Center access for
+          trainees, trainers, executives, and
+          other authorized users.
         </p>
       </div>
 
@@ -396,9 +395,7 @@ export default function AddUserForm() {
             type="text"
             value={fullName}
             onChange={(event) => {
-              setFullName(
-                event.target.value
-              );
+              setFullName(event.target.value);
               setError(null);
             }}
             placeholder="Enter full name"
@@ -452,13 +449,13 @@ export default function AddUserForm() {
             value={role}
             onChange={(event) => {
               const nextRole =
-                event.target
-                  .value as UserRole;
+                event.target.value as UserRole;
 
               setRole(nextRole);
 
               if (
-                nextRole === "trainer"
+                nextRole === "trainer" ||
+                nextRole === "executive"
               ) {
                 setTeamLead("");
               }
@@ -472,46 +469,60 @@ export default function AddUserForm() {
               Trainee
             </option>
 
-            <option value="trainer">Trainer</option>
-            <option value="observer">Observer</option>
-            <option value="cross_training">Cross-Training</option>
-            <option value="team_leader">Team Leader</option>
+            <option value="trainer">
+              Trainer
+            </option>
+
+            <option value="observer">
+              Observer
+            </option>
+
+            <option value="cross_training">
+              Cross-Training
+            </option>
+
+            <option value="team_leader">
+              Team Leader
+            </option>
+
+            <option value="executive">
+              Executive
+            </option>
           </select>
         </div>
 
         {/* TEAM LEAD */}
 
-        {role !== "trainer" && (
-          <div>
-            <label
-              htmlFor="new-user-team-lead"
-              className="mb-1.5 block text-sm font-medium text-slate-700"
-            >
-              Team Lead
-            </label>
+        {role !== "trainer" &&
+          role !== "executive" && (
+            <div>
+              <label
+                htmlFor="new-user-team-lead"
+                className="mb-1.5 block text-sm font-medium text-slate-700"
+              >
+                Team Lead
+              </label>
 
-            <input
-              id="new-user-team-lead"
-              type="text"
-              value={teamLead}
-              onChange={(event) => {
-                setTeamLead(
-                  event.target.value
-                );
-                setError(null);
-              }}
-              placeholder="Enter Team Lead"
-              autoComplete="off"
-              disabled={saving}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50 disabled:bg-slate-50"
-            />
+              <input
+                id="new-user-team-lead"
+                type="text"
+                value={teamLead}
+                onChange={(event) => {
+                  setTeamLead(event.target.value);
+                  setError(null);
+                }}
+                placeholder="Enter Team Lead"
+                autoComplete="off"
+                disabled={saving}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50 disabled:bg-slate-50"
+              />
 
-            <p className="mt-1.5 text-xs text-slate-400">
-              Optional. This can be assigned
-              later.
-            </p>
-          </div>
-        )}
+              <p className="mt-1.5 text-xs text-slate-400">
+                Optional. This can be assigned
+                later.
+              </p>
+            </div>
+          )}
       </div>
 
       {/* ACCOUNT INFO */}

@@ -7,7 +7,13 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
+type UserRole =
+  | "learner"
+  | "trainer"
+  | "observer"
+  | "cross_training"
+  | "team_leader"
+  | "executive";
 
 type EditableUser = {
   id: string;
@@ -38,7 +44,7 @@ export default function EditUserModal({
 
   const [role, setRole] =
     useState<UserRole>(
-      (user.role as UserRole)
+      user.role as UserRole
     );
 
   const [teamLead, setTeamLead] =
@@ -49,6 +55,10 @@ export default function EditUserModal({
 
   const [error, setError] =
     useState<string | null>(null);
+
+  // =========================================================
+  // MODAL BEHAVIOR
+  // =========================================================
 
   useEffect(() => {
     if (!open) {
@@ -87,12 +97,14 @@ export default function EditUserModal({
     };
   }, [open, saving]);
 
+  // =========================================================
+  // OPEN / CLOSE
+  // =========================================================
+
   function openModal() {
     setFullName(user.full_name ?? "");
     setEmail(user.email ?? "");
-    setRole(
-      (user.role as UserRole)
-    );
+    setRole(user.role as UserRole);
     setTeamLead(user.team_lead ?? "");
     setError(null);
     setOpen(true);
@@ -106,6 +118,10 @@ export default function EditUserModal({
     setOpen(false);
     setError(null);
   }
+
+  // =========================================================
+  // SAVE USER
+  // =========================================================
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -144,7 +160,7 @@ export default function EditUserModal({
       role !== "trainer"
     ) {
       setError(
-        "You cannot change your own role from Trainer to Trainee."
+        "You cannot change your own Trainer role."
       );
       return;
     }
@@ -167,7 +183,8 @@ export default function EditUserModal({
             email: cleanEmail,
             role,
             teamLead:
-              role !== "trainer"
+              role !== "trainer" &&
+              role !== "executive"
                 ? cleanTeamLead || null
                 : null,
           }),
@@ -202,6 +219,10 @@ export default function EditUserModal({
     }
   }
 
+  // =========================================================
+  // UI
+  // =========================================================
+
   return (
     <>
       {/* CLICKABLE USER */}
@@ -235,6 +256,8 @@ export default function EditUserModal({
 
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          {/* BACKDROP */}
+
           <button
             type="button"
             aria-label="Close edit user"
@@ -242,6 +265,8 @@ export default function EditUserModal({
             onClick={closeModal}
             className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]"
           />
+
+          {/* MODAL CONTENT */}
 
           <div className="relative z-10 max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[20px] border border-[var(--border)] bg-white shadow-2xl">
             <button
@@ -275,6 +300,8 @@ export default function EditUserModal({
               {/* FORM */}
 
               <div className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-2">
+                {/* FULL NAME */}
+
                 <div>
                   <label
                     htmlFor={`edit-name-${user.id}`}
@@ -296,6 +323,8 @@ export default function EditUserModal({
                     className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
                   />
                 </div>
+
+                {/* EMAIL */}
 
                 <div>
                   <label
@@ -324,6 +353,8 @@ export default function EditUserModal({
                   </p>
                 </div>
 
+                {/* ROLE */}
+
                 <div>
                   <label
                     htmlFor={`edit-role-${user.id}`}
@@ -344,8 +375,8 @@ export default function EditUserModal({
                       setRole(nextRole);
 
                       if (
-                        nextRole ===
-                        "trainer"
+                        nextRole === "trainer" ||
+                        nextRole === "executive"
                       ) {
                         setTeamLead("");
                       }
@@ -361,9 +392,22 @@ export default function EditUserModal({
                     <option value="trainer">
                       Trainer
                     </option>
-                    <option value="observer">Observer</option>
-                    <option value="cross_training">Cross-Training</option>
-                    <option value="team_leader">Team Leader</option>
+
+                    <option value="observer">
+                      Observer
+                    </option>
+
+                    <option value="cross_training">
+                      Cross-Training
+                    </option>
+
+                    <option value="team_leader">
+                      Team Leader
+                    </option>
+
+                    <option value="executive">
+                      Executive
+                    </option>
                   </select>
 
                   {isCurrentUser && (
@@ -373,6 +417,8 @@ export default function EditUserModal({
                     </p>
                   )}
                 </div>
+
+                {/* TEAM LEAD */}
 
                 <div>
                   <label
@@ -386,7 +432,10 @@ export default function EditUserModal({
                     id={`edit-team-lead-${user.id}`}
                     type="text"
                     value={teamLead}
-                    disabled={role === "trainer"}
+                    disabled={
+                      role === "trainer" ||
+                      role === "executive"
+                    }
                     onChange={(event) => {
                       setTeamLead(
                         event.target.value
@@ -394,14 +443,18 @@ export default function EditUserModal({
                       setError(null);
                     }}
                     placeholder={
-                      role === "trainer"
-                        ? "Not applicable to trainers"
-                        : "Enter Team Lead"
+                      role === "executive"
+                        ? "Not applicable to executives"
+                        : role === "trainer"
+                          ? "Not applicable to trainers"
+                          : "Enter Team Lead"
                     }
                     className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:cursor-not-allowed disabled:bg-[#F8FAFB] disabled:text-[var(--text-muted)]"
                   />
                 </div>
               </div>
+
+              {/* ERROR */}
 
               {error && (
                 <div className="px-5 pb-5 sm:px-6">
@@ -440,6 +493,10 @@ export default function EditUserModal({
     </>
   );
 }
+
+// =========================================================
+// INITIALS
+// =========================================================
 
 function getInitials(
   fullName: string | null,

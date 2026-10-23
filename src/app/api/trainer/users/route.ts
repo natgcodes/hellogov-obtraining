@@ -5,7 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
 
-type UserRole = "learner" | "trainer" | "observer" | "cross_training" | "team_leader";
+type UserRole =
+  | "learner"
+  | "trainer"
+  | "observer"
+  | "cross_training"
+  | "team_leader"
+  | "executive";
 
 type CreateUserBody = {
   fullName?: string;
@@ -22,16 +28,42 @@ type UpdateUserBody = {
   teamLead?: string | null;
 };
 
-type DeleteUserBody = {
-  userId?: string;
-};
-
 // ===========================================================
 // HELPERS
 // ===========================================================
 
+const ALLOWED_ROLES: UserRole[] = [
+  "learner",
+  "trainer",
+  "observer",
+  "cross_training",
+  "team_leader",
+  "executive",
+];
+
 function isAllowedCompanyEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isAllowedRole(role: unknown): role is UserRole {
+  return (
+    typeof role === "string" &&
+    ALLOWED_ROLES.includes(role as UserRole)
+  );
+}
+
+function getTeamLead(
+  role: UserRole,
+  teamLead: string | null
+) {
+  if (
+    role === "trainer" ||
+    role === "executive"
+  ) {
+    return null;
+  }
+
+  return teamLead;
 }
 
 function generateTemporaryPassword() {
@@ -71,6 +103,10 @@ function generateTemporaryPassword() {
   return characters.join("");
 }
 
+// ===========================================================
+// TRAINER AUTHORIZATION
+// ===========================================================
+
 async function getAuthorizedTrainer() {
   const supabase = await createClient();
 
@@ -81,7 +117,6 @@ async function getAuthorizedTrainer() {
 
   if (authError || !user) {
     return {
-      supabase,
       user: null,
       error: NextResponse.json(
         {
@@ -105,11 +140,10 @@ async function getAuthorizedTrainer() {
 
   if (
     trainerProfileError ||
-    (trainerProfile?.role !== "trainer" ||
-    trainerProfile?.account_status !== "active")
+    trainerProfile?.role !== "trainer" ||
+    trainerProfile?.account_status !== "active"
   ) {
     return {
-      supabase,
       user: null,
       error: NextResponse.json(
         {
@@ -124,7 +158,6 @@ async function getAuthorizedTrainer() {
   }
 
   return {
-    supabase,
     user,
     error: null,
   };
@@ -194,13 +227,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      !["learner", "trainer", "observer", "cross_training", "team_leader"].includes(role ?? "")
-    ) {
+    if (!isAllowedRole(role)) {
       return NextResponse.json(
         {
-          error:
-            "Invalid account role.",
+          error: "Invalid account role.",
         },
         {
           status: 400,
@@ -212,9 +242,6 @@ export async function POST(request: Request) {
 
     // -------------------------------------------------------
     // TEMPORARY PASSWORD
-    //
-    // No invitation email is sent.
-    // The password is returned only in this response.
     // -------------------------------------------------------
 
     const temporaryPassword =
@@ -227,20 +254,18 @@ export async function POST(request: Request) {
     const {
       data: createData,
       error: createError,
-    } =
-      await admin.auth.admin.createUser({
-        email,
-        password: temporaryPassword,
+    } = await admin.auth.admin.createUser({
+      email,
+      password: temporaryPassword,
 
-        // We intentionally confirm the email here because
-        // trainees will not receive a confirmation email.
-        email_confirm: true,
+      // No confirmation email is required.
+      email_confirm: true,
 
-        user_metadata: {
-          full_name: fullName,
-          role,
-        },
-      });
+      user_metadata: {
+        full_name: fullName,
+        role,
+      },
+    });
 
     if (createError) {
       console.error(
@@ -263,9 +288,7 @@ export async function POST(request: Request) {
             : "We couldn't create this account. Please try again.",
         },
         {
-          status: duplicateUser
-            ? 409
-            : 500,
+          status: duplicateUser ? 409 : 500,
         }
       );
     }
@@ -297,10 +320,10 @@ export async function POST(request: Request) {
             full_name: fullName,
             email,
             role,
-            team_lead:
-              role !== "trainer"
-                ? teamLead
-                : null,
+            team_lead: getTeamLead(
+              role,
+              teamLead
+            ),
           },
           {
             onConflict: "id",
@@ -313,9 +336,7 @@ export async function POST(request: Request) {
         profileError
       );
 
-      // Auth user exists but profile creation failed.
-      // Delete the Auth user so we don't leave a
-      // partially-created account behind.
+      // Roll back the Auth account if profile setup fails.
       const { error: rollbackError } =
         await admin.auth.admin.deleteUser(
           createdUser.id
@@ -340,61 +361,68 @@ export async function POST(request: Request) {
     }
 
     // -------------------------------------------------------
-// AUTOMATIC LEARNER ENROLLMENT
-// -------------------------------------------------------
+    // AUTOMATIC PROGRAM ENROLLMENT
+    //
+    // All learning roles, including Executive,
+    // need an enrollment to track personal progress.
+    //
+    // Enrollment does not determine whether someone
+    // is counted as a Trainee. That depends on role.
+    // -------------------------------------------------------
 
-if (role !== "trainer") {
-  const { error: enrollmentError } = await admin
-    .from("program_enrollments")
-    .upsert(
-      {
-        program_id: HELLOGOV_PROGRAM_ID,
-        learner_id: createdUser.id,
-        status: "not_started",
-      },
-      {
-        onConflict: "program_id,learner_id",
-        ignoreDuplicates: true,
+    if (role !== "trainer") {
+      const { error: enrollmentError } =
+        await admin
+          .from("program_enrollments")
+          .upsert(
+            {
+              program_id: HELLOGOV_PROGRAM_ID,
+              learner_id: createdUser.id,
+              status: "not_started",
+            },
+            {
+              onConflict:
+                "program_id,learner_id",
+              ignoreDuplicates: true,
+            }
+          );
+
+      if (enrollmentError) {
+        console.error(
+          "Unable to enroll new user:",
+          enrollmentError
+        );
+
+        // Roll back the new account if enrollment fails.
+        const { error: rollbackError } =
+          await admin.auth.admin.deleteUser(
+            createdUser.id
+          );
+
+        if (rollbackError) {
+          console.error(
+            "Unable to rollback user creation:",
+            rollbackError
+          );
+        }
+
+        return NextResponse.json(
+          {
+            error:
+              "The account could not be enrolled in the onboarding program.",
+          },
+          {
+            status: 500,
+          }
+        );
       }
-    );
-
-  if (enrollmentError) {
-    console.error(
-      "Unable to enroll new learner:",
-      enrollmentError
-    );
-
-    // Roll back the new account to avoid leaving
-    // a learner without a program enrollment.
-    const { error: rollbackError } =
-      await admin.auth.admin.deleteUser(createdUser.id);
-
-    if (rollbackError) {
-      console.error(
-        "Unable to rollback learner creation:",
-        rollbackError
-      );
     }
-
-    return NextResponse.json(
-      {
-        error:
-          "The account could not be enrolled in the onboarding program.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-
 
     // -------------------------------------------------------
     // SUCCESS
     //
-    // IMPORTANT:
-    // temporaryPassword is returned only now.
-    // We do not store the plain-text password ourselves.
+    // The temporary password is returned only here.
+    // It is not stored in plain text by this application.
     // -------------------------------------------------------
 
     return NextResponse.json(
@@ -404,10 +432,10 @@ if (role !== "trainer") {
           fullName,
           email,
           role,
-          teamLead:
-            role !== "trainer"
-              ? teamLead
-              : null,
+          teamLead: getTeamLead(
+            role,
+            teamLead
+          ),
         },
         temporaryPassword,
       },
@@ -461,6 +489,10 @@ export async function PATCH(request: Request) {
     const teamLead =
       body.teamLead?.trim() || null;
 
+    // -------------------------------------------------------
+    // VALIDATION
+    // -------------------------------------------------------
+
     if (!userId) {
       return NextResponse.json(
         {
@@ -506,13 +538,10 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (
-      !["learner", "trainer", "observer", "cross_training", "team_leader"].includes(role ?? "")
-    ) {
+    if (!isAllowedRole(role)) {
       return NextResponse.json(
         {
-          error:
-            "Invalid account role.",
+          error: "Invalid account role.",
         },
         {
           status: 400,
@@ -520,8 +549,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // The currently authenticated trainer cannot remove
-    // their own trainer permissions.
+    // Prevent trainers from removing their own permissions.
     if (
       userId === auth.user.id &&
       role !== "trainer"
@@ -529,7 +557,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         {
           error:
-            "You cannot change your own role from Trainer to Trainee.",
+            "You cannot change your own Trainer role.",
         },
         {
           status: 400,
@@ -568,12 +596,37 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (existingProfile.role === "trainer" && role !== "trainer") {
-      const { count, error: countError } = await admin.from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "trainer").eq("account_status", "active");
-      if (countError || (count ?? 0) <= 1) return NextResponse.json(
-        { error: "At least one active Trainer must remain." }, { status: 400 });
+    // At least one active Trainer must remain.
+    if (
+      existingProfile.role === "trainer" &&
+      role !== "trainer"
+    ) {
+      const {
+        count,
+        error: countError,
+      } = await admin
+        .from("profiles")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("role", "trainer")
+        .eq("account_status", "active");
+
+      if (
+        countError ||
+        (count ?? 0) <= 1
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "At least one active Trainer must remain.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
     }
 
     // -------------------------------------------------------
@@ -619,9 +672,7 @@ export async function PATCH(request: Request) {
             : "We couldn't update the account login information.",
         },
         {
-          status: duplicateEmail
-            ? 409
-            : 500,
+          status: duplicateEmail ? 409 : 500,
         }
       );
     }
@@ -637,10 +688,10 @@ export async function PATCH(request: Request) {
           full_name: fullName,
           email,
           role,
-          team_lead:
-            role !== "trainer"
-              ? teamLead
-              : null,
+          team_lead: getTeamLead(
+            role,
+            teamLead
+          ),
         })
         .eq("id", userId);
 
@@ -650,8 +701,7 @@ export async function PATCH(request: Request) {
         profileUpdateError
       );
 
-      // Auth has already changed.
-      // Attempt to restore the previous values.
+      // Attempt to restore previous Auth values.
       const { error: rollbackError } =
         await admin.auth.admin.updateUserById(
           userId,
@@ -685,43 +735,51 @@ export async function PATCH(request: Request) {
       );
     }
 
-// -------------------------------------------------------
-// ENROLL USER WHEN CHANGING TO LEARNER
-// -------------------------------------------------------
+    // -------------------------------------------------------
+    // AUTOMATIC PROGRAM ENROLLMENT
+    //
+    // Includes Executive and other learning roles.
+    // Existing enrollment records are preserved.
+    // -------------------------------------------------------
 
-if (role !== "trainer") {
-  const { error: enrollmentError } = await admin
-    .from("program_enrollments")
-    .upsert(
-      {
-        program_id: HELLOGOV_PROGRAM_ID,
-        learner_id: userId,
-        status: "not_started",
-      },
-      {
-        onConflict: "program_id,learner_id",
-        ignoreDuplicates: true,
+    if (role !== "trainer") {
+      const { error: enrollmentError } =
+        await admin
+          .from("program_enrollments")
+          .upsert(
+            {
+              program_id: HELLOGOV_PROGRAM_ID,
+              learner_id: userId,
+              status: "not_started",
+            },
+            {
+              onConflict:
+                "program_id,learner_id",
+              ignoreDuplicates: true,
+            }
+          );
+
+      if (enrollmentError) {
+        console.error(
+          "Unable to enroll user after role update:",
+          enrollmentError
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "The user profile was updated, but enrollment in the onboarding program failed.",
+          },
+          {
+            status: 500,
+          }
+        );
       }
-    );
+    }
 
-  if (enrollmentError) {
-    console.error(
-      "Unable to enroll learner after role update:",
-      enrollmentError
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          "The user profile was updated, but enrollment in the onboarding program failed.",
-      },
-      {
-        status: 500,
-      }
-    );
-  }
-}
-
+    // -------------------------------------------------------
+    // SUCCESS
+    // -------------------------------------------------------
 
     return NextResponse.json({
       success: true,
@@ -730,10 +788,10 @@ if (role !== "trainer") {
         fullName,
         email,
         role,
-        teamLead:
-          role !== "trainer"
-            ? teamLead
-            : null,
+        teamLead: getTeamLead(
+          role,
+          teamLead
+        ),
       },
     });
   } catch (error) {
@@ -760,7 +818,12 @@ if (role !== "trainer") {
 
 export async function DELETE() {
   return NextResponse.json(
-    { error: "Permanent deletion is disabled. Deactivate the account instead to preserve training records." },
-    { status: 405 }
+    {
+      error:
+        "Permanent deletion is disabled. Deactivate the account instead to preserve training records.",
+    },
+    {
+      status: 405,
+    }
   );
 }

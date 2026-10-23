@@ -48,6 +48,28 @@ export default async function LearnerProfilePage() {
   }
 
   // ---------------------------------------------------------
+  // LEARNING ROLE
+  // ---------------------------------------------------------
+
+  const allowedLearningRoles = [
+    "learner",
+    "observer",
+    "cross_training",
+    "team_leader",
+    "executive",
+  ] as const;
+
+  type LearningRole =
+    (typeof allowedLearningRoles)[number];
+
+  const learningRole: LearningRole =
+    allowedLearningRoles.includes(
+      profile.role as LearningRole
+    )
+      ? (profile.role as LearningRole)
+      : "learner";
+
+  // ---------------------------------------------------------
   // TEAM LEAD
   // ---------------------------------------------------------
 
@@ -87,7 +109,7 @@ export default async function LearnerProfilePage() {
 
   return (
     <AppShell
-      role="learner"
+      role={learningRole}
       userName={profile.full_name}
       userEmail={profile.email}
       learnerJourney={learnerJourney}
@@ -134,7 +156,7 @@ export default async function LearnerProfilePage() {
                 <div className="min-w-0">
                   <h2 className="truncate text-[16px] font-semibold tracking-[-0.015em] text-[var(--text-primary)]">
                     {profile.full_name ||
-                      "HelloGov Trainee"}
+                      "HelloGov User"}
                   </h2>
 
                   <p className="mt-0.5 truncate text-[12px] text-[var(--text-muted)]">

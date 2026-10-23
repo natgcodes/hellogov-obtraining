@@ -28,11 +28,12 @@ type AppShellProps = {
   userName?: string | null;
   userEmail?: string | null;
   role:
-    | "learner"
-    | "trainer"
-    | "observer"
-    | "cross_training"
-    | "team_leader";
+  | "learner"
+  | "trainer"
+  | "observer"
+  | "cross_training"
+  | "team_leader"
+  | "executive";
   learnerJourney?: LearnerJourney;
 
   impersonation?: {
@@ -265,9 +266,12 @@ export default function AppShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [executiveProgramOpen, setExecutiveProgramOpen] =
+  useState(true);
 
   const isTrainer = role === "trainer";
-  const isTeamLeader = role === "team_leader";
+const isExecutive = role === "executive";
+const isTeamLeader = role === "team_leader";
   const isImpersonating = Boolean(impersonation);
 
   const showTrainerNavigation =
@@ -278,7 +282,9 @@ export default function AppShell({
     : "/learn";
 
   const shellHomePath = showTrainerNavigation
-    ? "/trainer"
+  ? "/trainer"
+  : isExecutive
+    ? "/executive"
     : learnerBasePath;
 
   const profilePath = showTrainerNavigation
@@ -365,7 +371,7 @@ export default function AppShell({
       icon: "submissions",
     },
 
-    ...(learnerJourney?.certificationUnlocked
+    ...(!isExecutive && learnerJourney?.certificationUnlocked
       ? [
           {
             label: "Certification",
@@ -724,7 +730,7 @@ export default function AppShell({
             CERTIFICATION — ONLY WHEN UNLOCKED
         ================================================= */}
 
-        {learnerJourney.certificationUnlocked && (
+        {!isExecutive && learnerJourney.certificationUnlocked && (
           <Link
             href={`${learnerBasePath}/certification`}
             title={
@@ -789,6 +795,103 @@ export default function AppShell({
       </nav>
     );
   }
+
+// ============================================================
+// EXECUTIVE NAVIGATION
+// ============================================================
+
+function renderExecutiveNavigation(mobile = false) {
+  const collapsed = !mobile && sidebarCollapsed;
+
+  const dashboardActive = pathname === "/executive";
+  const programActive =
+    pathname === "/learn" ||
+    pathname.startsWith("/learn/");
+
+  return (
+    <nav className="space-y-1">
+      {renderStandardNavItem(
+        {
+          label: "Dashboard",
+          href: "/executive",
+          icon: "dashboard",
+        },
+        mobile
+      )}
+
+      <div className="pt-1">
+        <div
+          className={`flex items-center rounded-[10px] ${
+            programActive
+              ? "bg-[var(--teal-soft)]"
+              : "hover:bg-[var(--surface-soft)]"
+          }`}
+        >
+          <Link
+            href="/learn"
+            title={collapsed ? "Training Program" : undefined}
+            onClick={() => {
+              if (mobile) {
+                setMobileMenuOpen(false);
+              }
+            }}
+            className={`flex min-h-10 min-w-0 flex-1 items-center text-[14px] font-medium ${
+              collapsed
+                ? "justify-center px-2"
+                : "gap-3 px-3"
+            } ${
+              programActive
+                ? "text-[var(--teal-deep)]"
+                : "text-[var(--text-secondary)]"
+            }`}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+              <Icon name="program" />
+            </span>
+
+            {!collapsed && (
+              <span>Training Program</span>
+            )}
+          </Link>
+
+          {!collapsed && (
+            <button
+              type="button"
+              onClick={() =>
+                setExecutiveProgramOpen((current) => !current)
+              }
+              aria-label={
+                executiveProgramOpen
+                  ? "Collapse Training Program"
+                  : "Expand Training Program"
+              }
+              aria-expanded={executiveProgramOpen}
+              className="flex h-10 w-10 shrink-0 items-center justify-center text-[var(--text-muted)]"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className={`h-4 w-4 transition-transform ${
+                  executiveProgramOpen ? "rotate-180" : ""
+                }`}
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {executiveProgramOpen && !collapsed && (
+          <div className="ml-3 mt-2 border-l border-[var(--border-soft)] pl-2">
+            {renderJourneyNavigation(mobile)}
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+}
 
   // ============================================================
   // APP SHELL
@@ -903,8 +1006,10 @@ export default function AppShell({
             )}
 
             {showTrainerNavigation
-              ? renderTrainerNavigation()
-              : renderJourneyNavigation()}
+  ? renderTrainerNavigation()
+  : isExecutive
+    ? renderExecutiveNavigation()
+    : renderJourneyNavigation()}
           </div>
 
           {!sidebarCollapsed && (
@@ -994,6 +1099,12 @@ export default function AppShell({
                   Trainer
                 </span>
               )}
+
+              {isExecutive && (
+  <span className="hidden rounded-full bg-[var(--teal-soft)] px-3 py-1.5 text-[11px] font-semibold text-[var(--teal-deep)] md:inline-flex">
+    Executive
+  </span>
+)}
 
               {isImpersonating && (
                 <span className="hidden rounded-full bg-[#EAF8FA] px-3 py-1.5 text-[11px] font-semibold text-[#07879B] md:inline-flex">
@@ -1232,8 +1343,10 @@ export default function AppShell({
                 </p>
 
                 {showTrainerNavigation
-                  ? renderTrainerNavigation(true)
-                  : renderJourneyNavigation(true)}
+  ? renderTrainerNavigation(true)
+  : isExecutive
+    ? renderExecutiveNavigation(true)
+    : renderJourneyNavigation(true)}
               </div>
 
               <div className="mt-auto border-t border-[var(--border-soft)] p-4">

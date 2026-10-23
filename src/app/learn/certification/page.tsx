@@ -26,8 +26,12 @@ export default async function CertificationPage() {
     .single();
 
   if (profile?.role === "trainer") {
-    redirect("/trainer");
-  }
+  redirect("/trainer");
+}
+
+if (profile?.role === "executive") {
+  redirect("/executive");
+}
 
   // ---------------------------------------------------------
   // CERTIFICATION ACCESS CONTROL

@@ -92,8 +92,28 @@ export default async function LearnerQuizPage({
   }
 
   if (profile.role === "trainer") {
-    redirect("/trainer");
-  }
+  redirect("/trainer");
+}
+
+const allowedLearningRoles = [
+  "learner",
+  "observer",
+  "cross_training",
+  "team_leader",
+  "executive",
+] as const;
+
+type LearningRole = (typeof allowedLearningRoles)[number];
+
+if (
+  !allowedLearningRoles.some(
+    (role) => role === profile.role
+  )
+) {
+  redirect("/login");
+}
+
+const learningRole = profile.role as LearningRole;
 
   // ---------------------------------------------------------
   // LEARNER JOURNEY
@@ -126,7 +146,7 @@ export default async function LearnerQuizPage({
 
     return (
       <AppShell
-        role="learner"
+  role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -287,7 +307,7 @@ export default async function LearnerQuizPage({
 
     return (
       <AppShell
-        role="learner"
+  role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -377,7 +397,7 @@ export default async function LearnerQuizPage({
   ) {
     return (
       <AppShell
-        role="learner"
+  role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -480,7 +500,7 @@ export default async function LearnerQuizPage({
   ) {
     return (
       <AppShell
-        role="learner"
+  role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -546,7 +566,7 @@ export default async function LearnerQuizPage({
 
     return (
       <AppShell
-        role="learner"
+  role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -579,7 +599,7 @@ export default async function LearnerQuizPage({
 
   return (
     <AppShell
-      role="learner"
+  role={learningRole}
       userName={profile.full_name}
       userEmail={profile.email}
       learnerJourney={learnerJourney}

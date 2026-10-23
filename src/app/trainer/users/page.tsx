@@ -121,7 +121,14 @@ export default async function TrainerUsersPage() {
   const { data, error } = await supabase
     .from("profiles")
     .select("id, full_name, email, role, team_lead, account_status")
-    .in("role", ["learner", "trainer", "observer", "cross_training", "team_leader"])
+    .in("role", [
+  "learner",
+  "trainer",
+  "observer",
+  "cross_training",
+  "team_leader",
+  "executive",
+])
     .order("full_name", {
       ascending: true,
     });
@@ -517,7 +524,16 @@ function RoleBadge({ role }: { role: string }) {
           : "inline-flex rounded-full bg-[#EAF8FA] px-2.5 py-1 text-[10px] font-semibold text-[#07879B]"
       }
     >
-      {({trainer:"Trainer",learner:"Trainee",observer:"Observer",cross_training:"Cross-Training",team_leader:"Team Leader"} as Record<string,string>)[role] ?? role}
+      {(
+  {
+    trainer: "Trainer",
+    learner: "Trainee",
+    observer: "Observer",
+    cross_training: "Cross-Training",
+    team_leader: "Team Leader",
+    executive: "Executive",
+  } as Record<string, string>
+)[role] ?? role}
     </span>
   );
 }

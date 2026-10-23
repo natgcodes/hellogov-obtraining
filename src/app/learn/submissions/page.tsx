@@ -39,10 +39,37 @@ export default async function LearnerSubmissionsPage() {
   }
 
   // ---------------------------------------------------------
+  // LEARNING ROLE
+  //
+  // Preserve the correct navigation for every learning role,
+  // including Executive.
+  // ---------------------------------------------------------
+
+  const allowedLearningRoles = [
+    "learner",
+    "observer",
+    "cross_training",
+    "team_leader",
+    "executive",
+  ] as const;
+
+  type LearningRole =
+    (typeof allowedLearningRoles)[number];
+
+  const learningRole: LearningRole =
+    allowedLearningRoles.includes(
+      profile.role as LearningRole
+    )
+      ? (profile.role as LearningRole)
+      : "learner";
+
+  // ---------------------------------------------------------
   // SUBMISSIONS
   //
   // Checkpoints use the quiz engine, so both quizzes and
   // checkpoints are stored as quiz_attempts.
+  //
+  // Each user can only retrieve their own submissions.
   // ---------------------------------------------------------
 
   const { data: attempts, error } = await supabase
@@ -309,7 +336,7 @@ export default async function LearnerSubmissionsPage() {
 
   return (
     <AppShell
-      role="learner"
+      role={learningRole}
       userName={profile.full_name}
       userEmail={profile.email}
     >

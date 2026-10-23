@@ -47,13 +47,15 @@ export default function LoginPage() {
       return;
     }
 
-    if (profile.role === "trainer") {
-      router.push("/trainer");
-    } else {
-      router.push("/learn");
-    }
+   if (profile.role === "trainer") {
+  router.push("/trainer");
+} else if (profile.role === "executive") {
+  router.push("/executive");
+} else {
+  router.push("/learn");
+}
 
-    router.refresh();
+router.refresh();
   }
 
   return (

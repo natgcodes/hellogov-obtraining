@@ -97,8 +97,28 @@ export default async function LearnPage() {
   }
 
   if (profile.role === "trainer") {
-    redirect("/trainer");
-  }
+  redirect("/trainer");
+}
+
+const allowedLearningRoles = [
+  "learner",
+  "observer",
+  "cross_training",
+  "team_leader",
+  "executive",
+] as const;
+
+type LearningRole = (typeof allowedLearningRoles)[number];
+
+if (
+  !allowedLearningRoles.some(
+    (role) => role === profile.role
+  )
+) {
+  redirect("/login");
+}
+
+const learningRole = profile.role as LearningRole;
 
   // ---------------------------------------------------------
   // NO PUBLISHED PROGRAM
@@ -112,7 +132,7 @@ export default async function LearnPage() {
 
     return (
       <AppShell
-        role={profile.role as "learner" | "observer" | "cross_training" | "team_leader"}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
       >
@@ -288,7 +308,7 @@ export default async function LearnPage() {
 
   return (
     <AppShell
-      role={profile.role as "learner" | "observer" | "cross_training" | "team_leader"}
+      role={learningRole}
       userName={profile.full_name}
       userEmail={profile.email}
       learnerJourney={learnerJourneyWithSetup}

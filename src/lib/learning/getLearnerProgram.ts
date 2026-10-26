@@ -1,19 +1,69 @@
 import { createClient } from "@/lib/supabase/server";
 import type { LearnerProgram } from "./types";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 
 export async function getLearnerProgram(): Promise<LearnerProgram | null> {
   const totalStart = performance.now();
 
   const supabase = await createClient();
 
-  // ---------------------------------------------------------
-  // LOAD ONLY THE DATA REQUIRED BY /learn
+  // =========================================================
+  // AUTHENTICATED USER
+  // =========================================================
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    console.error(
+      "Unable to identify learner:",
+      authError
+    );
+
+    return null;
+  }
+
+  // =========================================================
+  // RESOLVE ASSIGNED WAVE
   //
-  // The overview does NOT need materials, activities,
-  // quizzes, objectives, etc. Those are loaded by the
-  // individual day page when the learner opens a day.
-  // ---------------------------------------------------------
+  // Each learner accesses their own active program.
+  //
+  // Wave 001 and Wave 002 remain independent.
+  // =========================================================
+
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
+    .from("profiles")
+    .select("active_program_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError) {
+    console.error(
+      "Unable to load learner wave assignment:",
+      profileError
+    );
+
+    return null;
+  }
+
+  const programId = profile?.active_program_id;
+
+  if (!programId) {
+    console.warn(
+      "Learner has no assigned training wave:",
+      user.id
+    );
+
+    return null;
+  }
+
+  // =========================================================
+  // LOAD ASSIGNED PUBLISHED PROGRAM
+  // =========================================================
 
   const queryStart = performance.now();
 
@@ -57,7 +107,7 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
         )
       )
     `)
-    .eq("id", HELLOGOV_PROGRAM_ID)
+    .eq("id", programId)
     .eq("status", "published")
     .maybeSingle();
 
@@ -77,19 +127,19 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
   }
 
   if (!program) {
+    console.warn(
+      "Assigned program is unavailable or unpublished:",
+      programId
+    );
+
     return null;
   }
 
-  // ---------------------------------------------------------
+  // =========================================================
   // NORMALIZE SETUP SECTION
-  //
-  // setup_sections is one-to-one through the unique
-  // program_id constraint. Depending on Supabase's generated
-  // relationship shape, normalize either object or array.
-  // ---------------------------------------------------------
+  // =========================================================
 
-  const rawSetupSection =
-    program.setup_sections;
+  const rawSetupSection = program.setup_sections;
 
   const setupSection = Array.isArray(
     rawSetupSection
@@ -97,9 +147,9 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
     ? rawSetupSection[0] ?? null
     : rawSetupSection ?? null;
 
-  // ---------------------------------------------------------
-  // NORMALIZE
-  // ---------------------------------------------------------
+  // =========================================================
+  // NORMALIZE PROGRAM
+  // =========================================================
 
   const normalized = {
     id: program.id,
@@ -110,28 +160,23 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
     setup_section: setupSection
       ? {
           id: setupSection.id,
-          program_id:
-            setupSection.program_id,
+          program_id: setupSection.program_id,
           title: setupSection.title,
-          description:
-            setupSection.description,
-          instructions:
-            setupSection.instructions,
+          description: setupSection.description,
+          instructions: setupSection.instructions,
         }
       : null,
 
     setup_items: [
       ...(program.setup_items ?? []),
     ].sort(
-      (a, b) =>
-        a.position - b.position
+      (a, b) => a.position - b.position
     ),
 
     days: [...(program.days ?? [])]
       .filter((day) => day.is_published)
       .sort(
-        (a, b) =>
-          a.position - b.position
+        (a, b) => a.position - b.position
       )
       .map((day) => ({
         id: day.id,
@@ -143,8 +188,7 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
 
         modules: [...(day.modules ?? [])]
           .sort(
-            (a, b) =>
-              a.position - b.position
+            (a, b) => a.position - b.position
           )
           .map((module) => ({
             id: module.id,
@@ -157,10 +201,6 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
             is_required:
               module.is_required,
 
-            // The overview does not need these.
-            // They remain present so LearnerProgram keeps
-            // its existing shape and other code does not
-            // break.
             materials: [],
             activities: [],
             quizzes: [],

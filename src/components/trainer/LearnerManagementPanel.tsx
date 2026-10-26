@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  FormEvent,
+  type FormEvent,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -14,52 +15,79 @@ type EnrollmentStatus =
   | "in_progress"
   | "completed";
 
+type TrainingWave = {
+  id: string;
+  title: string;
+  status: string;
+};
+
 type LearnerManagementPanelProps = {
   learnerId: string;
   programId: string;
+  activeProgramId: string | null;
+  availableWaves: TrainingWave[];
   fullName: string | null;
   email: string | null;
   teamLead: string | null;
   enrollmentStatus: string;
 };
 
+function normalizeStatus(
+  value: string
+): EnrollmentStatus {
+  if (value === "completed") {
+    return "completed";
+  }
+
+  if (value === "in_progress") {
+    return "in_progress";
+  }
+
+  return "not_started";
+}
+
 export default function LearnerManagementPanel({
   learnerId,
   programId,
+  activeProgramId,
+  availableWaves,
   fullName,
   email,
   teamLead,
   enrollmentStatus,
 }: LearnerManagementPanelProps) {
   const router = useRouter();
-  const supabase = createClient();
 
-  const nameInputRef =
-    useRef<HTMLInputElement>(null);
-
-  const teamLeadInputRef =
-    useRef<HTMLInputElement>(null);
-
-  const initialStatus: EnrollmentStatus =
-    enrollmentStatus === "completed"
-      ? "completed"
-      : enrollmentStatus === "in_progress"
-        ? "in_progress"
-        : "not_started";
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const teamLeadInputRef = useRef<HTMLInputElement>(null);
 
   const [status, setStatus] =
     useState<EnrollmentStatus>(
-      initialStatus
+      normalizeStatus(enrollmentStatus)
     );
 
-  const [saving, setSaving] =
-    useState(false);
+  const [selectedWaveId, setSelectedWaveId] =
+    useState(activeProgramId ?? "");
+
+  const [saving, setSaving] = useState(false);
 
   const [error, setError] =
     useState<string | null>(null);
 
-  const [success, setSuccess] =
-    useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Keep form values synchronized after router.refresh().
+  useEffect(() => {
+    setSelectedWaveId(activeProgramId ?? "");
+    setStatus(normalizeStatus(enrollmentStatus));
+  }, [activeProgramId, enrollmentStatus]);
+
+  const waveChanged =
+    selectedWaveId !== (activeProgramId ?? "");
+
+  const selectedWave = availableWaves.find(
+    (wave) => wave.id === selectedWaveId
+  );
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -77,9 +105,23 @@ export default function LearnerManagementPanel({
       teamLeadInputRef.current?.value.trim() ?? "";
 
     if (!cleanName) {
-      setError(
-        "Please enter the trainee's full name."
-      );
+      setError("Please enter the trainee's full name.");
+      setSuccess(false);
+      return;
+    }
+
+    if (!selectedWaveId) {
+      setError("Please select a training wave.");
+      setSuccess(false);
+      return;
+    }
+
+    if (
+      !availableWaves.some(
+        (wave) => wave.id === selectedWaveId
+      )
+    ) {
+      setError("The selected training wave is unavailable.");
       setSuccess(false);
       return;
     }
@@ -88,66 +130,109 @@ export default function LearnerManagementPanel({
     setError(null);
     setSuccess(false);
 
-    // -------------------------------------------------------
-    // UPDATE PROFILE
-    // -------------------------------------------------------
+    const supabase = createClient();
 
-    const { error: profileUpdateError } =
-      await supabase
-        .from("profiles")
-        .update({
-          full_name: cleanName,
-          team_lead:
-            cleanTeamLead || null,
-        })
-        .eq("id", learnerId);
+    try {
+      // -------------------------------------------------------
+      // UPDATE PROFILE
+      // -------------------------------------------------------
 
-    if (profileUpdateError) {
-      console.error(
-        "Unable to update trainee profile:",
-        profileUpdateError
-      );
+      const { error: profileUpdateError } =
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: cleanName,
+            team_lead: cleanTeamLead || null,
+          })
+          .eq("id", learnerId);
 
-      setError(
-        "We couldn't save the trainee information. Please try again."
-      );
+      if (profileUpdateError) {
+        console.error(
+          "Unable to update trainee profile:",
+          profileUpdateError
+        );
 
-      setSaving(false);
-      return;
-    }
+        setError(
+          "We couldn't save the trainee information. Please try again."
+        );
+        return;
+      }
 
-    // -------------------------------------------------------
-    // UPDATE ENROLLMENT STATUS
-    // -------------------------------------------------------
+      // -------------------------------------------------------
+      // ASSIGN TRAINING WAVE
+      // -------------------------------------------------------
 
-    const { error: statusUpdateError } =
-      await supabase.rpc(
-        "trainer_update_learner_status",
-        {
-          target_program_id: programId,
-          target_learner_id: learnerId,
-          new_status: status,
+      if (waveChanged) {
+        const { error: waveAssignmentError } =
+          await supabase.rpc(
+            "trainer_assign_learner_wave",
+            {
+              target_learner_id: learnerId,
+              target_program_id: selectedWaveId,
+            }
+          );
+
+        if (waveAssignmentError) {
+          console.error(
+            "Unable to assign training wave:",
+            waveAssignmentError
+          );
+
+          setError(
+            "The trainee information was saved, but the training wave could not be assigned."
+          );
+          return;
         }
-      );
 
-    if (statusUpdateError) {
+        // The new wave starts with its existing enrollment
+        // status (or not_started if newly enrolled).
+        // Do not copy the previous wave's status.
+
+        setSuccess(true);
+        router.refresh();
+        return;
+      }
+
+      // -------------------------------------------------------
+      // UPDATE CURRENT WAVE ENROLLMENT STATUS
+      // -------------------------------------------------------
+
+      const { error: statusUpdateError } =
+        await supabase.rpc(
+          "trainer_update_learner_status",
+          {
+            target_program_id: programId,
+            target_learner_id: learnerId,
+            new_status: status,
+          }
+        );
+
+      if (statusUpdateError) {
+        console.error(
+          "Unable to update enrollment status:",
+          statusUpdateError
+        );
+
+        setError(
+          "The trainee information was saved, but the enrollment status could not be updated."
+        );
+        return;
+      }
+
+      setSuccess(true);
+      router.refresh();
+    } catch (unexpectedError) {
       console.error(
-        "Unable to update enrollment status:",
-        statusUpdateError
+        "Unexpected trainee update error:",
+        unexpectedError
       );
 
       setError(
-        "The trainee information was saved, but the enrollment status could not be updated."
+        "Something went wrong while saving. Please try again."
       );
-
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setSuccess(true);
-    setSaving(false);
-
-    router.refresh();
   }
 
   return (
@@ -196,7 +281,8 @@ export default function LearnerManagementPanel({
               type="text"
               defaultValue={fullName ?? ""}
               placeholder="Enter full name"
-              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
+              disabled={saving}
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:opacity-60"
             />
 
             <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
@@ -222,7 +308,8 @@ export default function LearnerManagementPanel({
               type="text"
               defaultValue={teamLead ?? ""}
               placeholder="Enter Team Lead"
-              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10"
+              disabled={saving}
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:opacity-60"
             />
 
             <p className="mt-1.5 text-[10px] leading-4 text-[var(--text-muted)]">
@@ -268,6 +355,67 @@ export default function LearnerManagementPanel({
             </p>
           </div>
 
+          {/* ASSIGNED WAVE */}
+
+          <div className="md:col-span-2">
+            <label
+              htmlFor="assigned-wave"
+              className="mb-1.5 block text-[11px] font-semibold text-[var(--text-secondary)]"
+            >
+              Assigned Wave
+            </label>
+
+            <select
+              id="assigned-wave"
+              value={selectedWaveId}
+              onChange={(event) => {
+                setSelectedWaveId(event.target.value);
+                setError(null);
+                setSuccess(false);
+              }}
+              disabled={saving}
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:opacity-60 md:max-w-sm"
+            >
+              <option value="" disabled>
+                Select a training wave
+              </option>
+
+              {availableWaves.map((wave) => (
+                <option
+                  key={wave.id}
+                  value={wave.id}
+                >
+                  {wave.title}
+                  {wave.status === "draft"
+                    ? " (Draft)"
+                    : ""}
+                </option>
+              ))}
+            </select>
+
+            <p className="mt-1.5 max-w-2xl text-[10px] leading-4 text-[var(--text-muted)]">
+              Assign this trainee to an onboarding wave.
+              Previous enrollments and training progress
+              will be preserved.
+            </p>
+
+            {selectedWave?.status === "draft" && (
+              <p className="mt-2 text-[10px] font-medium text-amber-700">
+                This wave is currently a draft.
+                Trainees will not be able to access
+                its training content until it is published.
+              </p>
+            )}
+
+            {waveChanged && (
+              <p className="mt-2 text-[10px] font-medium text-[#07879B]">
+                Saving will switch the trainee&apos;s
+                active wave. The enrollment status
+                from the previous wave will not be copied.
+              </p>
+            )}
+          </div>
+
           {/* ENROLLMENT STATUS */}
 
           <div className="md:col-span-2">
@@ -283,14 +431,14 @@ export default function LearnerManagementPanel({
               value={status}
               onChange={(event) => {
                 setStatus(
-                  event.target
-                    .value as EnrollmentStatus
+                  event.target.value as EnrollmentStatus
                 );
 
                 setError(null);
                 setSuccess(false);
               }}
-              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 md:max-w-sm"
+              disabled={saving || waveChanged}
+              className="h-10 w-full rounded-[10px] border border-[var(--border)] bg-white px-3.5 text-[12px] text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1] focus:ring-2 focus:ring-[#08A9C1]/10 disabled:cursor-not-allowed disabled:bg-[#F8FAFB] disabled:opacity-60 md:max-w-sm"
             >
               <option value="not_started">
                 Not started
@@ -306,12 +454,20 @@ export default function LearnerManagementPanel({
             </select>
 
             <p className="mt-1.5 max-w-2xl text-[10px] leading-4 text-[var(--text-muted)]">
-              Controls the trainee&apos;s overall
-              onboarding enrollment status. Changing
-              this status does not reset modules,
-              quizzes, checkpoints, or previous
-              assessment attempts.
+              Controls the trainee&apos;s enrollment
+              status for the currently assigned wave.
+              Changing this status does not reset
+              modules, quizzes, checkpoints, or
+              previous assessment attempts.
             </p>
+
+            {waveChanged && (
+              <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+                Save the wave assignment first.
+                You can then update the enrollment
+                status for the newly assigned wave.
+              </p>
+            )}
           </div>
         </div>
 
@@ -327,8 +483,7 @@ export default function LearnerManagementPanel({
 
             {success && (
               <div className="rounded-[10px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-[11px] font-medium text-emerald-700">
-                Trainee information updated
-                successfully.
+                Trainee information updated successfully.
               </div>
             )}
           </div>
@@ -344,7 +499,7 @@ export default function LearnerManagementPanel({
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !selectedWaveId}
             className="inline-flex min-h-9 items-center justify-center rounded-[9px] bg-[#101828] px-4 text-[11px] font-semibold text-white transition hover:bg-[#1D2939] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving

@@ -11,7 +11,6 @@ import LearnerProgressBreakdown, {
 } from "@/components/trainer/LearnerProgressBreakdown";
 import ResetTraineeProgress from "@/components/trainer/ResetTraineeProgress";
 import { createClient } from "@/lib/supabase/server";
-import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
 
 type Props = {
   params: Promise<{
@@ -112,6 +111,19 @@ type ActivityRow = {
   score: number | string | null;
 };
 
+type TrainingWave = {
+  id: string;
+  title: string;
+  status: string;
+};
+
+type LearnerProfileRow = {
+  full_name: string | null;
+  email: string | null;
+  team_lead: string | null;
+  active_program_id: string | null;
+};
+
 export default async function LearnerDetailPage({
   params,
 }: Props) {
@@ -133,26 +145,95 @@ export default async function LearnerDetailPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "trainer") {
+  if (
+    !profile ||
+    profile.role !== "trainer" ||
+    profile.account_status !== "active"
+  ) {
     redirect("/learn");
   }
 
   // ----------------------------------------------------------
-  // PROGRAM
+  // TRAINEE PROFILE + AVAILABLE WAVES
   // ----------------------------------------------------------
 
-  const program = await getTrainerProgram();
+  const [
+    learnerProfileResponse,
+    wavesResponse,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "full_name, email, team_lead, active_program_id"
+      )
+      .eq("id", learnerId)
+      .single(),
 
-  if (!program) {
+    supabase
+      .from("programs")
+      .select("id, title, status")
+      .order("title", {
+        ascending: true,
+      }),
+  ]);
+
+  if (learnerProfileResponse.error) {
+    console.error(
+      "Unable to load trainee profile:",
+      learnerProfileResponse.error
+    );
+
     notFound();
   }
 
+  if (wavesResponse.error) {
+    console.error(
+      "Unable to load training waves:",
+      wavesResponse.error
+    );
+
+    throw new Error(
+      "Unable to load available training waves."
+    );
+  }
+
+  const learnerProfile =
+    learnerProfileResponse.data as LearnerProfileRow;
+
+  const availableWaves =
+    (wavesResponse.data ?? []) as TrainingWave[];
+
+  // ----------------------------------------------------------
+  // ACTIVE PROGRAM
+  // ----------------------------------------------------------
+
+  const activeProgramId =
+    learnerProfile.active_program_id;
+
+  if (!activeProgramId) {
+    throw new Error(
+      "This trainee does not have an assigned training wave."
+    );
+  }
+
+  const activeWave = availableWaves.find(
+    (wave) => wave.id === activeProgramId
+  );
+
+  if (!activeWave) {
+    throw new Error(
+      "The trainee's assigned training wave could not be found."
+    );
+  }
+
+  const programId = activeWave.id;
+
   const rpcParams = {
-    target_program_id: program.id,
+    target_program_id: programId,
     target_learner_id: learnerId,
   };
 
@@ -167,7 +248,6 @@ export default async function LearnerDetailPage({
     quizzesResponse,
     checkpointsResponse,
     activityResponse,
-    learnerProfileResponse,
   ] = await Promise.all([
     supabase.rpc(
       "get_trainer_learner_summary",
@@ -198,12 +278,6 @@ export default async function LearnerDetailPage({
       "get_trainer_learner_activity",
       rpcParams
     ),
-
-    supabase
-      .from("profiles")
-      .select("full_name, email, team_lead")
-      .eq("id", learnerId)
-      .single(),
   ]);
 
   // ----------------------------------------------------------
@@ -216,7 +290,9 @@ export default async function LearnerDetailPage({
       summaryResponse.error
     );
 
-    notFound();
+    throw new Error(
+      "Unable to load trainee summary."
+    );
   }
 
   if (daysResponse.error) {
@@ -270,13 +346,6 @@ export default async function LearnerDetailPage({
     );
   }
 
-  if (learnerProfileResponse.error) {
-    console.error(
-      "Unable to load trainee profile:",
-      learnerProfileResponse.error
-    );
-  }
-
   // ----------------------------------------------------------
   // NORMALIZE DATA
   // ----------------------------------------------------------
@@ -292,9 +361,6 @@ export default async function LearnerDetailPage({
   if (!summary) {
     notFound();
   }
-
-  const learnerProfile =
-    learnerProfileResponse.data;
 
   const dayRows = (daysResponse.data ??
     []) as DayRow[];
@@ -621,12 +687,12 @@ export default async function LearnerDetailPage({
   );
 
   const traineeName =
-    learnerProfile?.full_name ??
+    learnerProfile.full_name ??
     summary.full_name ??
     "Trainee";
 
   const traineeEmail =
-    learnerProfile?.email ??
+    learnerProfile.email ??
     summary.email ??
     "No email available";
 
@@ -713,15 +779,13 @@ export default async function LearnerDetailPage({
           <div className="mt-7">
             <LearnerManagementPanel
               learnerId={learnerId}
-              programId={program.id}
+              programId={programId}
+              activeProgramId={activeProgramId}
+              availableWaves={availableWaves}
               fullName={traineeName}
-              email={
-                learnerProfile?.email ??
-                summary.email
-              }
+              email={traineeEmail}
               teamLead={
-                learnerProfile?.team_lead ??
-                null
+                learnerProfile.team_lead
               }
               enrollmentStatus={
                 summary.enrollment_status
@@ -875,7 +939,7 @@ export default async function LearnerDetailPage({
 
           <ResetTraineeProgress
             learnerId={learnerId}
-            programId={program.id}
+            programId={programId}
             traineeName={traineeName}
           />
         </main>

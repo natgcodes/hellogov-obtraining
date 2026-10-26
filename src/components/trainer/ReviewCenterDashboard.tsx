@@ -5,6 +5,7 @@ import Link from "next/link";
 
 export type ReviewRecord = {
   id: string;
+  waveId: string;
   quizTitle: string;
   learnerName: string;
   learnerEmail: string;
@@ -24,9 +25,15 @@ export type ReviewRecord = {
   status: "needs_review" | "graded" | "cancelled";
 };
 
+type ReviewWave = {
+  id: string;
+  title: string;
+};
+
 type Props = {
   pending: ReviewRecord[];
   history: ReviewRecord[];
+  waves: ReviewWave[];
 };
 
 type SectionKey =
@@ -149,7 +156,11 @@ function formatAttempt(record: ReviewRecord) {
 // RESULT BADGE
 // ============================================================
 
-function ResultBadge({ passed }: { passed: boolean | null }) {
+function ResultBadge({
+  passed,
+}: {
+  passed: boolean | null;
+}) {
   if (passed === null) return null;
 
   return (
@@ -169,7 +180,15 @@ function ResultBadge({ passed }: { passed: boolean | null }) {
 // REVIEW ROW
 // ============================================================
 
-function ReviewRow({ record }: { record: ReviewRecord }) {
+function ReviewRow({
+  record,
+  showWave,
+  waveTitle,
+}: {
+  record: ReviewRecord;
+  showWave: boolean;
+  waveTitle: string;
+}) {
   const isPending = record.status === "needs_review";
   const isCancelled = record.status === "cancelled";
 
@@ -188,6 +207,12 @@ function ReviewRow({ record }: { record: ReviewRecord }) {
           >
             {record.quizTitle}
           </p>
+
+          {showWave && (
+            <span className="shrink-0 rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
+              {waveTitle}
+            </span>
+          )}
 
           {record.isCheckpoint && (
             <span className="shrink-0 rounded-[6px] bg-[#EAF8FA] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#07879B]">
@@ -317,6 +342,8 @@ function ReviewSection({
   onToggle,
   accent,
   emptyMessage,
+  showWave,
+  waveTitleMap,
 }: {
   title: string;
   description: string;
@@ -326,6 +353,8 @@ function ReviewSection({
   onToggle: (key: SectionKey) => void;
   accent: Accent;
   emptyMessage: string;
+  showWave: boolean;
+  waveTitleMap: Map<string, string>;
 }) {
   const visible = expanded
     ? records
@@ -365,7 +394,15 @@ function ReviewSection({
       {visible.length > 0 ? (
         <div>
           {visible.map((record) => (
-            <ReviewRow key={record.id} record={record} />
+            <ReviewRow
+              key={record.id}
+              record={record}
+              showWave={showWave}
+              waveTitle={
+                waveTitleMap.get(record.waveId) ??
+                "Unknown Wave"
+              }
+            />
           ))}
         </div>
       ) : (
@@ -402,7 +439,25 @@ function ReviewSection({
 export default function ReviewCenterDashboard({
   pending,
   history,
+  waves,
 }: Props) {
+  // ============================================================
+  // WAVE FILTER
+  // Newest wave is selected by default.
+  // ============================================================
+
+  const defaultWaveId = waves[0]?.id ?? "all";
+
+  const [waveFilter, setWaveFilter] = useState(defaultWaveId);
+
+  const waveTitleMap = useMemo(
+    () =>
+      new Map(
+        waves.map((wave) => [wave.id, wave.title])
+      ),
+    [waves]
+  );
+
   const [search, setSearch] = useState("");
 
   // TRAINING DAY FILTER
@@ -447,11 +502,18 @@ export default function ReviewCenterDashboard({
     return [
       ...new Set(
         [...pending, ...history]
+          .filter(
+            (record) =>
+              waveFilter === "all" ||
+              record.waveId === waveFilter
+          )
           .map((record) => record.dayNumber)
-          .filter((day): day is number => day !== null)
+          .filter(
+            (day): day is number => day !== null
+          )
       ),
     ].sort((a, b) => a - b);
-  }, [pending, history]);
+  }, [pending, history, waveFilter]);
 
   // ============================================================
   // FILTER RECORDS
@@ -461,6 +523,10 @@ export default function ReviewCenterDashboard({
     const query = search.trim().toLowerCase();
 
     return [...pending, ...history].filter((record) => {
+      const matchesWave =
+        waveFilter === "all" ||
+        record.waveId === waveFilter;
+
       const matchesSearch =
         !query ||
         [
@@ -469,6 +535,7 @@ export default function ReviewCenterDashboard({
           record.learnerEmail,
           record.reviewerName ?? "",
           record.reviewerEmail ?? "",
+          waveTitleMap.get(record.waveId) ?? "",
           record.dayNumber !== null
             ? `Day ${record.dayNumber}`
             : "",
@@ -481,12 +548,16 @@ export default function ReviewCenterDashboard({
         dayFilter === "all" ||
         record.dayNumber === Number(dayFilter);
 
-      const matchesAccount = accountFilter === "all" || record.accountStatus === accountFilter;
+      const matchesAccount =
+        accountFilter === "all" ||
+        record.accountStatus === accountFilter;
 
       const matchesType =
         typeFilter === "all" ||
-        (typeFilter === "checkpoint" && record.isCheckpoint) ||
-        (typeFilter === "quiz" && !record.isCheckpoint);
+        (typeFilter === "checkpoint" &&
+          record.isCheckpoint) ||
+        (typeFilter === "quiz" &&
+          !record.isCheckpoint);
 
       const matchesResult =
         resultFilter === "all" ||
@@ -509,6 +580,7 @@ export default function ReviewCenterDashboard({
       );
 
       return (
+        matchesWave &&
         matchesSearch &&
         matchesDay &&
         matchesAccount &&
@@ -520,6 +592,8 @@ export default function ReviewCenterDashboard({
   }, [
     pending,
     history,
+    waveFilter,
+    waveTitleMap,
     search,
     dayFilter,
     accountFilter,
@@ -535,15 +609,18 @@ export default function ReviewCenterDashboard({
   // ============================================================
 
   const activeRecords = filtered.filter(
-    (record) => record.accountStatus !== "deactivated"
+    (record) =>
+      record.accountStatus !== "deactivated"
   );
 
   const deactivatedRecords = filtered.filter(
-    (record) => record.accountStatus === "deactivated"
+    (record) =>
+      record.accountStatus === "deactivated"
   );
 
   const pendingRecords = activeRecords.filter(
-    (record) => record.status === "needs_review"
+    (record) =>
+      record.status === "needs_review"
   );
 
   const manualRecords = activeRecords.filter(
@@ -565,7 +642,8 @@ export default function ReviewCenterDashboard({
   );
 
   const cancelledRecords = activeRecords.filter(
-    (record) => record.status === "cancelled"
+    (record) =>
+      record.status === "cancelled"
   );
 
   // ============================================================
@@ -580,12 +658,15 @@ export default function ReviewCenterDashboard({
   const deactivatedCount = deactivatedRecords.length;
 
   const hasFilters =
+    waveFilter !== defaultWaveId ||
     search.trim() !== "" ||
     dayFilter !== "all" ||
     typeFilter !== "all" ||
     accountFilter !== "all" ||
     resultFilter !== "all" ||
-    dateFilter !== "all";
+    dateFilter !== "all" ||
+    startDate !== "" ||
+    endDate !== "";
 
   // ============================================================
   // SUMMARY CARDS
@@ -633,6 +714,7 @@ export default function ReviewCenterDashboard({
   // ============================================================
 
   function clearFilters() {
+    setWaveFilter(defaultWaveId);
     setSearch("");
     setDayFilter("all");
     setTypeFilter("all");
@@ -683,12 +765,37 @@ export default function ReviewCenterDashboard({
       <div className="mt-6 rounded-[18px] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-xs)]">
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 
+          {/* WAVE FILTER */}
+
+          <select
+            value={waveFilter}
+            onChange={(event) => {
+              setWaveFilter(event.target.value);
+              setDayFilter("all");
+            }}
+            aria-label="Filter by onboarding wave"
+            className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] font-semibold text-[var(--text-primary)] outline-none transition focus:border-[#08A9C1]"
+          >
+            <option value="all">All Waves</option>
+
+            {waves.map((wave) => (
+              <option
+                key={wave.id}
+                value={wave.id}
+              >
+                {wave.title}
+              </option>
+            ))}
+          </select>
+
           {/* SEARCH */}
 
           <input
             type="search"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) =>
+              setSearch(event.target.value)
+            }
             placeholder="Search learner, email, assessment, or trainer..."
             aria-label="Search reviews"
             className="min-w-0 flex-1 rounded-[10px] border border-[var(--border)] bg-[#FAFBFC] px-4 py-3 text-[13px] text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[#08A9C1] focus:bg-white focus:ring-2 focus:ring-[#08A9C1]/10"
@@ -698,43 +805,65 @@ export default function ReviewCenterDashboard({
 
           <select
             value={dayFilter}
-            onChange={(event) => setDayFilter(event.target.value)}
+            onChange={(event) =>
+              setDayFilter(event.target.value)
+            }
             aria-label="Filter by training day"
             className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
           >
             <option value="all">All days</option>
 
             {availableDays.map((day) => (
-              <option key={day} value={String(day)}>
+              <option
+                key={day}
+                value={String(day)}
+              >
                 Day {day}
               </option>
             ))}
           </select>
 
-          <select value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)} aria-label="Filter by account status" className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)]">
+          {/* ACCOUNT FILTER */}
+
+          <select
+            value={accountFilter}
+            onChange={(event) =>
+              setAccountFilter(event.target.value)
+            }
+            aria-label="Filter by account status"
+            className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
+          >
             <option value="all">All accounts</option>
             <option value="active">Active accounts</option>
-            <option value="deactivated">Deactivated accounts</option>
+            <option value="deactivated">
+              Deactivated accounts
+            </option>
           </select>
 
           {/* ASSESSMENT TYPE FILTER */}
 
           <select
             value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
+            onChange={(event) =>
+              setTypeFilter(event.target.value)
+            }
             aria-label="Filter assessment type"
             className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
           >
             <option value="all">All assessments</option>
             <option value="quiz">Quizzes</option>
-            <option value="checkpoint">Checkpoints</option>
+            <option value="checkpoint">
+              Checkpoints
+            </option>
           </select>
 
           {/* RESULT FILTER */}
 
           <select
             value={resultFilter}
-            onChange={(event) => setResultFilter(event.target.value)}
+            onChange={(event) =>
+              setResultFilter(event.target.value)
+            }
             aria-label="Filter result"
             className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
           >
@@ -750,17 +879,27 @@ export default function ReviewCenterDashboard({
           <select
             value={dateFilter}
             onChange={(event) =>
-              setDateFilter(event.target.value as DateFilter)
+              setDateFilter(
+                event.target.value as DateFilter
+              )
             }
             aria-label="Filter by submission date"
             className="rounded-[10px] border border-[var(--border)] bg-white px-4 py-3 text-[13px] text-[var(--text-secondary)] outline-none transition focus:border-[#08A9C1]"
           >
             <option value="all">All dates</option>
             <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="last7">Last 7 days</option>
-            <option value="last30">Last 30 days</option>
-            <option value="custom">Custom range</option>
+            <option value="yesterday">
+              Yesterday
+            </option>
+            <option value="last7">
+              Last 7 days
+            </option>
+            <option value="last30">
+              Last 30 days
+            </option>
+            <option value="custom">
+              Custom range
+            </option>
           </select>
 
           {/* CLEAR FILTERS */}
@@ -846,6 +985,8 @@ export default function ReviewCenterDashboard({
             expanded={expanded.pending}
             onToggle={toggleSection}
             accent="amber"
+            showWave={waveFilter === "all"}
+            waveTitleMap={waveTitleMap}
             emptyMessage={
               hasFilters
                 ? "No pending submissions match your filters."
@@ -861,6 +1002,8 @@ export default function ReviewCenterDashboard({
             expanded={expanded.automatic}
             onToggle={toggleSection}
             accent="emerald"
+            showWave={waveFilter === "all"}
+            waveTitleMap={waveTitleMap}
             emptyMessage={
               hasFilters
                 ? "No automatically graded assessments match your filters."
@@ -880,6 +1023,8 @@ export default function ReviewCenterDashboard({
             expanded={expanded.manual}
             onToggle={toggleSection}
             accent="teal"
+            showWave={waveFilter === "all"}
+            waveTitleMap={waveTitleMap}
             emptyMessage={
               hasFilters
                 ? "No manually reviewed assessments match your filters."
@@ -896,6 +1041,8 @@ export default function ReviewCenterDashboard({
               expanded={expanded.previous}
               onToggle={toggleSection}
               accent="slate"
+              showWave={waveFilter === "all"}
+              waveTitleMap={waveTitleMap}
               emptyMessage={
                 hasFilters
                   ? "No historical assessments match your filters."
@@ -912,6 +1059,8 @@ export default function ReviewCenterDashboard({
             expanded={expanded.deactivated}
             onToggle={toggleSection}
             accent="slate"
+            showWave={waveFilter === "all"}
+            waveTitleMap={waveTitleMap}
             emptyMessage={
               hasFilters
                 ? "No deactivated learner assessments match your filters."
@@ -927,6 +1076,8 @@ export default function ReviewCenterDashboard({
             expanded={expanded.cancelled}
             onToggle={toggleSection}
             accent="slate"
+            showWave={waveFilter === "all"}
+            waveTitleMap={waveTitleMap}
             emptyMessage={
               hasFilters
                 ? "No cancelled assessments match your filters."

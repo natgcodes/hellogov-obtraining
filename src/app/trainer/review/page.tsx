@@ -6,9 +6,14 @@ import ReviewCenterDashboard, {
 } from "@/components/trainer/ReviewCenterDashboard";
 
 import { createClient } from "@/lib/supabase/server";
-import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
 
 import type { ReviewQueueItem } from "@/lib/trainer/types";
+
+type ReviewWave = {
+  id: string;
+  title: string;
+  created_at: string;
+};
 
 type QuizInfo = {
   id: string;
@@ -62,24 +67,62 @@ export default async function ReviewCenterPage() {
     redirect("/learn");
   }
 
-  const program = await getTrainerProgram();
+  // ============================================================
+  // FETCH ALL ONBOARDING WAVES
+  // Newest wave first.
+  // ============================================================
 
-  if (!program) {
+  const { data: programs, error: programsError } = await supabase
+    .from("programs")
+    .select("id,title,created_at")
+    .order("created_at", { ascending: false });
+
+  if (programsError) {
+    console.error(
+      "Unable to load onboarding waves:",
+      programsError
+    );
+
     return (
-      <AppShell role="trainer">
-        No program found.
+      <AppShell
+        role="trainer"
+        userName={profile.full_name}
+        userEmail={profile.email}
+      >
+        <div className="p-8 text-sm text-red-700">
+          Unable to load onboarding waves.
+        </div>
       </AppShell>
     );
   }
 
+  const waves: ReviewWave[] = programs ?? [];
+
+  if (waves.length === 0) {
+    return (
+      <AppShell
+        role="trainer"
+        userName={profile.full_name}
+        userEmail={profile.email}
+      >
+        <div className="p-8 text-sm text-[var(--text-secondary)]">
+          No onboarding programs found.
+        </div>
+      </AppShell>
+    );
+  }
+
+  const programIds = waves.map((wave) => wave.id);
+
   // ============================================================
-  // FETCH PROGRAM MODULES, CHECKPOINTS AND REVIEW QUEUE
+  // FETCH MODULES, CHECKPOINTS AND REVIEW QUEUES
+  // ACROSS ALL WAVES
   // ============================================================
 
   const [
     { data: programModules, error: modulesError },
     { data: programCheckpoints, error: checkpointsError },
-    { data: pending, error: queueError },
+    ...queueResults
   ] = await Promise.all([
     supabase
       .from("modules")
@@ -94,7 +137,7 @@ export default async function ReviewCenterPage() {
         )
         `
       )
-      .eq("days.program_id", program.id),
+      .in("days.program_id", programIds),
 
     supabase
       .from("checkpoints")
@@ -110,18 +153,46 @@ export default async function ReviewCenterPage() {
         )
         `
       )
-      .eq("days.program_id", program.id),
+      .in("days.program_id", programIds),
 
-    supabase.rpc("get_quiz_review_queue", {
-      target_program_id: program.id,
-    }),
+    ...programIds.map((programId) =>
+      supabase.rpc("get_quiz_review_queue", {
+        target_program_id: programId,
+      })
+    ),
   ]);
 
+  // Preserve the original wave returned by each RPC.
+  const pendingWithWave: {
+    item: ReviewQueueItem;
+    waveId: string;
+  }[] = [];
+
+  const queueErrors: string[] = [];
+
+  queueResults.forEach((result, index) => {
+    if (result.error) {
+      queueErrors.push(
+        `${waves[index].title}: ${result.error.message}`
+      );
+
+      return;
+    }
+
+    for (const item of (result.data ?? []) as ReviewQueueItem[]) {
+      pendingWithWave.push({
+        item,
+        waveId: waves[index].id,
+      });
+    }
+  });
+
   // ============================================================
-  // BUILD MODULE DAY MAP
+  // BUILD MODULE DAY AND WAVE MAPS
   // ============================================================
 
   const moduleDayMap = new Map<string, number>();
+  const moduleWaveMap = new Map<string, string>();
 
   for (const module of programModules ?? []) {
     const day = Array.isArray(module.days)
@@ -131,6 +202,10 @@ export default async function ReviewCenterPage() {
     if (day?.day_number != null) {
       moduleDayMap.set(module.id, day.day_number);
     }
+
+    if (day?.program_id) {
+      moduleWaveMap.set(module.id, day.program_id);
+    }
   }
 
   const moduleIds = (programModules ?? []).map(
@@ -138,10 +213,11 @@ export default async function ReviewCenterPage() {
   );
 
   // ============================================================
-  // BUILD CHECKPOINT QUIZ DAY MAP
+  // BUILD CHECKPOINT QUIZ DAY AND WAVE MAPS
   // ============================================================
 
   const checkpointQuizDayMap = new Map<string, number>();
+  const checkpointQuizWaveMap = new Map<string, string>();
 
   const checkpointQuizIds = new Set<string>();
 
@@ -160,13 +236,22 @@ export default async function ReviewCenterPage() {
         day.day_number
       );
     }
+
+    if (day?.program_id) {
+      checkpointQuizWaveMap.set(
+        checkpoint.quiz_id,
+        day.program_id
+      );
+    }
   }
 
   // ============================================================
-  // FETCH MODULE QUIZZES AND BUILD QUIZ DAY MAP
+  // FETCH MODULE QUIZZES
+  // BUILD QUIZ DAY AND WAVE MAPS
   // ============================================================
 
   const quizDayMap = new Map<string, number>();
+  const quizWaveMap = new Map<string, string>();
 
   let moduleQuizIds: string[] = [];
   let quizzesErrorMessage: string | null = null;
@@ -186,20 +271,29 @@ export default async function ReviewCenterPage() {
         if (!quiz.module_id) continue;
 
         const dayNumber = moduleDayMap.get(quiz.module_id);
+        const waveId = moduleWaveMap.get(quiz.module_id);
 
         if (dayNumber != null) {
           quizDayMap.set(quiz.id, dayNumber);
+        }
+
+        if (waveId) {
+          quizWaveMap.set(quiz.id, waveId);
         }
       }
     }
   }
 
   // ============================================================
-  // ADD CHECKPOINT QUIZZES TO DAY MAP
+  // ADD CHECKPOINT QUIZZES TO DAY AND WAVE MAPS
   // ============================================================
 
   for (const [quizId, dayNumber] of checkpointQuizDayMap) {
     quizDayMap.set(quizId, dayNumber);
+  }
+
+  for (const [quizId, waveId] of checkpointQuizWaveMap) {
+    quizWaveMap.set(quizId, waveId);
   }
 
   // ============================================================
@@ -212,12 +306,26 @@ export default async function ReviewCenterPage() {
 
   // ============================================================
   // FETCH REVIEW HISTORY
+  // Separately for each wave to avoid mixing history limits.
   // ============================================================
 
   let history: HistoryItem[] = [];
-  let historyErrorMessage: string | null = null;
 
-  if (programQuizIds.length > 0) {
+  const historyErrors: string[] = [];
+
+  const historyQueries = waves.map(async (wave) => {
+    const waveQuizIds = programQuizIds.filter(
+      (quizId) => quizWaveMap.get(quizId) === wave.id
+    );
+
+    if (waveQuizIds.length === 0) {
+      return {
+        wave,
+        data: [] as HistoryItem[],
+        error: null as string | null,
+      };
+    }
+
     const { data, error } = await supabase
       .from("quiz_attempts")
       .select(
@@ -244,15 +352,32 @@ export default async function ReviewCenterPage() {
         `
       )
       .in("status", ["graded", "cancelled"])
-      .in("quiz_id", programQuizIds)
-      .order("graded_at", { ascending: false })
+      .in("quiz_id", waveQuizIds)
+      .order("graded_at", {
+        ascending: false,
+        nullsFirst: false,
+      })
       .limit(500);
 
-    if (error) {
-      historyErrorMessage = error.message;
-    } else {
-      history = (data ?? []) as HistoryItem[];
+    return {
+      wave,
+      data: (data ?? []) as HistoryItem[],
+      error: error?.message ?? null,
+    };
+  });
+
+  const historyResults = await Promise.all(historyQueries);
+
+  for (const result of historyResults) {
+    if (result.error) {
+      historyErrors.push(
+        `${result.wave.title}: ${result.error}`
+      );
+
+      continue;
     }
+
+    history.push(...result.data);
   }
 
   // ============================================================
@@ -289,46 +414,68 @@ export default async function ReviewCenterPage() {
     }
   }
 
-  // Account status is independent from enrollment/progress status.
-  const { data: accountProfiles } = await supabase.from("profiles")
-    .select("email, account_status").eq("role", "learner");
-  const deactivatedEmails = new Set((accountProfiles ?? [])
-    .filter((item) => item.account_status === "deactivated" && item.email)
-    .map((item) => item.email!.toLowerCase()));
+  // ============================================================
+  // RESOLVE DEACTIVATED ACCOUNTS
+  // Account status is independent from enrollment/progress.
+  // ============================================================
+
+  const { data: accountProfiles, error: accountsError } =
+    await supabase
+      .from("profiles")
+      .select("email,account_status")
+      .eq("role", "learner");
+
+  const deactivatedEmails = new Set(
+    (accountProfiles ?? [])
+      .filter(
+        (item) =>
+          item.account_status === "deactivated" &&
+          Boolean(item.email)
+      )
+      .map((item) => item.email!.toLowerCase())
+  );
 
   // ============================================================
   // FORMAT PENDING REVIEWS
   // ============================================================
 
-  const pendingRecords: ReviewRecord[] = (
-    (pending ?? []) as ReviewQueueItem[]
-  ).map((item) => ({
-    id: item.attempt_id,
-    quizTitle: item.quiz_title,
-    learnerName: item.learner_name || "Learner",
-    learnerEmail: item.learner_email || "",
-    accountStatus: deactivatedEmails.has((item.learner_email || "").toLowerCase()) ? "deactivated" : "active",
-    attemptNumber: item.attempt_number ?? 1,
-    maxAttempts: item.max_attempts ?? null,
+  const pendingRecords: ReviewRecord[] = pendingWithWave.map(
+    ({ item, waveId }) => ({
+      id: item.attempt_id,
+      waveId,
 
-    isCheckpoint:
-      item.quiz_id != null &&
-      checkpointQuizIds.has(item.quiz_id),
+      quizTitle: item.quiz_title,
+      learnerName: item.learner_name || "Learner",
+      learnerEmail: item.learner_email || "",
 
-    dayNumber: item.quiz_id
-      ? quizDayMap.get(item.quiz_id) ?? null
-      : null,
+      accountStatus: deactivatedEmails.has(
+        (item.learner_email || "").toLowerCase()
+      )
+        ? "deactivated"
+        : "active",
 
-    submittedAt: item.submitted_at ?? null,
-    gradedAt: null,
-    score: null,
-    passed: null,
-    pendingAnswers: Number(item.pending_answers ?? 0),
-    gradingMethod: null,
-    reviewerName: null,
-    reviewerEmail: null,
-    status: "needs_review",
-  }));
+      attemptNumber: item.attempt_number ?? 1,
+      maxAttempts: item.max_attempts ?? null,
+
+      isCheckpoint:
+        item.quiz_id != null &&
+        checkpointQuizIds.has(item.quiz_id),
+
+      dayNumber: item.quiz_id
+        ? quizDayMap.get(item.quiz_id) ?? null
+        : null,
+
+      submittedAt: item.submitted_at ?? null,
+      gradedAt: null,
+      score: null,
+      passed: null,
+      pendingAnswers: Number(item.pending_answers ?? 0),
+      gradingMethod: null,
+      reviewerName: null,
+      reviewerEmail: null,
+      status: "needs_review",
+    })
+  );
 
   // ============================================================
   // FORMAT REVIEW HISTORY
@@ -349,10 +496,18 @@ export default async function ReviewCenterPage() {
 
     return {
       id: item.id,
+      waveId: quizWaveMap.get(item.quiz_id) ?? "",
+
       quizTitle: quiz?.title ?? "Quiz",
       learnerName: learner?.full_name || "Learner",
       learnerEmail: learner?.email || "",
-      accountStatus: deactivatedEmails.has((learner?.email || "").toLowerCase()) ? "deactivated" : "active",
+
+      accountStatus: deactivatedEmails.has(
+        (learner?.email || "").toLowerCase()
+      )
+        ? "deactivated"
+        : "active",
+
       attemptNumber: item.attempt_number,
       maxAttempts: quiz?.max_attempts ?? null,
 
@@ -368,8 +523,28 @@ export default async function ReviewCenterPage() {
       gradingMethod: item.grading_method,
       reviewerName: reviewer?.full_name ?? null,
       reviewerEmail: reviewer?.email ?? null,
-      status: item.status === "cancelled" ? "cancelled" : "graded",
+
+      status:
+        item.status === "cancelled"
+          ? "cancelled"
+          : "graded",
     };
+  });
+
+  // ============================================================
+  // SORT HISTORY BY MOST RECENT ACTIVITY
+  // ============================================================
+
+  historyRecords.sort((a, b) => {
+    const dateA = new Date(
+      a.gradedAt ?? a.submittedAt ?? 0
+    ).getTime();
+
+    const dateB = new Date(
+      b.gradedAt ?? b.submittedAt ?? 0
+    ).getTime();
+
+    return dateB - dateA;
   });
 
   // ============================================================
@@ -379,11 +554,14 @@ export default async function ReviewCenterPage() {
   const errors = [
     modulesError?.message,
     checkpointsError?.message,
-    queueError?.message,
+    ...queueErrors,
     quizzesErrorMessage,
-    historyErrorMessage,
+    ...historyErrors,
     reviewersErrorMessage,
-  ].filter((message): message is string => Boolean(message));
+    accountsError?.message,
+  ].filter(
+    (message): message is string => Boolean(message)
+  );
 
   // ============================================================
   // PAGE
@@ -439,6 +617,10 @@ export default async function ReviewCenterPage() {
           <ReviewCenterDashboard
             pending={pendingRecords}
             history={historyRecords}
+            waves={waves.map((wave) => ({
+              id: wave.id,
+              title: wave.title,
+            }))}
           />
 
         </main>

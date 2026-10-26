@@ -138,6 +138,7 @@ type PostTraining = {
 };
 
 type ProgramTimelineProps = {
+  programId: string;
   days: SupabaseDay[];
   setupItems: SetupItem[];
   setupSection: SetupSection;
@@ -295,6 +296,7 @@ function TimelineIcon({
 }
 
 export default function ProgramTimeline({
+  programId,
   days,
   setupItems,
   setupSection,
@@ -479,8 +481,7 @@ export default function ProgramTimeline({
       await supabase.rpc(
         "create_program_day",
         {
-          target_program_id:
-            setupSection.program_id,
+          target_program_id: programId,
           day_title: title,
           day_description:
             description || null,
@@ -871,9 +872,7 @@ export default function ProgramTimeline({
       {activeSection === "setup" && (
         <SetupEditor
           items={setupItems}
-          programId={
-            setupSection.program_id
-          }
+          programId={programId}
           section={setupSection}
           onClose={() =>
             setActiveSection(null)

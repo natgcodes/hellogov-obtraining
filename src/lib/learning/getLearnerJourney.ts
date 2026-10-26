@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+import { getLearnerAssignedProgram } from "./getLearnerAssignedProgram";
 import type { LearnerJourney } from "@/components/layout/AppShell";
 
 type JourneyDayRow = {
@@ -21,10 +21,7 @@ export async function getLearnerJourney(
 ): Promise<LearnerJourney | undefined> {
   const totalStart = performance.now();
 
-  function logPerf(
-    label: string,
-    start: number
-  ) {
+  function logPerf(label: string, start: number) {
     console.log(
       `[JOURNEY PERF] ${label}: ${Math.round(
         performance.now() - start
@@ -47,10 +44,43 @@ export async function getLearnerJourney(
   const supabase = await createClient();
 
   // ---------------------------------------------------------
+  // RESOLVE THE LEARNER'S ASSIGNED PROGRAM
+  // ---------------------------------------------------------
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return undefined;
+  }
+
+  // This helper resolves the authenticated user's program.
+  // Trainer impersonation requires separate authorization.
+  if (learnerId !== user.id) {
+    console.error(
+      "Unable to load learner journey: learner identity mismatch"
+    );
+
+    return undefined;
+  }
+
+  const programId = await getLearnerAssignedProgram();
+
+  if (!programId) {
+    console.error(
+      "Unable to load learner journey: no valid program assignment"
+    );
+
+    return undefined;
+  }
+
+  // ---------------------------------------------------------
   // JOURNEY DAY STATES
   //
-  // Program/setup information is already available on
-  // LearnPage through getLearnerProgram + getLearnerProgress.
+  // All published days remain accessible.
+  // Completion is informational, not an unlock requirement.
   // ---------------------------------------------------------
 
   const journeyStart = performance.now();
@@ -58,17 +88,11 @@ export async function getLearnerJourney(
   const {
     data: journeyDaysData,
     error: journeyDaysError,
-  } = await supabase.rpc(
-    "get_learner_journey_days",
-    {
-      target_program_id: HELLOGOV_PROGRAM_ID,
-    }
-  );
+  } = await supabase.rpc("get_learner_journey_days", {
+    target_program_id: programId,
+  });
 
-  logPerf(
-    "journey days RPC",
-    journeyStart
-  );
+  logPerf("journey days RPC", journeyStart);
 
   // ---------------------------------------------------------
   // ERROR HANDLING
@@ -104,9 +128,6 @@ export async function getLearnerJourney(
   // Certification requires BOTH:
   // 1. All training days completed.
   // 2. Trainer-enabled access for the program.
-  //
-  // If the settings cannot be retrieved,
-  // certification remains locked.
   // ---------------------------------------------------------
 
   const {
@@ -115,7 +136,7 @@ export async function getLearnerJourney(
   } = await supabase
     .from("programs")
     .select("certification_enabled")
-    .eq("id", HELLOGOV_PROGRAM_ID)
+    .eq("id", programId)
     .maybeSingle();
 
   if (settingsError) {
@@ -139,24 +160,16 @@ export async function getLearnerJourney(
   // FINAL PERFORMANCE
   // ---------------------------------------------------------
 
-  logPerf(
-    "TOTAL getLearnerJourney",
-    totalStart
-  );
+  logPerf("TOTAL getLearnerJourney", totalStart);
 
   // ---------------------------------------------------------
   // RESULT
   // ---------------------------------------------------------
 
   return {
-    setupCompleted:
-      options.setupCompleted ?? 0,
-
-    setupTotal:
-      options.setupTotal ?? 0,
-
+    setupCompleted: options.setupCompleted ?? 0,
+    setupTotal: options.setupTotal ?? 0,
     days: dayStates,
-
     certificationUnlocked,
   };
 }

@@ -1,13 +1,13 @@
 import Link from "next/link";
-import {
-  notFound,
-  redirect,
-} from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+
 import AppShell from "@/components/layout/AppShell";
 import QuizPlayer from "@/components/quizzes/QuizPlayer";
+
 import { createClient } from "@/lib/supabase/server";
 import { getLearnerQuiz } from "@/lib/quizzes/getLearnerQuiz";
 import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
+import { getLearnerAssignedProgram } from "@/lib/learning/getLearnerAssignedProgram";
 
 type Props = {
   params: Promise<{
@@ -24,9 +24,7 @@ type CheckpointResult = {
   graded_at: string | null;
 };
 
-function checkpointTypeLabel(
-  type: string | null
-) {
+function checkpointTypeLabel(type: string | null) {
   if (!type) {
     return "Checkpoint";
   }
@@ -92,44 +90,199 @@ export default async function LearnerQuizPage({
   }
 
   if (profile.role === "trainer") {
-  redirect("/trainer");
-}
+    redirect("/trainer");
+  }
 
-const allowedLearningRoles = [
-  "learner",
-  "observer",
-  "cross_training",
-  "team_leader",
-  "executive",
-] as const;
+  const allowedLearningRoles = [
+    "learner",
+    "observer",
+    "cross_training",
+    "team_leader",
+    "executive",
+  ] as const;
 
-type LearningRole = (typeof allowedLearningRoles)[number];
+  type LearningRole =
+    (typeof allowedLearningRoles)[number];
 
-if (
-  !allowedLearningRoles.some(
-    (role) => role === profile.role
-  )
-) {
-  redirect("/login");
-}
+  if (
+    !allowedLearningRoles.some(
+      (role) => role === profile.role
+    )
+  ) {
+    redirect("/login");
+  }
 
-const learningRole = profile.role as LearningRole;
+  const learningRole = profile.role as LearningRole;
+
+  // ---------------------------------------------------------
+  // RESOLVE LEARNER'S ASSIGNED WAVE
+  // ---------------------------------------------------------
+
+  const programId = await getLearnerAssignedProgram();
+
+  if (!programId) {
+    notFound();
+  }
 
   // ---------------------------------------------------------
   // LEARNER JOURNEY
-  //
-  // Pass the already authenticated learner ID.
-  // This avoids another auth.getUser() inside the helper.
   // ---------------------------------------------------------
 
-  const learnerJourney =
-    await getLearnerJourney(user.id);
+  const learnerJourney = await getLearnerJourney(
+    user.id
+  );
+
+  if (!learnerJourney) {
+    console.error(
+      "Unable to load learner journey for quiz:",
+      quizId
+    );
+
+    return (
+      <AppShell
+        role={learningRole}
+        userName={profile.full_name}
+        userEmail={profile.email}
+      >
+        <div className="mx-auto max-w-4xl px-6 py-10">
+          <div className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-white p-8 shadow-[var(--shadow-sm)]">
+            <h1 className="text-xl font-semibold text-[var(--text-primary)]">
+              Unable to load assessment
+            </h1>
+
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+              We couldn&apos;t verify your training
+              access right now. Please try again in a
+              moment. If the problem continues,
+              contact your trainer.
+            </p>
+
+            <Link
+              href="/learn"
+              className="mt-6 inline-flex rounded-[10px] bg-[var(--teal)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--teal-deep)]"
+            >
+              Back to training
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // VERIFY QUIZ BELONGS TO THE ASSIGNED WAVE
+  //
+  // A quiz may belong to:
+  // 1. A module.
+  // 2. A checkpoint.
+  //
+  // Resolve the associated day before loading quiz
+  // questions or starting an attempt.
+  // ---------------------------------------------------------
+
+  const {
+    data: quizAccessRecord,
+    error: quizAccessError,
+  } = await supabase
+    .from("quizzes")
+    .select("id, module_id, is_published")
+    .eq("id", quizId)
+    .maybeSingle();
+
+  if (
+    quizAccessError ||
+    !quizAccessRecord ||
+    !quizAccessRecord.is_published
+  ) {
+    notFound();
+  }
+
+  let verifiedDayId: string | null = null;
+
+  // ---------------------------------------------------------
+  // MODULE QUIZ ACCESS
+  // ---------------------------------------------------------
+
+  if (quizAccessRecord.module_id) {
+    const {
+      data: moduleAccess,
+      error: moduleAccessError,
+    } = await supabase
+      .from("modules")
+      .select("day_id")
+      .eq("id", quizAccessRecord.module_id)
+      .maybeSingle();
+
+    if (moduleAccessError || !moduleAccess) {
+      notFound();
+    }
+
+    verifiedDayId = moduleAccess.day_id;
+  }
+
+  // ---------------------------------------------------------
+  // CHECKPOINT QUIZ ACCESS
+  // ---------------------------------------------------------
+
+  else {
+    const {
+      data: checkpointAccess,
+      error: checkpointAccessError,
+    } = await supabase
+      .from("checkpoints")
+      .select("day_id")
+      .eq("quiz_id", quizId)
+      .maybeSingle();
+
+    if (
+      checkpointAccessError ||
+      !checkpointAccess
+    ) {
+      notFound();
+    }
+
+    verifiedDayId = checkpointAccess.day_id;
+  }
+
+  if (!verifiedDayId) {
+    notFound();
+  }
+
+  // ---------------------------------------------------------
+  // VERIFY DAY BELONGS TO THE ASSIGNED PROGRAM
+  // ---------------------------------------------------------
+
+  const {
+    data: assignedDay,
+    error: assignedDayError,
+  } = await supabase
+    .from("days")
+    .select("id")
+    .eq("id", verifiedDayId)
+    .eq("program_id", programId)
+    .eq("is_published", true)
+    .maybeSingle();
+
+  if (assignedDayError || !assignedDay) {
+    notFound();
+  }
+
+  // ---------------------------------------------------------
+  // VERIFY DAY EXISTS IN THE LEARNER'S JOURNEY
+  // ---------------------------------------------------------
+
+  const journeyDay = learnerJourney.days.find(
+    (day) => day.id === verifiedDayId
+  );
+
+  if (!journeyDay) {
+    notFound();
+  }
 
   // ---------------------------------------------------------
   // LOAD LEARNER-SAFE QUIZ
   //
-  // Technical errors must display an informative message
-  // instead of producing a generic Next.js error page.
+  // This only runs after wave access has been verified.
   // ---------------------------------------------------------
 
   let quiz: Awaited<
@@ -146,7 +299,7 @@ const learningRole = profile.role as LearningRole;
 
     return (
       <AppShell
-  role={learningRole}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -197,8 +350,7 @@ const learningRole = profile.role as LearningRole;
   let checkpointId: string | null = null;
   let checkpointTitle: string | null = null;
   let checkpointType: string | null = null;
-  let checkpointPosition: number | null =
-    null;
+  let checkpointPosition: number | null = null;
 
   // ---------------------------------------------------------
   // NORMAL MODULE QUIZ
@@ -269,10 +421,8 @@ const learningRole = profile.role as LearningRole;
     checkpointId = checkpoint.id;
     dayId = checkpoint.day_id;
     checkpointTitle = checkpoint.title;
-    checkpointType =
-      checkpoint.checkpoint_type;
-    checkpointPosition =
-      checkpoint.position;
+    checkpointType = checkpoint.checkpoint_type;
+    checkpointPosition = checkpoint.position;
   }
 
   if (!dayId) {
@@ -280,22 +430,27 @@ const learningRole = profile.role as LearningRole;
   }
 
   // ---------------------------------------------------------
+  // CONSISTENCY CHECK
+  //
+  // Ensure the quiz still resolves to the verified day.
+  // ---------------------------------------------------------
+
+  if (dayId !== verifiedDayId) {
+    notFound();
+  }
+
+  // ---------------------------------------------------------
   // CHECK DAY ACCESS
   //
-  // Do not silently redirect learners to Home when
-  // Supabase cannot verify access or the day is locked.
-  // Display an informative message instead.
+  // Preserve the existing publication/access logic.
   // ---------------------------------------------------------
 
   const {
     data: unlocked,
     error: unlockError,
-  } = await supabase.rpc(
-    "is_day_unlocked",
-    {
-      target_day_id: dayId,
-    }
-  );
+  } = await supabase.rpc("is_day_unlocked", {
+    target_day_id: dayId,
+  });
 
   if (unlockError || !unlocked) {
     if (unlockError) {
@@ -307,7 +462,7 @@ const learningRole = profile.role as LearningRole;
 
     return (
       <AppShell
-  role={learningRole}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -345,9 +500,7 @@ const learningRole = profile.role as LearningRole;
   // pending / needs_review / completed
   // ---------------------------------------------------------
 
-  let checkpointResult:
-    | CheckpointResult
-    | null = null;
+  let checkpointResult: CheckpointResult | null = null;
 
   if (isCheckpoint && checkpointId) {
     const {
@@ -363,14 +516,8 @@ const learningRole = profile.role as LearningRole;
         submitted_at,
         graded_at
       `)
-      .eq(
-        "checkpoint_id",
-        checkpointId
-      )
-      .eq(
-        "learner_id",
-        user.id
-      )
+      .eq("checkpoint_id", checkpointId)
+      .eq("learner_id", user.id)
       .maybeSingle();
 
     if (checkpointResultError) {
@@ -381,9 +528,7 @@ const learningRole = profile.role as LearningRole;
     }
 
     checkpointResult =
-      (result as
-        | CheckpointResult
-        | null) ?? null;
+      (result as CheckpointResult | null) ?? null;
   }
 
   // ---------------------------------------------------------
@@ -392,12 +537,11 @@ const learningRole = profile.role as LearningRole;
 
   if (
     isCheckpoint &&
-    checkpointResult?.status ===
-      "completed"
+    checkpointResult?.status === "completed"
   ) {
     return (
       <AppShell
-  role={learningRole}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -414,49 +558,40 @@ const learningRole = profile.role as LearningRole;
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-[var(--purple-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--purple)]">
                 Checkpoint{" "}
-                {checkpointPosition !==
-                null
+                {checkpointPosition !== null
                   ? checkpointPosition + 1
                   : ""}
               </span>
 
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                  checkpointResult.passed ===
-                  true
+                  checkpointResult.passed === true
                     ? "bg-[var(--success-soft)] text-[var(--success)]"
                     : "bg-red-50 text-red-700"
                 }`}
               >
-                {checkpointResult.passed ===
-                true
+                {checkpointResult.passed === true
                   ? "Passed"
                   : "Not passed"}
               </span>
             </div>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
-              {checkpointTitle ??
-                quiz.title}
+              {checkpointTitle ?? quiz.title}
             </h1>
 
             <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              This checkpoint has been
-              completed and graded.
+              This checkpoint has been completed and graded.
             </p>
 
-            {checkpointResult.score !==
-              null && (
+            {checkpointResult.score !== null && (
               <div className="mt-6 rounded-[var(--radius-md)] bg-[var(--surface-soft)] p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                   Final score
                 </p>
 
                 <p className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">
-                  {Number(
-                    checkpointResult.score
-                  ).toFixed(0)}
-                  %
+                  {Number(checkpointResult.score).toFixed(0)}%
                 </p>
               </div>
             )}
@@ -468,9 +603,7 @@ const learningRole = profile.role as LearningRole;
                 </p>
 
                 <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                  {
-                    checkpointResult.trainer_feedback
-                  }
+                  {checkpointResult.trainer_feedback}
                 </p>
               </div>
             )}
@@ -495,12 +628,11 @@ const learningRole = profile.role as LearningRole;
 
   if (
     isCheckpoint &&
-    checkpointResult?.status ===
-      "needs_review"
+    checkpointResult?.status === "needs_review"
   ) {
     return (
       <AppShell
-  role={learningRole}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -519,16 +651,13 @@ const learningRole = profile.role as LearningRole;
             </span>
 
             <h1 className="mt-4 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
-              {checkpointTitle ??
-                quiz.title}
+              {checkpointTitle ?? quiz.title}
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
-              Your checkpoint has been
-              submitted and is waiting for
-              trainer review. Your final
-              score and feedback will appear
-              once the review is complete.
+              Your checkpoint has been submitted and is waiting
+              for trainer review. Your final score and feedback
+              will appear once the review is complete.
             </p>
 
             <div className="mt-6">
@@ -552,12 +681,9 @@ const learningRole = profile.role as LearningRole;
   const {
     data: attemptId,
     error: attemptError,
-  } = await supabase.rpc(
-    "start_quiz_attempt",
-    {
-      target_quiz_id: quiz.id,
-    }
-  );
+  } = await supabase.rpc("start_quiz_attempt", {
+    target_quiz_id: quiz.id,
+  });
 
   if (attemptError || !attemptId) {
     const message =
@@ -566,7 +692,7 @@ const learningRole = profile.role as LearningRole;
 
     return (
       <AppShell
-  role={learningRole}
+        role={learningRole}
         userName={profile.full_name}
         userEmail={profile.email}
         learnerJourney={learnerJourney}
@@ -599,7 +725,7 @@ const learningRole = profile.role as LearningRole;
 
   return (
     <AppShell
-  role={learningRole}
+      role={learningRole}
       userName={profile.full_name}
       userEmail={profile.email}
       learnerJourney={learnerJourney}
@@ -618,16 +744,13 @@ const learningRole = profile.role as LearningRole;
               <>
                 <span className="rounded-full bg-[var(--purple-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--purple)]">
                   Checkpoint{" "}
-                  {checkpointPosition !==
-                  null
+                  {checkpointPosition !== null
                     ? checkpointPosition + 1
                     : ""}
                 </span>
 
                 <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-                  {checkpointTypeLabel(
-                    checkpointType
-                  )}
+                  {checkpointTypeLabel(checkpointType)}
                 </span>
               </>
             ) : (
@@ -639,8 +762,7 @@ const learningRole = profile.role as LearningRole;
 
           <h1 className="mt-3 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
             {isCheckpoint
-              ? checkpointTitle ??
-                quiz.title
+              ? checkpointTitle ?? quiz.title
               : quiz.title}
           </h1>
 
@@ -650,12 +772,11 @@ const learningRole = profile.role as LearningRole;
             </p>
           )}
 
-          {!isCheckpoint &&
-            moduleTitle && (
-              <p className="mt-2 text-sm text-[var(--text-muted)]">
-                {moduleTitle}
-              </p>
-            )}
+          {!isCheckpoint && moduleTitle && (
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              {moduleTitle}
+            </p>
+          )}
 
           {quiz.instructions && (
             <div className="mt-5 rounded-[var(--radius-md)] border border-blue-100 bg-[var(--blue-soft)] p-4 text-sm leading-6 text-[var(--text-primary)]">
@@ -665,13 +786,11 @@ const learningRole = profile.role as LearningRole;
 
           <div className="mt-4 flex flex-wrap gap-2">
             <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-              Passing score:{" "}
-              {quiz.passing_score}%
+              Passing score: {quiz.passing_score}%
             </span>
 
             <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
-              Max attempts:{" "}
-              {quiz.max_attempts}
+              Max attempts: {quiz.max_attempts}
             </span>
 
             <span className="rounded-full bg-[var(--surface-muted)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">

@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 
-export async function getDays() {
+export async function getDays(
+  programId: string = HELLOGOV_PROGRAM_ID
+) {
   const supabase = await createClient();
 
   const { data: days, error } = await supabase
@@ -20,7 +23,7 @@ export async function getDays() {
         position
       ),
 
-           modules (
+      modules (
         id,
         title,
         description,
@@ -150,6 +153,7 @@ export async function getDays() {
         )
       )
     `)
+    .eq("program_id", programId)
     .order("position", {
       ascending: true,
     })

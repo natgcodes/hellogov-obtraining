@@ -80,7 +80,8 @@ export default function PostTrainingEditor({
         description: description.trim() || null,
         disclaimer: disclaimer.trim() || null,
       })
-      .eq("id", postTraining.id);
+      .eq("id", postTraining.id)
+      .eq("program_id", postTraining.program_id);
 
     setBusy(false);
 
@@ -109,7 +110,8 @@ export default function PostTrainingEditor({
           description:
             stageDescription.trim() || null,
         })
-        .eq("id", editingId);
+        .eq("id", editingId)
+        .eq("post_training_id", postTraining.id);
 
       if (updateError) {
         setError("We couldn't update this stage.");
@@ -151,7 +153,8 @@ export default function PostTrainingEditor({
     const { error: deleteError } = await supabase
       .from("post_training_stages")
       .delete()
-      .eq("id", stage.id);
+      .eq("id", stage.id)
+      .eq("post_training_id", postTraining.id);
 
     if (deleteError) {
       setError("We couldn't delete this stage.");
@@ -183,22 +186,26 @@ export default function PostTrainingEditor({
     await supabase
       .from("post_training_stages")
       .update({ position: -400001 })
-      .eq("id", current.id);
+      .eq("id", current.id)
+      .eq("post_training_id", postTraining.id);
 
     await supabase
       .from("post_training_stages")
       .update({ position: -400002 })
-      .eq("id", target.id);
+      .eq("id", target.id)
+      .eq("post_training_id", postTraining.id);
 
     const { error: e1 } = await supabase
       .from("post_training_stages")
       .update({ position: target.position })
-      .eq("id", current.id);
+      .eq("id", current.id)
+      .eq("post_training_id", postTraining.id);
 
     const { error: e2 } = await supabase
       .from("post_training_stages")
       .update({ position: current.position })
-      .eq("id", target.id);
+      .eq("id", target.id)
+      .eq("post_training_id", postTraining.id);
 
     setBusy(false);
 

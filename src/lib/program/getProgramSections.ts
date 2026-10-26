@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 
-const PROGRAM_ID =
-  "5f5a6ef1-3133-45f6-b421-0dc09ea4a6a0";
-
-export async function getProgramSections() {
+export async function getProgramSections(
+  programId: string = HELLOGOV_PROGRAM_ID
+) {
   const supabase = await createClient();
 
   const [
@@ -21,7 +21,7 @@ export async function getProgramSections() {
         position,
         is_required
       `)
-      .eq("program_id", PROGRAM_ID)
+      .eq("program_id", programId)
       .order("position", { ascending: true }),
 
     supabase
@@ -42,7 +42,7 @@ export async function getProgramSections() {
           position
         )
       `)
-      .eq("program_id", PROGRAM_ID)
+      .eq("program_id", programId)
       .order("position", {
         referencedTable: "certification_components",
         ascending: true,
@@ -65,7 +65,7 @@ export async function getProgramSections() {
           position
         )
       `)
-      .eq("program_id", PROGRAM_ID)
+      .eq("program_id", programId)
       .order("position", {
         referencedTable: "post_training_stages",
         ascending: true,

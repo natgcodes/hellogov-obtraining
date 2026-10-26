@@ -111,7 +111,8 @@ export default function CertificationEditor({
         description: description.trim() || null,
         passing_score: score,
       })
-      .eq("id", certification.id);
+      .eq("id", certification.id)
+      .eq("program_id", certification.program_id);
 
     setBusy(false);
 
@@ -149,7 +150,8 @@ export default function CertificationEditor({
           component_type: componentType,
           passing_score: score,
         })
-        .eq("id", editingId);
+        .eq("id", editingId)
+        .eq("certification_id", certification.id);
 
       if (updateError) {
         setError("We couldn't update this component.");
@@ -193,7 +195,8 @@ export default function CertificationEditor({
     const { error: deleteError } = await supabase
       .from("certification_components")
       .delete()
-      .eq("id", component.id);
+      .eq("id", component.id)
+      .eq("certification_id", certification.id);
 
     if (deleteError) {
       setError("We couldn't delete this component.");
@@ -228,22 +231,26 @@ export default function CertificationEditor({
     await supabase
       .from("certification_components")
       .update({ position: -300001 })
-      .eq("id", current.id);
+      .eq("id", current.id)
+      .eq("certification_id", certification.id);
 
     await supabase
       .from("certification_components")
       .update({ position: -300002 })
-      .eq("id", target.id);
+      .eq("id", target.id)
+      .eq("certification_id", certification.id);
 
     const { error: e1 } = await supabase
       .from("certification_components")
       .update({ position: target.position })
-      .eq("id", current.id);
+      .eq("id", current.id)
+      .eq("certification_id", certification.id);
 
     const { error: e2 } = await supabase
       .from("certification_components")
       .update({ position: current.position })
-      .eq("id", target.id);
+      .eq("id", target.id)
+      .eq("certification_id", certification.id);
 
     setBusy(false);
 

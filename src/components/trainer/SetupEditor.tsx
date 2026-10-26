@@ -188,7 +188,8 @@ export default function SetupEditor({
               description.trim() || null,
             is_required: isRequired,
           })
-          .eq("id", editingId);
+          .eq("id", editingId)
+          .eq("program_id", programId);
 
       if (updateError) {
         setError(
@@ -243,7 +244,8 @@ export default function SetupEditor({
       await supabase
         .from("setup_items")
         .delete()
-        .eq("id", item.id);
+        .eq("id", item.id)
+        .eq("program_id", programId);
 
     if (deleteError) {
       setError(
@@ -298,7 +300,8 @@ export default function SetupEditor({
         .update({
           position: tempCurrent,
         })
-        .eq("id", current.id);
+        .eq("id", current.id)
+        .eq("program_id", programId);
 
     if (e1) {
       setError(
@@ -314,7 +317,8 @@ export default function SetupEditor({
         .update({
           position: tempTarget,
         })
-        .eq("id", target.id);
+        .eq("id", target.id)
+        .eq("program_id", programId);
 
     if (e2) {
       await supabase
@@ -322,7 +326,8 @@ export default function SetupEditor({
         .update({
           position: current.position,
         })
-        .eq("id", current.id);
+        .eq("id", current.id)
+        .eq("program_id", programId);
 
       setError(
         "We couldn't change the item order."
@@ -337,7 +342,8 @@ export default function SetupEditor({
         .update({
           position: target.position,
         })
-        .eq("id", current.id);
+        .eq("id", current.id)
+        .eq("program_id", programId);
 
     const { error: e4 } =
       await supabase
@@ -345,7 +351,8 @@ export default function SetupEditor({
         .update({
           position: current.position,
         })
-        .eq("id", target.id);
+        .eq("id", target.id)
+        .eq("program_id", programId);
 
     if (e3 || e4) {
       setError(

@@ -12,6 +12,7 @@ import type {
   ProgressMap,
 } from "@/lib/learning/types";
 import { createClient } from "@/lib/supabase/server";
+import { getLearnerAssignedProgram } from "@/lib/learning/getLearnerAssignedProgram";
 
 type Props = {
   params: Promise<{
@@ -234,7 +235,14 @@ export default async function LearnerDayPage({
   };
 
   const { dayId } = await params;
-  const supabase = await createClient();
+const supabase = await createClient();
+
+// Resolve the authenticated learner's assigned wave.
+const programId = await getLearnerAssignedProgram();
+
+if (!programId) {
+  notFound();
+}
 
   // ---------------------------------------------------------
   // AUTH
@@ -353,8 +361,9 @@ export default async function LearnerDayPage({
         )
       `)
       .eq("id", dayId)
-      .eq("is_published", true)
-      .single()
+.eq("program_id", programId)
+.eq("is_published", true)
+.single()
   );
 
   const dayProgressPromise = timed(

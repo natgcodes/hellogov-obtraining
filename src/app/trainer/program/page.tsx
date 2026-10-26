@@ -3,12 +3,24 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import ProgramPublishControl from "@/components/trainer/ProgramPublishControl";
 import ProgramTimeline from "@/components/trainer/ProgramTimeline";
+import ProgramWaveManager from "@/components/trainer/ProgramWaveManager";
 import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 import { getDays } from "@/lib/program/getDays";
 import { getProgramSections } from "@/lib/program/getProgramSections";
 import { createClient } from "@/lib/supabase/server";
 
-export default async function TrainerProgramPage() {
+export default async function TrainerProgramPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    programId?: string;
+  }>;
+}) {
+  const { programId } = await searchParams;
+
+  const selectedProgramId =
+    programId || HELLOGOV_PROGRAM_ID;
+
   const supabase = await createClient();
 
   const {
@@ -30,12 +42,27 @@ export default async function TrainerProgramPage() {
   }
 
   const {
+    data: availablePrograms,
+    error: programsError,
+  } = await supabase
+    .from("programs")
+    .select("id, title, description, status")
+    .order("created_at", { ascending: true });
+
+  if (programsError) {
+    console.error(
+      "Unable to load training waves:",
+      programsError
+    );
+  }
+
+  const {
     data: program,
     error: programError,
   } = await supabase
     .from("programs")
     .select("id, title, description, status")
-    .eq("id", HELLOGOV_PROGRAM_ID)
+    .eq("id", selectedProgramId)
     .single();
 
   if (programError || !program) {
@@ -64,15 +91,15 @@ export default async function TrainerProgramPage() {
 
   const [days, sections, setupSectionResponse] =
     await Promise.all([
-      getDays(),
-      getProgramSections(),
+      getDays(selectedProgramId),
+      getProgramSections(selectedProgramId),
 
       supabase
         .from("setup_sections")
         .select(
           "id, program_id, title, description, instructions"
         )
-        .eq("program_id", HELLOGOV_PROGRAM_ID)
+        .eq("program_id", selectedProgramId)
         .maybeSingle(),
     ]);
 
@@ -86,7 +113,7 @@ export default async function TrainerProgramPage() {
   const setupSection =
     setupSectionResponse.data ?? {
       id: "",
-      program_id: HELLOGOV_PROGRAM_ID,
+      program_id: selectedProgramId,
       title: "Tool Setup",
       description:
         "Define everything trainees need before onboarding begins.",
@@ -129,6 +156,15 @@ export default async function TrainerProgramPage() {
                 "Build, organize and manage the complete trainee onboarding experience."}
             </p>
           </section>
+
+          {/* TRAINING WAVE MANAGEMENT */}
+
+          <div className="mt-7">
+            <ProgramWaveManager
+              programs={availablePrograms ?? []}
+              selectedProgramId={selectedProgramId}
+            />
+          </div>
 
           {/* PROGRAM SUMMARY */}
 
@@ -195,6 +231,7 @@ export default async function TrainerProgramPage() {
           <div className="mt-7 grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_280px]">
             <div className="min-w-0">
               <ProgramTimeline
+                programId={selectedProgramId}
                 days={days}
                 setupItems={sections.setupItems}
                 setupSection={setupSection}

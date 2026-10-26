@@ -920,18 +920,215 @@ export async function PATCH(request: Request) {
 // ===========================================================
 // DELETE USER
 //
-// Permanent deletion remains disabled until the
-// database dependency audit is completed.
+// Only accounts without training activity may be deleted.
+// Trainers and accounts with historical records are protected.
 // ===========================================================
 
-export async function DELETE() {
-  return NextResponse.json(
-    {
-      error:
-        "Permanent deletion is disabled. Deactivate the account instead to preserve training records.",
-    },
-    {
-      status: 405,
+export async function DELETE(request: Request) {
+  try {
+    // -------------------------------------------------------
+    // AUTHORIZE TRAINER
+    // -------------------------------------------------------
+
+    const auth = await getAuthorizedTrainer();
+
+    if (auth.error || !auth.user) {
+      return auth.error;
     }
-  );
+
+    // -------------------------------------------------------
+    // VALIDATE REQUEST
+    // -------------------------------------------------------
+
+    const body = (await request.json()) as {
+      userId?: string;
+    };
+
+    const userId = body.userId?.trim();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          error: "User ID is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    // Never allow self-deletion.
+    if (userId === auth.user.id) {
+      return NextResponse.json(
+        {
+          error:
+            "You cannot permanently delete your own account.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    const admin = createAdminClient();
+
+    // -------------------------------------------------------
+    // VERIFY TARGET USER
+    // -------------------------------------------------------
+
+    const {
+      data: targetProfile,
+      error: targetError,
+    } = await admin
+      .from("profiles")
+      .select("id, full_name, email, role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (targetError) {
+      console.error(
+        "Unable to verify target user:",
+        targetError
+      );
+
+      return NextResponse.json(
+        {
+          error: "Unable to verify the selected user.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (!targetProfile) {
+      return NextResponse.json(
+        {
+          error: "User not found.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    // -------------------------------------------------------
+    // PROTECT TRAINERS
+    // -------------------------------------------------------
+
+    if (targetProfile.role === "trainer") {
+      return NextResponse.json(
+        {
+          error:
+            "Trainer accounts cannot be permanently deleted. Deactivate the account instead.",
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    // -------------------------------------------------------
+    // CHECK DELETION ELIGIBILITY
+    //
+    // Query 521 created this function.
+    // It checks training records and user dependencies.
+    // -------------------------------------------------------
+
+    const {
+      data: canDelete,
+      error: eligibilityError,
+    } = await admin.rpc(
+      "can_permanently_delete_user",
+      {
+        target_user_id: userId,
+      }
+    );
+
+    if (eligibilityError) {
+      console.error(
+        "Unable to check deletion eligibility:",
+        eligibilityError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to verify whether this account can be safely deleted.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    if (canDelete !== true) {
+      return NextResponse.json(
+        {
+          error:
+            "This user has training activity or historical records and cannot be permanently deleted. Deactivate the account instead.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+    // -------------------------------------------------------
+    // DELETE AUTH USER
+    //
+    // Supabase Auth deletion triggers configured database
+    // foreign-key actions, including CASCADE.
+    // -------------------------------------------------------
+
+    const { error: deleteError } =
+      await admin.auth.admin.deleteUser(userId);
+
+    if (deleteError) {
+      console.error(
+        "Unable to permanently delete user:",
+        deleteError
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "The account could not be deleted. It may still have protected records or database dependencies.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    // -------------------------------------------------------
+    // SUCCESS
+    // -------------------------------------------------------
+
+    return NextResponse.json({
+      success: true,
+      message:
+        "The user was permanently deleted.",
+      deletedUser: {
+        id: userId,
+        fullName: targetProfile.full_name,
+        email: targetProfile.email,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Unexpected permanent deletion error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Something went wrong while deleting the account.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import AddUserModal from "@/components/trainer/AddUserModal";
 import AccountStatusButton from "@/components/trainer/AccountStatusButton";
+import DeleteUserButton from "@/components/trainer/DeleteUserButton";
 import EditUserModal from "@/components/trainer/EditUserModal";
 import TeamAssignments from "@/components/trainer/TeamAssignments";
 
@@ -438,18 +439,32 @@ export default async function TrainerUsersPage() {
 
                         {/* ACTIONS */}
 
-                        <td className="px-6 py-4 text-right">
-                          <AccountStatusButton
-                            userId={profile.id}
-                            userName={
-                              profile.full_name ||
-                              profile.email ||
-                              "this user"
-                            }
-                            isCurrentUser={profile.id === user.id}
-                            accountStatus={profile.account_status}
-                          />
-                        </td>
+<td className="px-6 py-4 text-right">
+  <div className="flex items-center justify-end gap-3">
+    <AccountStatusButton
+      userId={profile.id}
+      userName={
+        profile.full_name ||
+        profile.email ||
+        "this user"
+      }
+      isCurrentUser={profile.id === user.id}
+      accountStatus={profile.account_status}
+    />
+
+    {profile.role !== "trainer" && (
+      <DeleteUserButton
+        userId={profile.id}
+        userName={
+          profile.full_name ||
+          profile.email ||
+          "this user"
+        }
+        isCurrentUser={profile.id === user.id}
+      />
+    )}
+  </div>
+</td>
                       </tr>
                     ))}
                   </tbody>

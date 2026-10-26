@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
 
 type UserRole =
   | "learner"
@@ -18,6 +17,7 @@ type CreateUserBody = {
   email?: string;
   role?: UserRole;
   teamLead?: string | null;
+  programId?: string | null;
 };
 
 type UpdateUserBody = {
@@ -164,6 +164,63 @@ async function getAuthorizedTrainer() {
 }
 
 // ===========================================================
+// GET AVAILABLE TRAINING WAVES
+// ===========================================================
+
+export async function GET() {
+  try {
+    const auth = await getAuthorizedTrainer();
+
+    if (auth.error || !auth.user) {
+      return auth.error;
+    }
+
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from("programs")
+      .select("id, title, status")
+      .order("title", {
+        ascending: true,
+      });
+
+    if (error) {
+      console.error(
+        "Unable to load training waves:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          error: "Unable to load training waves.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    return NextResponse.json({
+      waves: data ?? [],
+    });
+  } catch (error) {
+    console.error(
+      "Unexpected training wave loading error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error: "Unable to load training waves.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+// ===========================================================
 // CREATE USER
 // ===========================================================
 
@@ -188,6 +245,11 @@ export async function POST(request: Request) {
 
     const teamLead =
       body.teamLead?.trim() || null;
+
+    const programId =
+      typeof body.programId === "string"
+        ? body.programId.trim() || null
+        : null;
 
     // -------------------------------------------------------
     // VALIDATION
@@ -239,6 +301,44 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
+
+    // -------------------------------------------------------
+    // VALIDATE ASSIGNED WAVE
+    // -------------------------------------------------------
+
+    if (role !== "trainer") {
+      if (!programId) {
+        return NextResponse.json(
+          {
+            error: "An assigned wave is required.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+
+      const {
+        data: selectedProgram,
+        error: programError,
+      } = await admin
+        .from("programs")
+        .select("id")
+        .eq("id", programId)
+        .maybeSingle();
+
+      if (programError || !selectedProgram) {
+        return NextResponse.json(
+          {
+            error:
+              "The selected training wave does not exist.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
+    }
 
     // -------------------------------------------------------
     // TEMPORARY PASSWORD
@@ -320,10 +420,16 @@ export async function POST(request: Request) {
             full_name: fullName,
             email,
             role,
+
             team_lead: getTeamLead(
               role,
               teamLead
             ),
+
+            active_program_id:
+              role === "trainer"
+                ? null
+                : programId,
           },
           {
             onConflict: "id",
@@ -364,19 +470,18 @@ export async function POST(request: Request) {
     // AUTOMATIC PROGRAM ENROLLMENT
     //
     // All learning roles, including Executive,
-    // need an enrollment to track personal progress.
+    // receive an enrollment in their assigned wave.
     //
-    // Enrollment does not determine whether someone
-    // is counted as a Trainee. That depends on role.
+    // No default enrollment in Wave 001.
     // -------------------------------------------------------
 
-    if (role !== "trainer") {
+    if (role !== "trainer" && programId) {
       const { error: enrollmentError } =
         await admin
           .from("program_enrollments")
           .upsert(
             {
-              program_id: HELLOGOV_PROGRAM_ID,
+              program_id: programId,
               learner_id: createdUser.id,
               status: "not_started",
             },
@@ -409,7 +514,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "The account could not be enrolled in the onboarding program.",
+              "The account could not be enrolled in the selected training wave.",
           },
           {
             status: 500,
@@ -432,11 +537,18 @@ export async function POST(request: Request) {
           fullName,
           email,
           role,
+
           teamLead: getTeamLead(
             role,
             teamLead
           ),
+
+          activeProgramId:
+            role === "trainer"
+              ? null
+              : programId,
         },
+
         temporaryPassword,
       },
       {
@@ -577,7 +689,7 @@ export async function PATCH(request: Request) {
     } = await admin
       .from("profiles")
       .select(
-        "id, full_name, email, role, team_lead"
+        "id, full_name, email, role, team_lead, active_program_id"
       )
       .eq("id", userId)
       .single();
@@ -595,6 +707,10 @@ export async function PATCH(request: Request) {
         }
       );
     }
+
+    // -------------------------------------------------------
+    // PROTECT ROLE CHANGES
+    // -------------------------------------------------------
 
     // At least one active Trainer must remain.
     if (
@@ -627,6 +743,25 @@ export async function PATCH(request: Request) {
           }
         );
       }
+    }
+
+    // A Trainer without an assigned wave cannot be
+    // converted directly into a learning role here.
+    // This avoids creating an account with no enrollment.
+    if (
+      existingProfile.role === "trainer" &&
+      role !== "trainer" &&
+      !existingProfile.active_program_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This Trainer has no assigned training wave. Assign a wave before changing to a learning role.",
+        },
+        {
+          status: 400,
+        }
+      );
     }
 
     // -------------------------------------------------------
@@ -679,6 +814,8 @@ export async function PATCH(request: Request) {
 
     // -------------------------------------------------------
     // UPDATE PROFILE
+    //
+    // Existing active wave and enrollments are preserved.
     // -------------------------------------------------------
 
     const { error: profileUpdateError } =
@@ -688,6 +825,7 @@ export async function PATCH(request: Request) {
           full_name: fullName,
           email,
           role,
+
           team_lead: getTeamLead(
             role,
             teamLead
@@ -709,6 +847,7 @@ export async function PATCH(request: Request) {
             email:
               existingProfile.email ??
               undefined,
+
             user_metadata: {
               full_name:
                 existingProfile.full_name,
@@ -736,62 +875,28 @@ export async function PATCH(request: Request) {
     }
 
     // -------------------------------------------------------
-    // AUTOMATIC PROGRAM ENROLLMENT
-    //
-    // Includes Executive and other learning roles.
-    // Existing enrollment records are preserved.
-    // -------------------------------------------------------
-
-    if (role !== "trainer") {
-      const { error: enrollmentError } =
-        await admin
-          .from("program_enrollments")
-          .upsert(
-            {
-              program_id: HELLOGOV_PROGRAM_ID,
-              learner_id: userId,
-              status: "not_started",
-            },
-            {
-              onConflict:
-                "program_id,learner_id",
-              ignoreDuplicates: true,
-            }
-          );
-
-      if (enrollmentError) {
-        console.error(
-          "Unable to enroll user after role update:",
-          enrollmentError
-        );
-
-        return NextResponse.json(
-          {
-            error:
-              "The user profile was updated, but enrollment in the onboarding program failed.",
-          },
-          {
-            status: 500,
-          }
-        );
-      }
-    }
-
-    // -------------------------------------------------------
     // SUCCESS
+    //
+    // Editing a user does not create enrollments.
+    // Wave assignments are managed separately.
     // -------------------------------------------------------
 
     return NextResponse.json({
       success: true,
+
       user: {
         id: userId,
         fullName,
         email,
         role,
+
         teamLead: getTeamLead(
           role,
           teamLead
         ),
+
+        activeProgramId:
+          existingProfile.active_program_id,
       },
     });
   } catch (error) {
@@ -814,6 +919,9 @@ export async function PATCH(request: Request) {
 
 // ===========================================================
 // DELETE USER
+//
+// Permanent deletion remains disabled until the
+// database dependency audit is completed.
 // ===========================================================
 
 export async function DELETE() {

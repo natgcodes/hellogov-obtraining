@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type UserRole =
@@ -11,11 +11,18 @@ type UserRole =
   | "team_leader"
   | "executive";
 
+type TrainingWave = {
+  id: string;
+  title: string;
+  status: string;
+};
+
 type CreatedAccount = {
   fullName: string;
   email: string;
   role: UserRole;
   temporaryPassword: string;
+  waveTitle: string | null;
 };
 
 export default function AddUserForm() {
@@ -26,6 +33,22 @@ export default function AddUserForm() {
   const [role, setRole] = useState<UserRole>("learner");
   const [teamLead, setTeamLead] = useState("");
 
+  // =========================================================
+  // TRAINING WAVES
+  // =========================================================
+
+  const [waves, setWaves] = useState<TrainingWave[]>([]);
+  const [selectedWaveId, setSelectedWaveId] = useState("");
+
+  const [loadingWaves, setLoadingWaves] = useState(true);
+  const [wavesError, setWavesError] = useState<string | null>(
+    null
+  );
+
+  // =========================================================
+  // FORM STATE
+  // =========================================================
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +56,65 @@ export default function AddUserForm() {
     useState<CreatedAccount | null>(null);
 
   const [copied, setCopied] = useState(false);
+
+  // =========================================================
+  // LOAD AVAILABLE WAVES
+  // =========================================================
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWaves() {
+      try {
+        const response = await fetch("/api/trainer/users", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+              "Unable to load training waves."
+          );
+        }
+
+        if (!cancelled) {
+          setWaves(
+            Array.isArray(result?.waves)
+              ? result.waves
+              : []
+          );
+
+          setWavesError(null);
+        }
+      } catch (loadError) {
+        console.error(
+          "Unable to load training waves:",
+          loadError
+        );
+
+        if (!cancelled) {
+          setWavesError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load training waves."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingWaves(false);
+        }
+      }
+    }
+
+    loadWaves();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // =========================================================
   // CREATE USER
@@ -69,6 +151,28 @@ export default function AddUserForm() {
       return;
     }
 
+    // -------------------------------------------------------
+    // VALIDATE ASSIGNED WAVE
+    // -------------------------------------------------------
+
+    if (role !== "trainer") {
+      if (loadingWaves || wavesError) {
+        setError(
+          "Training waves are not available. Please try again."
+        );
+        return;
+      }
+
+      const selectedWave = waves.find(
+        (wave) => wave.id === selectedWaveId
+      );
+
+      if (!selectedWave) {
+        setError("Please select an assigned wave.");
+        return;
+      }
+    }
+
     setSaving(true);
     setError(null);
     setCopied(false);
@@ -85,11 +189,17 @@ export default function AddUserForm() {
             fullName: cleanName,
             email: cleanEmail,
             role,
+
             teamLead:
               role !== "trainer" &&
               role !== "executive"
                 ? cleanTeamLead || null
                 : null,
+
+            programId:
+              role === "trainer"
+                ? null
+                : selectedWaveId,
           }),
         }
       );
@@ -108,11 +218,20 @@ export default function AddUserForm() {
         );
       }
 
+      const selectedWave = waves.find(
+        (wave) => wave.id === selectedWaveId
+      );
+
       setCreatedAccount({
         fullName: cleanName,
         email: cleanEmail,
         role,
         temporaryPassword: result.temporaryPassword,
+
+        waveTitle:
+          role === "trainer"
+            ? null
+            : selectedWave?.title ?? null,
       });
 
       router.refresh();
@@ -210,6 +329,8 @@ export default function AddUserForm() {
     setEmail("");
     setRole("learner");
     setTeamLead("");
+    setSelectedWaveId("");
+
     setError(null);
     setCreatedAccount(null);
     setCopied(false);
@@ -254,6 +375,22 @@ export default function AddUserForm() {
             </p>
           </div>
         </div>
+
+        {/* ASSIGNED WAVE */}
+
+        {createdAccount.waveTitle && (
+          <div className="px-6 pt-5">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-sky-600">
+                Assigned Wave
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-sky-900">
+                {createdAccount.waveTitle}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* CREDENTIALS */}
 
@@ -523,6 +660,69 @@ export default function AddUserForm() {
               </p>
             </div>
           )}
+
+        {/* ASSIGNED WAVE */}
+
+        {role !== "trainer" && (
+          <div className="md:col-span-2">
+            <label
+              htmlFor="new-user-wave"
+              className="mb-1.5 block text-sm font-medium text-slate-700"
+            >
+              Assigned Wave{" "}
+              <span className="text-red-500">*</span>
+            </label>
+
+            <select
+              id="new-user-wave"
+              value={selectedWaveId}
+              onChange={(event) => {
+                setSelectedWaveId(event.target.value);
+                setError(null);
+              }}
+              disabled={
+                saving ||
+                loadingWaves ||
+                Boolean(wavesError)
+              }
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition focus:border-[#e84545] focus:ring-2 focus:ring-red-50 disabled:bg-slate-50"
+            >
+              <option value="">
+                {loadingWaves
+                  ? "Loading training waves..."
+                  : "Select training wave"}
+              </option>
+
+              {waves.map((wave) => (
+                <option
+                  key={wave.id}
+                  value={wave.id}
+                >
+                  {wave.title} ({wave.status})
+                </option>
+              ))}
+            </select>
+
+            {wavesError ? (
+              <p className="mt-1.5 text-xs text-red-600">
+                {wavesError}
+              </p>
+            ) : waves.length === 0 &&
+              !loadingWaves ? (
+              <p className="mt-1.5 text-xs text-amber-600">
+                No training waves are available.
+              </p>
+            ) : (
+              <p className="mt-1.5 text-xs text-slate-400">
+                Select the training wave this user
+                should access. Draft waves will
+                become available to learners once
+                published.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ACCOUNT INFO */}
@@ -556,7 +756,13 @@ export default function AddUserForm() {
       <div className="flex items-center justify-end border-t border-slate-200 bg-slate-50/50 px-6 py-4">
         <button
           type="submit"
-          disabled={saving}
+          disabled={
+            saving ||
+            (role !== "trainer" &&
+              (loadingWaves ||
+                Boolean(wavesError) ||
+                waves.length === 0))
+          }
           className="inline-flex min-h-10 items-center justify-center rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving

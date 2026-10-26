@@ -1,7 +1,0 @@
-NotFound: FileSystem.readFile (/Users/ngruber/.supabase/profile)
-Using access token for profile: supabase
-Supabase CLI 2.121.0
-Using profile: supabase (supabase.co)
-Using access token for profile: supabase
-Using access token for profile: supabase
-2026/10/16 02:11:22 HTTP GET: https://api.supabase.com/v1/snippets

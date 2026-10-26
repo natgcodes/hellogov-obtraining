@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase temporary files
+supabase/.temp/
+
+# Local SQL audits and exports
+helgov-sql-audit/
+helgov-sql-audit*.zip
+helgov-sql-snippets-*.json
+helgov-sql-snippets-*.jsonl
+helgov-snippets-debug.log
+
+# Temporary scripts and backups
+hellogov_other_roles_patch.py
+*.bak
+
+# Editor configuration
+.vscode/

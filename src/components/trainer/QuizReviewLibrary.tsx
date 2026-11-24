@@ -336,8 +336,28 @@ export default function QuizReviewLibrary({ items }: Props) {
           </h2>
 
           <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-            {filteredItems.length} of {items.length} assessments available
-          </p>
+  {filteredItems.length} of {items.length} assessments available
+</p>
+
+<div className="mt-3 flex flex-wrap items-center gap-2">
+  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-medium text-cyan-700">
+    Quizzes:{" "}
+    {
+      filteredItems.filter(
+        (item) => item.type === "Quiz"
+      ).length
+    }
+  </span>
+
+  <span className="rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-[11px] font-medium text-purple-700">
+    Checkpoints:{" "}
+    {
+      filteredItems.filter(
+        (item) => item.type === "Checkpoint"
+      ).length
+    }
+  </span>
+</div>
         </div>
 
         {/* EMPTY STATE */}
@@ -370,11 +390,17 @@ export default function QuizReviewLibrary({ items }: Props) {
                       {item.title}
                     </span>
 
-                    {/* TYPE */}
+                   {/* ASSESSMENT TYPE */}
 
-                    <span className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-medium">
-                      {item.type}
-                    </span>
+<span
+  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+    item.type === "Checkpoint"
+      ? "border border-purple-200 bg-purple-50 text-purple-700"
+      : "border border-cyan-200 bg-cyan-50 text-cyan-700"
+  }`}
+>
+  {item.type}
+</span>
 
                     {/* PUBLICATION STATUS */}
 

@@ -1,9 +1,10 @@
+
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
 import { createClient } from "@/lib/supabase/server";
-import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
+import { getTrainerPrograms } from "@/lib/trainer/getTrainerPrograms";
 
 type PageProps = {
   params: Promise<{ quizId: string }>;
@@ -60,12 +61,26 @@ export default async function QuizReviewDetailPage({
     redirect("/learn");
   }
 
-  const program = await getTrainerProgram();
+  // ---------------------------------------------------------
+  // FETCH AVAILABLE TRAINER PROGRAMS
+  // ---------------------------------------------------------
 
-  if (!program) {
+  const programs = await getTrainerPrograms();
+
+  const programMap = new Map(
+    programs.map((program) => [program.id, program])
+  );
+
+  if (programs.length === 0) {
     return (
-      <AppShell role="trainer">
-        <div className="p-8">No program found.</div>
+      <AppShell
+        role="trainer"
+        userName={profile.full_name}
+        userEmail={profile.email}
+      >
+        <div className="p-8">
+          No training programs found.
+        </div>
       </AppShell>
     );
   }
@@ -82,10 +97,15 @@ export default async function QuizReviewDetailPage({
     .eq("id", quizId)
     .maybeSingle();
 
-  if (quizError || !quiz) notFound();
+  if (quizError) {
+    console.error("Unable to load quiz:", quizError);
+    throw new Error("Unable to load assessment.");
+  }
+
+  if (!quiz) notFound();
 
   // ---------------------------------------------------------
-  // VERIFY QUIZ BELONGS TO TRAINER PROGRAM
+  // RESOLVE QUIZ PROGRAM AND ASSESSMENT TYPE
   // ---------------------------------------------------------
 
   let dayInfo: {
@@ -94,25 +114,90 @@ export default async function QuizReviewDetailPage({
   } | null = null;
 
   let sectionTitle = "";
-  let assessmentType = "Quiz";
-  let belongsToProgram = false;
+  let assessmentType: "Quiz" | "Checkpoint" = "Quiz";
+  let resolvedProgramId: string | null = null;
 
-  if (quiz.module_id) {
-    const { data: module } = await supabase
-      .from("modules")
-      .select("id,title,day_id")
-      .eq("id", quiz.module_id)
+  // ---------------------------------------------------------
+  // CHECKPOINT QUIZZES
+  // ---------------------------------------------------------
+
+  const {
+    data: linkedCheckpoints,
+    error: checkpointError,
+  } = await supabase
+    .from("checkpoints")
+    .select("id,title,day_id,position")
+    .eq("quiz_id", quizId)
+    .order("position", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (checkpointError) {
+    console.error(
+      "Unable to verify checkpoint access:",
+      checkpointError
+    );
+
+    throw new Error("Unable to verify checkpoint access.");
+  }
+
+  for (const checkpoint of linkedCheckpoints ?? []) {
+    const { data: day, error: dayError } = await supabase
+      .from("days")
+      .select("id,day_number,title,program_id")
+      .eq("id", checkpoint.day_id)
       .maybeSingle();
 
-    if (module) {
-      const { data: day } = await supabase
-        .from("days")
-        .select("id,day_number,title,program_id")
-        .eq("id", module.day_id)
+    if (dayError) {
+      throw new Error(
+        "Unable to verify checkpoint program."
+      );
+    }
+
+    if (day && programMap.has(day.program_id)) {
+      resolvedProgramId = day.program_id;
+      assessmentType = "Checkpoint";
+      sectionTitle = checkpoint.title;
+
+      dayInfo = {
+        day_number: day.day_number,
+        title: day.title,
+      };
+
+      break;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // REGULAR MODULE QUIZZES
+  // ---------------------------------------------------------
+
+  if (!resolvedProgramId && quiz.module_id) {
+    const { data: module, error: moduleError } =
+      await supabase
+        .from("modules")
+        .select("id,title,day_id")
+        .eq("id", quiz.module_id)
         .maybeSingle();
 
-      if (day && day.program_id === program.id) {
-        belongsToProgram = true;
+    if (moduleError) {
+      throw new Error("Unable to verify quiz module.");
+    }
+
+    if (module) {
+      const { data: day, error: dayError } =
+        await supabase
+          .from("days")
+          .select("id,day_number,title,program_id")
+          .eq("id", module.day_id)
+          .maybeSingle();
+
+      if (dayError) {
+        throw new Error("Unable to verify quiz program.");
+      }
+
+      if (day && programMap.has(day.program_id)) {
+        resolvedProgramId = day.program_id;
+        assessmentType = "Quiz";
         sectionTitle = module.title;
 
         dayInfo = {
@@ -123,34 +208,15 @@ export default async function QuizReviewDetailPage({
     }
   }
 
-  if (!belongsToProgram) {
-    const { data: checkpoint } = await supabase
-      .from("checkpoints")
-      .select("id,title,day_id")
-      .eq("quiz_id", quizId)
-      .maybeSingle();
+  // ---------------------------------------------------------
+  // VERIFY TRAINER PROGRAM ACCESS
+  // ---------------------------------------------------------
 
-    if (checkpoint) {
-      const { data: day } = await supabase
-        .from("days")
-        .select("id,day_number,title,program_id")
-        .eq("id", checkpoint.day_id)
-        .maybeSingle();
+  if (!resolvedProgramId) notFound();
 
-      if (day && day.program_id === program.id) {
-        belongsToProgram = true;
-        assessmentType = "Checkpoint";
-        sectionTitle = checkpoint.title;
+  const program = programMap.get(resolvedProgramId);
 
-        dayInfo = {
-          day_number: day.day_number,
-          title: day.title,
-        };
-      }
-    }
-  }
-
-  if (!belongsToProgram) notFound();
+  if (!program) notFound();
 
   // ---------------------------------------------------------
   // FETCH QUESTIONS
@@ -163,51 +229,74 @@ export default async function QuizReviewDetailPage({
         "id,question_text,question_type,instructions,points,position"
       )
       .eq("quiz_id", quizId)
-      .order("position", { ascending: true });
+      .order("position", { ascending: true })
+      .order("id", { ascending: true });
 
   const questionIds = (questions ?? []).map(
     (question) => question.id
   );
 
   // ---------------------------------------------------------
-  // FETCH OPTIONS
+  // FETCH OPTIONS AND MATCHING PAIRS
   // ---------------------------------------------------------
 
-  const { data: options, error: optionsError } =
+  const [
+    { data: options, error: optionsError },
+    { data: matchingPairs, error: matchingError },
+  ] = await Promise.all([
     questionIds.length > 0
-      ? await supabase
+      ? supabase
           .from("quiz_options")
           .select(
             "id,question_id,option_text,position,is_correct"
           )
           .in("question_id", questionIds)
           .order("position", { ascending: true })
-      : { data: [], error: null };
+          .order("id", { ascending: true })
+      : Promise.resolve({
+          data: [],
+          error: null,
+        }),
 
-  const optionsByQuestion = new Map<string, QuizOption[]>();
-
-  for (const option of (options ?? []) as QuizOption[]) {
-    const existing =
-      optionsByQuestion.get(option.question_id) ?? [];
-
-    existing.push(option);
-    optionsByQuestion.set(option.question_id, existing);
-  }
-
-  // ---------------------------------------------------------
-  // FETCH MATCHING PAIRS
-  // ---------------------------------------------------------
-
-  const { data: matchingPairs, error: matchingError } =
     questionIds.length > 0
-      ? await supabase
+      ? supabase
           .from("quiz_matching_pairs")
           .select(
             "id,question_id,left_text,right_text,position"
           )
           .in("question_id", questionIds)
           .order("position", { ascending: true })
-      : { data: [], error: null };
+          .order("id", { ascending: true })
+      : Promise.resolve({
+          data: [],
+          error: null,
+        }),
+  ]);
+
+  // ---------------------------------------------------------
+  // BUILD OPTIONS LOOKUP MAP
+  // ---------------------------------------------------------
+
+  const optionsByQuestion = new Map<
+    string,
+    QuizOption[]
+  >();
+
+  for (const option of (options ?? []) as QuizOption[]) {
+    const existing =
+      optionsByQuestion.get(option.question_id) ?? [];
+
+    existing.push(option);
+
+    optionsByQuestion.set(
+      option.question_id,
+      existing
+    );
+  }
+
+  // ---------------------------------------------------------
+  // BUILD MATCHING PAIRS LOOKUP MAP
+  // ---------------------------------------------------------
 
   const matchingByQuestion = new Map<
     string,
@@ -220,7 +309,10 @@ export default async function QuizReviewDetailPage({
 
     existing.push(pair);
 
-    matchingByQuestion.set(pair.question_id, existing);
+    matchingByQuestion.set(
+      pair.question_id,
+      existing
+    );
   }
 
   // ---------------------------------------------------------
@@ -231,7 +323,13 @@ export default async function QuizReviewDetailPage({
     questionsError?.message,
     optionsError?.message,
     matchingError?.message,
-  ].filter((message): message is string => Boolean(message));
+  ].filter(
+    (message): message is string => Boolean(message)
+  );
+
+  // ---------------------------------------------------------
+  // PAGE
+  // ---------------------------------------------------------
 
   return (
     <AppShell
@@ -245,7 +343,7 @@ export default async function QuizReviewDetailPage({
           {/* BACK NAVIGATION */}
 
           <Link
-            href="/trainer/quiz-review"
+            href={`/trainer/quiz-review?programId=${program.id}`}
             className="text-[13px] font-medium text-[var(--teal)] hover:underline"
           >
             ← Back to Quiz Library
@@ -254,13 +352,48 @@ export default async function QuizReviewDetailPage({
           {/* HEADER */}
 
           <section className="mt-7">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--teal)]">
-              Assessment Resources · {assessmentType}
-            </p>
 
-            <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
+            {/* ASSESSMENT IDENTIFICATION */}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--teal)]">
+                Assessment Resources
+              </p>
+
+              {/* WAVE LABEL */}
+
+              <span className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--text-secondary)]">
+                {program.title}
+              </span>
+
+              {/* ASSESSMENT TYPE LABEL */}
+
+              <span
+                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                  assessmentType === "Checkpoint"
+                    ? "border border-purple-200 bg-purple-50 text-purple-700"
+                    : "border border-cyan-200 bg-cyan-50 text-cyan-700"
+                }`}
+              >
+                {assessmentType}
+              </span>
+
+              {/* PUBLICATION STATUS */}
+
+              {!quiz.is_published && (
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                  Unpublished
+                </span>
+              )}
+            </div>
+
+            {/* QUIZ TITLE */}
+
+            <h1 className="mt-3 text-[30px] font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
               {quiz.title}
             </h1>
+
+            {/* TRAINING DAY AND SECTION */}
 
             <p className="mt-2 text-[13px] text-[var(--text-secondary)]">
               Day {dayInfo?.day_number} · {dayInfo?.title}
@@ -268,11 +401,29 @@ export default async function QuizReviewDetailPage({
               {sectionTitle}
             </p>
 
+            {/* QUIZ DESCRIPTION */}
+
             {quiz.description && (
-              <p className="mt-4 text-[14px] leading-6 text-[var(--text-secondary)]">
+              <p className="mt-4 whitespace-pre-wrap text-[14px] leading-6 text-[var(--text-secondary)]">
                 {quiz.description}
               </p>
             )}
+
+            {/* QUIZ INSTRUCTIONS */}
+
+            {quiz.instructions && (
+              <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-white px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                  Assessment Instructions
+                </p>
+
+                <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-[var(--text-secondary)]">
+                  {quiz.instructions}
+                </p>
+              </div>
+            )}
+
+            {/* TRAINER PREVIEW NOTICE */}
 
             <div className="mt-5 rounded-[12px] border border-[var(--border)] bg-[var(--surface-soft)] px-4 py-3">
               <p className="text-[12px] font-medium text-[var(--text-secondary)]">
@@ -284,9 +435,20 @@ export default async function QuizReviewDetailPage({
                 No answers or attempts will be submitted.
               </p>
             </div>
+
+            {/* QUESTION COUNT */}
+
+            {!questionsError && (
+              <p className="mt-5 text-[12px] font-medium text-[var(--text-muted)]">
+                {(questions ?? []).length}{" "}
+                {(questions ?? []).length === 1
+                  ? "question"
+                  : "questions"}
+              </p>
+            )}
           </section>
 
-          {/* ERRORS */}
+          {/* ERROR MESSAGES */}
 
           {errors.map((error, index) => (
             <div
@@ -300,11 +462,17 @@ export default async function QuizReviewDetailPage({
           {/* QUESTIONS */}
 
           <section className="mt-8 space-y-5">
-            {(questions ?? []).length === 0 && !questionsError && (
-              <div className="rounded-[14px] border border-[var(--border)] bg-white p-6 text-sm text-[var(--text-secondary)]">
-                This quiz does not have any questions yet.
-              </div>
-            )}
+
+            {/* EMPTY STATE */}
+
+            {(questions ?? []).length === 0 &&
+              !questionsError && (
+                <div className="rounded-[14px] border border-[var(--border)] bg-white p-6 text-sm text-[var(--text-secondary)]">
+                  This quiz does not have any questions yet.
+                </div>
+              )}
+
+            {/* QUESTION LIST */}
 
             {((questions ?? []) as QuizQuestion[]).map(
               (question, index) => {
@@ -315,10 +483,8 @@ export default async function QuizReviewDetailPage({
                   matchingByQuestion.get(question.id) ?? [];
 
                 const isMatching =
-
-  question.question_type === "matching" ||
-
-  question.question_type === "match_cards";
+                  question.question_type === "matching" ||
+                  question.question_type === "match_cards";
 
                 const hasCorrectAnswers =
                   questionOptions.some(
@@ -337,6 +503,7 @@ export default async function QuizReviewDetailPage({
                     key={question.id}
                     className="rounded-[14px] border border-[var(--border)] bg-white p-5 sm:p-6"
                   >
+
                     {/* QUESTION HEADER */}
 
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -345,11 +512,16 @@ export default async function QuizReviewDetailPage({
                       </span>
 
                       <div className="flex flex-wrap items-center gap-2">
+
+                        {/* ANSWER KEY STATUS */}
+
                         {hasPredefinedAnswers && (
                           <span className="rounded-full bg-green-50 px-3 py-1 text-[10px] font-semibold text-green-700">
                             Answer Key Available
                           </span>
                         )}
+
+                        {/* QUESTION TYPE */}
 
                         <span className="rounded-full bg-[var(--surface-soft)] px-3 py-1 text-[11px] font-medium capitalize text-[var(--text-secondary)]">
                           {question.question_type.replaceAll(
@@ -357,6 +529,7 @@ export default async function QuizReviewDetailPage({
                             " "
                           )}
                         </span>
+
                       </div>
                     </div>
 
@@ -366,7 +539,7 @@ export default async function QuizReviewDetailPage({
                       {question.question_text}
                     </h2>
 
-                    {/* INSTRUCTIONS */}
+                    {/* QUESTION INSTRUCTIONS */}
 
                     {question.instructions && (
                       <p className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-[var(--text-secondary)]">
@@ -388,6 +561,7 @@ export default async function QuizReviewDetailPage({
                                   : "border-[var(--border-soft)] bg-[var(--surface-soft)]"
                               }`}
                             >
+
                               {/* OPTION LETTER */}
 
                               <span
@@ -442,30 +616,34 @@ export default async function QuizReviewDetailPage({
                         {/* MATCHING PAIRS */}
 
                         <div className="divide-y divide-[var(--border-soft)]">
-                          {questionMatchingPairs.map((pair) => (
-                            <div
-                              key={pair.id}
-                              className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
-                            >
-                              {/* LEFT ITEM */}
+                          {questionMatchingPairs.map(
+                            (pair) => (
+                              <div
+                                key={pair.id}
+                                className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center"
+                              >
 
-                              <span className="whitespace-pre-wrap text-[13px] font-medium leading-5 text-[var(--text-primary)]">
-                                {pair.left_text}
-                              </span>
+                                {/* LEFT ITEM */}
 
-                              {/* ARROW */}
+                                <span className="whitespace-pre-wrap text-[13px] font-medium leading-5 text-[var(--text-primary)]">
+                                  {pair.left_text}
+                                </span>
 
-                              <span className="text-[13px] font-semibold text-green-700">
-                                →
-                              </span>
+                                {/* ARROW */}
 
-                              {/* CORRECT MATCH */}
+                                <span className="text-[13px] font-semibold text-green-700">
+                                  →
+                                </span>
 
-                              <span className="whitespace-pre-wrap text-[13px] font-semibold leading-5 text-green-800">
-                                {pair.right_text}
-                              </span>
-                            </div>
-                          ))}
+                                {/* CORRECT MATCH */}
+
+                                <span className="whitespace-pre-wrap text-[13px] font-semibold leading-5 text-green-800">
+                                  {pair.right_text}
+                                </span>
+
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
                     )}
@@ -479,18 +657,30 @@ export default async function QuizReviewDetailPage({
                         </p>
 
                         <p className="mt-1 text-[12px] leading-5 text-[var(--text-muted)]">
-                          This question does not have a
-                          predefined correct answer.
-                          Review and discuss the response
-                          with trainees during the session.
+                          {optionsError || matchingError
+                            ? "Answer key information could not be fully loaded. Please refresh the page before reviewing."
+                            : "This question does not have a predefined correct answer. Review and discuss the response with trainees during the session."}
                         </p>
                       </div>
                     )}
+
                   </article>
                 );
               }
             )}
           </section>
+
+          {/* BOTTOM NAVIGATION */}
+
+          <div className="mt-8 border-t border-[var(--border)] pt-5">
+            <Link
+              href={`/trainer/quiz-review?programId=${program.id}`}
+              className="text-[13px] font-medium text-[var(--teal)] hover:underline"
+            >
+              ← Back to Quiz Library
+            </Link>
+          </div>
+
         </main>
       </div>
     </AppShell>

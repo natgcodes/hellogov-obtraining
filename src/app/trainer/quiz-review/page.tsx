@@ -404,7 +404,7 @@ export default async function QuizReviewPage({
             </p>
 
             <h1 className="mt-1 text-[30px] font-semibold tracking-[-0.035em] text-[var(--text-primary)]">
-              Quiz Review
+              Quiz Library
             </h1>
 
             <p className="mt-2 text-[14px] leading-6 text-[var(--text-secondary)]">

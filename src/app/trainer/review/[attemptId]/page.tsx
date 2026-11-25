@@ -151,7 +151,7 @@ export default async function ReviewAttemptPage({
             href="/trainer/review"
             className="text-sm font-medium text-slate-500 hover:text-slate-900"
           >
-            ← Review Center
+            ← Quiz Review
           </Link>
 
           <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
@@ -185,7 +185,7 @@ export default async function ReviewAttemptPage({
                 href="/trainer/review"
                 className="inline-flex items-center justify-center rounded-xl bg-[#07879B] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#066D7D]"
               >
-                Return to Review Center
+                Return to Quiz Review
               </Link>
             </div>
           </div>
@@ -317,7 +317,7 @@ export default async function ReviewAttemptPage({
           href="/trainer/review"
           className="text-sm font-medium text-slate-500 hover:text-slate-900"
         >
-          ← Review Center
+          ← Quiz Review
         </Link>
 
         <header className="mt-6">

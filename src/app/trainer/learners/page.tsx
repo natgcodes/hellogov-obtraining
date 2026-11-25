@@ -178,7 +178,7 @@ export default async function TrainerLearnersPage({ searchParams }: PageProps) {
               href="/trainer/review"
               className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-[10px] bg-[#101828] px-4 text-[12px] font-semibold !text-white transition hover:bg-[#1D2939]"
             >
-              Review Center
+              Quiz Review
               {needsReview > 0
                 ? ` (${needsReview})`
                 : ""}

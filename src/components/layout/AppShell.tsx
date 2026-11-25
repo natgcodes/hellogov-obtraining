@@ -321,13 +321,13 @@ const isTeamLeader = role === "team_leader";
       icon: "users",
     },
     {
-      label: "Review",
-      href: "/trainer/review",
+      label: "Quiz Review",
+href: "/trainer/review",
       icon: "review",
     },
     {
-      label: "Quiz Review",
-      href: "/trainer/quiz-review",
+      label: "Quiz Library",
+href: "/trainer/quiz-review",
       icon: "submissions",
     },
     {

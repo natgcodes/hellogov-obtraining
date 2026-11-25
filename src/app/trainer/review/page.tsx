@@ -587,7 +587,7 @@ export default async function ReviewCenterPage() {
               </p>
 
               <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[30px]">
-                Review Center
+                Quiz Review
               </h1>
 
               <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[var(--text-secondary)]">

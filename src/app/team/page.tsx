@@ -72,14 +72,15 @@ export default async function TeamDashboard({ searchParams }: { searchParams: Pr
   const datasets = await Promise.all(selectedPrograms.map(async program => {
     const common = { programId: program.id, programTitle: program.title, useAdmin: true };
     const [trainee, own] = await Promise.all([
-      getTrainerLeaderboard({ ...common, role: "learner", learnerIds: ids }),
+      getTrainerLeaderboard({ ...common, role: "learner", learnerIds: ids, includeAssignedSubmissions: true }),
       getTrainerLeaderboard({ ...common, role: "team_leader", learnerIds: [user.id] }),
     ]);
     // Both roles share the same assessment catalog; count it only once.
     return { ...combineLeaderboards([trainee, own]), expectedCount: Math.max(trainee.expectedCount, own.expectedCount), programCount: 1 };
   }));
   const leaderboard = combineLeaderboards(datasets);
-  // Only link to learning days available in the TL's own authenticated journey.
+  // Learning-day links remain scoped to the TL's own authenticated journey.
+  // Assigned submission links are separately authorized on the server.
   // Never expose trainer answer keys or switch the TL's active program.
   const journey = await getLearnerJourney(user.id);
   const accessibleDayIds = (journey?.days ?? []).filter(day => day.unlocked || day.completed).map(day => day.id);

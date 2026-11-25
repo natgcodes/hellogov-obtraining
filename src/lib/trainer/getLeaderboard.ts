@@ -73,6 +73,7 @@ type LeaderboardOptions = {
   role?: "learner" | "team_leader";
   learnerIds?: string[];
   useAdmin?: boolean;
+  includeAssignedSubmissions?: boolean;
   programId?: string;
   programTitle?: string;
 };
@@ -614,7 +615,7 @@ export async function getTrainerLeaderboard(
               ...metadata,
               average: Number(row.score),
               count: 1,
-              ...(!options?.useAdmin
+              ...(!options?.useAdmin || (options.includeAssignedSubmissions && options.role === "learner" && options.learnerIds?.includes(row.learner_id))
                 ? { submissions: [{
                     attemptId: row.id,
                     learnerId: row.learner_id,

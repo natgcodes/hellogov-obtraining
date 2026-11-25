@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import MissingAssessments, { type MissingAssessment } from "@/components/trainer/MissingAssessments";
 import AppShell from "@/components/layout/AppShell";
 import TrainingLeaderboard from "@/components/trainer/TrainingLeaderboard";
 import CertificationAccessControl from "@/components/trainer/CertificationAccessControl";
@@ -49,6 +50,23 @@ export default async function TrainerPage({ searchParams }: { searchParams: Prom
   const selectedProgram = available.find(p => p.id === params.programId);
   const selected = selectedProgram?.id ?? "all";
   const selectedPrograms = selectedProgram ? [selectedProgram] : available;
+  // Run under the authenticated trainer session; the RPC enforces trainer access.
+  const missingRows: MissingAssessment[] = [];
+  let missingFailed = false;
+  const missingPageSize = 500;
+  for (let offset = 0; ; offset += missingPageSize) {
+    const result = await supabase.rpc("get_trainer_missing_assessments", {
+      target_program_id: selectedProgram?.id ?? null,
+    }).order("program_title").order("program_id").order("learner_name").order("learner_id").order("day_number").order("quiz_id").range(offset, offset + missingPageSize - 1);
+    if (result.error || !Array.isArray(result.data)) {
+      console.error("Could not load missing assessments", result.error);
+      missingFailed = true;
+      break;
+    }
+    missingRows.push(...result.data as MissingAssessment[]);
+    if (result.data.length < missingPageSize) break;
+  }
+
   const results = await Promise.all(selectedPrograms.map(async program => {
     const [learners, checkpoints, certs, leaderboard, teamLeaders] = await Promise.all([
       supabase.rpc("get_trainer_learners", { target_program_id: program.id }),
@@ -215,6 +233,8 @@ export default async function TrainerPage({ searchParams }: { searchParams: Prom
           {/* =================================================
               TRAINING LEADERBOARD
           ================================================= */}
+
+          <MissingAssessments key={selected} rows={missingFailed ? [] : missingRows} failed={missingFailed} />
 
           <TrainingLeaderboard key={selected} data={leaderboard} contentMode="trainer" />
 

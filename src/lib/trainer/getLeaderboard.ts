@@ -371,7 +371,7 @@ export async function getTrainerLeaderboard(
     QuizTopic
   >();
 
-  // Regular quizzes.
+    // Regular quizzes.
   if (modules.length) {
     const quizResult = await supabase
       .from("quizzes")
@@ -379,7 +379,8 @@ export async function getTrainerLeaderboard(
       .in(
         "module_id",
         modules.map((m) => m.id)
-      );
+      )
+      .eq("is_published", true);
 
     if (quizResult.error) {
       return emptyLeaderboard(

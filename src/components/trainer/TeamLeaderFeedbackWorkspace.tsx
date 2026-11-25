@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type Role = "trainer" | "team_leader";
 
@@ -35,7 +36,15 @@ type Reply = {
   created_at: string;
 };
 
+type Attachment = { id: string; feedback_id: string; file_name: string; file_size: number };
+type PendingAttachment = { id: string; file: File };
+
+function fileSize(bytes: number) {
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.ceil(bytes / 1024))} KB`;
+}
+
 type ApiData = {
+  attachments: Attachment[];
   feedback: Feedback[];
   replies: Reply[];
   profiles: Profile[];
@@ -87,7 +96,7 @@ function getDisplayName(profile?: Profile) {
 async function feedbackRequest(
   method: "GET" | "POST" | "PATCH",
   body?: object
-): Promise<ApiData | { success: boolean }> {
+): Promise<ApiData | { success: boolean; feedbackId?: string; registered?: boolean }> {
   const response = await fetch(
     "/api/trainer/team-leader-feedback",
     {
@@ -117,6 +126,7 @@ export default function TeamLeaderFeedbackWorkspace({
 
   const [data, setData] = useState<ApiData>({
     feedback: [],
+    attachments: [],
     replies: [],
     profiles: [],
     assignments: [],
@@ -128,6 +138,11 @@ export default function TeamLeaderFeedbackWorkspace({
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FeedbackForm>(emptyForm);
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [notice, setNotice] = useState("");
+  const publicationId = useRef<string | null>(null);
+  const saveLock = useRef(false);
   const [search, setSearch] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("all");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -240,12 +255,18 @@ export default function TeamLeaderFeedbackWorkspace({
   }
 
   function openCreate() {
+    publicationId.current = crypto.randomUUID();
+    setPendingFiles([]);
+    setNotice("");
     setForm(emptyForm);
     setShowForm(true);
     setError("");
   }
 
   function openEdit(item: Feedback) {
+    publicationId.current = item.id;
+    setPendingFiles([]);
+    setNotice("");
     setForm({
       id: item.id,
       teamLeaderId: item.team_leader_id,
@@ -258,8 +279,44 @@ export default function TeamLeaderFeedbackWorkspace({
     setError("");
   }
 
+  function addFiles(files: FileList | File[]) {
+    const incoming = Array.from(files);
+    const valid = incoming.filter(file => /\.pdf$/i.test(file.name) && file.size > 0 && file.size <= 10485760 && (!file.type || file.type === "application/pdf"));
+    setError(valid.length !== incoming.length ? "Only PDF files up to 10 MB are accepted." : "");
+    setPendingFiles(old => [...old, ...valid.map(file => ({ id: crypto.randomUUID(), file }))]);
+  }
+
+  async function discardFile(id: string) {
+    if (saveLock.current) return;
+    if (form.id) {
+      saveLock.current = true;
+      setSaving(true);
+      try {
+        await feedbackRequest("POST", { action: "cleanupAttachment", feedbackId: form.id, attachmentId: id });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to discard attachment.");
+        return;
+      } finally {
+        saveLock.current = false;
+        setSaving(false);
+      }
+    }
+    setPendingFiles(old => old.filter(item => item.id !== id));
+  }
+
+  function closeForm() {
+    if (saveLock.current) return;
+    if (form.id && pendingFiles.length) {
+      setError("Retry or remove the pending attachments before closing this feedback.");
+      return;
+    }
+    setPendingFiles([]);
+    setShowForm(false);
+  }
+
   async function saveFeedback(event: React.FormEvent) {
     event.preventDefault();
+    if (saveLock.current) return;
 
     if (!form.title.trim() || !form.content.trim()) {
       setError("Title and feedback are required.");
@@ -271,36 +328,56 @@ export default function TeamLeaderFeedbackWorkspace({
       return;
     }
 
+    saveLock.current = true;
     setSaving(true);
     setError("");
-
+    setNotice("");
+    let feedbackId = form.id;
     try {
-      if (form.id) {
-        await feedbackRequest("PATCH", {
-          id: form.id,
-          title: form.title,
-          content: form.content,
-        });
-      } else {
-        await feedbackRequest("POST", {
-          teamLeaderId: form.teamLeaderId,
-          learnerId: form.learnerId || null,
-          title: form.title,
-          content: form.content,
-        });
+      // Validate before publishing text; PDFs never travel through the Next.js request body.
+      for (const item of pendingFiles) {
+        const header = new TextDecoder().decode(await item.file.slice(0, 5).arrayBuffer());
+        if (header !== "%PDF-") throw new Error(`${item.file.name} is not a valid PDF.`);
       }
-
+      if (feedbackId) {
+        await feedbackRequest("PATCH", { id: feedbackId, title: form.title, content: form.content });
+      } else {
+        publicationId.current ??= crypto.randomUUID();
+        const result = await feedbackRequest("POST", {
+          id: publicationId.current, teamLeaderId: form.teamLeaderId,
+          learnerId: form.learnerId || null, title: form.title, content: form.content,
+        });
+        if (!("feedbackId" in result) || !result.feedbackId) throw new Error("Feedback ID was not returned. Retry publishing.");
+        feedbackId = result.feedbackId;
+        setForm(current => ({ ...current, id: feedbackId }));
+      }
+      const storage = createClient().storage.from("feedback-attachments");
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const item = pendingFiles[i];
+        setUploadStatus(`Uploading ${i + 1} of ${pendingFiles.length}: ${item.file.name}`);
+        const { error: uploadError } = await storage.upload(`${feedbackId}/${item.id}.pdf`, item.file, {
+          contentType: "application/pdf", upsert: false,
+        });
+        // Also attempt registration when upload returns an error: a previous
+        // attempt may have uploaded the object before losing its response.
+        try {
+          await feedbackRequest("POST", { action: "registerAttachment", feedbackId, attachmentId: item.id, fileName: item.file.name });
+        } catch (err) {
+          throw new Error(`${item.file.name}: ${uploadError?.message ?? (err instanceof Error ? err.message : "Unable to register PDF.")}`);
+        }
+        setPendingFiles(old => old.filter(file => file.id !== item.id));
+      }
       setShowForm(false);
       setForm(emptyForm);
+      setNotice("Feedback saved successfully.");
       await loadData();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to save feedback."
-      );
+      if (feedbackId) await loadData();
+      setError(`${feedbackId ? "Feedback text is saved. Retry or remove the remaining attachments. " : ""}${err instanceof Error ? err.message : "Unable to save feedback."}`);
     } finally {
+      setUploadStatus("");
       setSaving(false);
+      saveLock.current = false;
     }
   }
 
@@ -357,6 +434,7 @@ export default function TeamLeaderFeedbackWorkspace({
           <button
             type="button"
             onClick={openCreate}
+            disabled={saving || showForm}
             className="min-h-10 rounded-[10px] bg-[#08A9C1] px-4 text-[11px] font-semibold text-white hover:bg-[#078FA4]"
           >
             + New Feedback
@@ -391,6 +469,8 @@ export default function TeamLeaderFeedbackWorkspace({
         </div>
       )}
 
+      {notice && <div role="status" className="rounded-[12px] border border-teal-200 bg-teal-50 px-4 py-3 text-[12px] text-teal-800">{notice}</div>}
+
       {error && (
         <div className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[12px] text-red-700">
           {error}
@@ -409,7 +489,8 @@ export default function TeamLeaderFeedbackWorkspace({
 
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
+              disabled={saving}
               className="text-[20px] text-[var(--text-muted)]"
               aria-label="Close form"
             >
@@ -514,10 +595,30 @@ export default function TeamLeaderFeedbackWorkspace({
             />
           </label>
 
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold">Attachments (Optional)</p>
+            {form.id && (data.attachments ?? []).filter(a => a.feedback_id === form.id).map(a => (
+              <div key={a.id} className="rounded-[10px] border border-[var(--border)] px-3 py-2 text-[12px] break-all">{a.file_name} · {fileSize(a.file_size)} · Published</div>
+            ))}
+            {pendingFiles.map(item => (
+              <div key={item.id} className="flex items-center gap-3 rounded-[10px] border border-[var(--border)] px-3 py-2">
+                <span className="min-w-0 flex-1 break-all text-[12px]">{item.file.name}<span className="ml-2 text-[10px] text-[var(--text-muted)]">{fileSize(item.file.size)}</span></span>
+                <button type="button" disabled={saving} onClick={() => void discardFile(item.id)} className="text-[11px] font-semibold text-red-600 disabled:opacity-50">Remove</button>
+              </div>
+            ))}
+            <label onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!saving) addFiles(event.dataTransfer.files); }} className="block cursor-pointer rounded-[10px] border border-dashed border-[#08A9C1]/50 p-4 text-center text-[12px] text-[#07879B]">
+              <span className="font-semibold">Click to upload or drag and drop</span>
+              <span className="mt-1 block text-[10px] text-[var(--text-muted)]">PDF documents · Up to 10 MB per file</span>
+              <input type="file" accept="application/pdf,.pdf" multiple disabled={saving} className="sr-only" onChange={event => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
+            </label>
+            {uploadStatus && <p role="status" className="text-[11px] text-[#07879B]">{uploadStatus}</p>}
+          </div>
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setShowForm(false)}
+              onClick={closeForm}
+              disabled={saving}
               className="min-h-10 rounded-[10px] border border-[var(--border)] px-4 text-[11px] font-semibold"
             >
               Cancel
@@ -589,6 +690,7 @@ export default function TeamLeaderFeedbackWorkspace({
                       <button
                         type="button"
                         onClick={() => openEdit(item)}
+                        disabled={saving || showForm}
                         className="text-[11px] font-semibold text-[#07879B]"
                       >
                         Edit
@@ -626,6 +728,20 @@ export default function TeamLeaderFeedbackWorkspace({
                   >
                     {item.content}
                   </p>
+
+                  {(data.attachments ?? []).some(a => a.feedback_id === item.id) && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-[11px] font-semibold">Attachments</p>
+                      {(data.attachments ?? []).filter(a => a.feedback_id === item.id).map(a => (
+                        <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-[10px] border border-[var(--border)] px-3 py-2">
+                          <span className="rounded bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700">PDF</span>
+                          <div className="min-w-0 flex-1 break-all text-[12px]">{a.file_name}<p className="text-[10px] text-[var(--text-muted)]">{fileSize(a.file_size)}</p></div>
+                          <a href={`/api/trainer/team-leader-feedback?attachmentId=${a.id}`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-[#07879B]">View PDF</a>
+                          <a href={`/api/trainer/team-leader-feedback?attachmentId=${a.id}&download=1`} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-[#07879B]">Download</a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* EXPAND / COLLAPSE CONTROLS */}
 

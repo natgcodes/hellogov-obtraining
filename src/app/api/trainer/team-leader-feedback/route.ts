@@ -11,6 +11,8 @@ type RequestBody = {
   learnerId?: string | null;
   title?: string;
   content?: string;
+  attachmentId?: string;
+  fileName?: string;
 };
 
 function errorResponse(
@@ -82,12 +84,31 @@ async function getContext() {
 // GET — FEEDBACK, REPLIES, PROFILES AND ASSIGNMENTS
 // ------------------------------------------------------------
 
-export async function GET() {
+export async function GET(request: Request) {
   const { supabase, user, role } =
     await getContext();
 
   if (!user || !role) {
     return errorResponse("Unauthorized", 403);
+  }
+
+  const url = new URL(request.url);
+  const attachmentId = url.searchParams.get("attachmentId");
+  if (attachmentId !== null) {
+    if (!validUuid(attachmentId)) return errorResponse("Invalid attachment ID.");
+    const { data: attachment, error } = await supabase
+      .from("team_leader_feedback_attachments")
+      .select("file_path, file_name")
+      .eq("id", attachmentId)
+      .maybeSingle();
+    if (error || !attachment) return errorResponse("Attachment not found.", 404);
+    const { data: signed, error: signError } = await supabase.storage
+      .from("feedback-attachments")
+      .createSignedUrl(attachment.file_path, 60, {
+        download: url.searchParams.get("download") === "1" ? attachment.file_name : false,
+      });
+    if (signError || !signed) return errorResponse("Unable to open attachment.", 403);
+    return NextResponse.redirect(signed.signedUrl, { headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
   }
 
   // Feedback visibility is always determined through
@@ -163,6 +184,22 @@ export async function GET() {
   // ----------------------------------------------------------
   // COLLECT PROFILE IDS REFERENCED IN VISIBLE FEEDBACK
   // ----------------------------------------------------------
+
+  const attachments: { id: string; feedback_id: string; file_name: string; file_size: number }[] = [];
+  if (feedbackIds.length > 0) {
+    // Fetch through the authenticated client, never the service role.
+    for (let offset = 0; ; offset += 200) {
+      const { data, error } = await supabase
+        .from("team_leader_feedback_attachments")
+        .select("id, feedback_id, file_name, file_size")
+        .in("feedback_id", feedbackIds)
+        .order("id")
+        .range(offset, offset + 199);
+      if (error) return errorResponse("Unable to load attachments.", 500);
+      attachments.push(...(data ?? []));
+      if (!data || data.length < 200) break;
+    }
+  }
 
   const relatedIds = new Set<string>();
 
@@ -277,6 +314,7 @@ export async function GET() {
   return NextResponse.json({
     feedback: feedback ?? [],
     replies,
+    attachments,
     profiles,
     assignments,
     role,
@@ -383,6 +421,57 @@ export async function POST(request: Request) {
     );
   }
 
+  if (body.action === "registerAttachment" || body.action === "cleanupAttachment") {
+    if (!validUuid(body.feedbackId) || !validUuid(body.attachmentId)) {
+      return errorResponse("Invalid attachment reference.");
+    }
+    const feedbackId = body.feedbackId!;
+    const id = body.attachmentId!;
+    const path = `${feedbackId}/${id}.pdf`;
+    const { data: parent, error: parentError } = await supabase
+      .from("team_leader_feedback").select("id, author_id")
+      .eq("id", feedbackId).maybeSingle();
+    if (parentError || !parent || parent.author_id !== user.id) {
+      return errorResponse("Feedback not found or access denied.", 403);
+    }
+    const { data: existing, error: existingError } = await supabase
+      .from("team_leader_feedback_attachments").select("id, feedback_id, file_path")
+      .eq("id", id).maybeSingle();
+    if (existingError) return errorResponse("Unable to verify attachment.", 500);
+    if (existing) {
+      if (existing.feedback_id !== feedbackId || existing.file_path !== path) {
+        return errorResponse("Attachment reference conflict.", 409);
+      }
+      // A retry after a lost response must never overwrite or remove a registered PDF.
+      return NextResponse.json({ success: true, registered: true });
+    }
+    // The service role is needed only for an exact, author-owned unregistered
+    // object: RLS deliberately prevents reading/deleting orphan objects.
+    const storage = createAdminClient().storage.from("feedback-attachments");
+    if (body.action === "cleanupAttachment") {
+      const { error } = await storage.remove([path]);
+      if (error) return errorResponse("Unable to clean up pending attachment.", 500);
+      return NextResponse.json({ success: true, registered: false });
+    }
+    const fileName = cleanText(body.fileName, 255);
+    if (!fileName || !/\.pdf$/i.test(fileName) || /[\x00-\x1f\x7f/\\]/.test(fileName)) {
+      return errorResponse("Invalid PDF filename.");
+    }
+    const { data: blob, error: downloadError } = await storage.download(path);
+    if (downloadError || !blob) return errorResponse("PDF upload not found. Retry the upload.", 409);
+    const header = new TextDecoder().decode(await blob.slice(0, 5).arrayBuffer());
+    if (blob.size <= 0 || blob.size > 10485760 || header !== "%PDF-") {
+      return errorResponse("Invalid PDF or file exceeds 10 MB.");
+    }
+    const { error: insertError } = await supabase
+      .from("team_leader_feedback_attachments").insert({
+        id, feedback_id: feedbackId, file_name: fileName, file_path: path,
+        file_size: blob.size, mime_type: "application/pdf", uploaded_by: user.id,
+      });
+    if (insertError) return errorResponse("Unable to register PDF. Retry or discard the pending attachment.", 500);
+    return NextResponse.json({ success: true, registered: true });
+  }
+
   if (!validUuid(body.teamLeaderId)) {
     return errorResponse(
       "Select a valid Team Leader."
@@ -417,9 +506,12 @@ export async function POST(request: Request) {
     );
   }
 
+  if (body.id !== undefined && !validUuid(body.id)) return errorResponse("Invalid feedback ID.");
+  const feedbackId = body.id ?? crypto.randomUUID();
   const { error } = await supabase
     .from("team_leader_feedback")
     .insert({
+      id: feedbackId,
       author_id: user.id,
       team_leader_id: body.teamLeaderId,
       learner_id: learnerId,
@@ -428,6 +520,13 @@ export async function POST(request: Request) {
     });
 
   if (error) {
+    const { data: existing } = await supabase.from("team_leader_feedback")
+      .select("id, author_id, team_leader_id, learner_id, title, content")
+      .eq("id", feedbackId).maybeSingle();
+    if (existing && existing.author_id === user.id && existing.team_leader_id === body.teamLeaderId &&
+        existing.learner_id === learnerId && existing.title === title && existing.content === content) {
+      return NextResponse.json({ success: true, feedbackId });
+    }
     console.error(
       "Unable to create Team Leader feedback:",
       error
@@ -439,9 +538,7 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({
-    success: true,
-  });
+  return NextResponse.json({ success: true, feedbackId });
 }
 
 // ------------------------------------------------------------

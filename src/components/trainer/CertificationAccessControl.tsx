@@ -3,14 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+
 
 type Props = {
   initialEnabled: boolean;
+  programId: string;
+  programTitle: string;
 };
 
 export default function CertificationAccessControl({
   initialEnabled,
+  programId,
+  programTitle,
 }: Props) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(initialEnabled);
@@ -31,7 +35,7 @@ export default function CertificationAccessControl({
       const { data, error: updateError } = await supabase.rpc(
         "set_program_certification_enabled",
         {
-          target_program_id: HELLOGOV_PROGRAM_ID,
+          target_program_id: programId,
           new_enabled: newEnabled,
         }
       );
@@ -58,7 +62,7 @@ export default function CertificationAccessControl({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-[16px] font-semibold text-[var(--text-primary)]">
-            Certification Access
+            Certification Access · {programTitle}
           </h2>
 
           <p className="mt-1 text-[13px] leading-6 text-[var(--text-secondary)]">

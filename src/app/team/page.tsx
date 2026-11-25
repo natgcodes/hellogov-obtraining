@@ -7,9 +7,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import TrainingLeaderboard from "@/components/trainer/TrainingLeaderboard";
 import TeamLeaderFeedbackWorkspace from "@/components/trainer/TeamLeaderFeedbackWorkspace";
 
-import { getTrainerLeaderboard } from "@/lib/trainer/getLeaderboard";
+import { getTrainerLeaderboard, combineLeaderboards } from "@/lib/trainer/getLeaderboard";
 
-export default async function TeamDashboard() {
+import DashboardWaveSelector from "@/components/trainer/DashboardWaveSelector";
+import { getLearnerJourney } from "@/lib/learning/getLearnerJourney";
+
+export default async function TeamDashboard({ searchParams }: { searchParams: Promise<{ programId?: string }> }) {
   const client = await createClient();
 
   const {
@@ -52,92 +55,34 @@ export default async function TeamDashboard() {
     ),
   ];
 
-  // Only assigned Trainees can appear in the team view.
-  const trainee = await getTrainerLeaderboard({
-    role: "learner",
-    learnerIds: ids,
-    useAdmin: true,
-  });
-
-  // Include the Team Leader's own onboarding results.
-  const own = await getTrainerLeaderboard({
-    role: "team_leader",
-    learnerIds: [user.id],
-    useAdmin: true,
-  });
-
-  const learners = [
-    ...trainee.learners,
-    ...own.learners,
-  ].sort(
-    (a, b) =>
-      (b.average ?? -1) - (a.average ?? -1) ||
-      a.name.localeCompare(b.name)
-  );
-
-  let rank = 0;
-  let previous: number | null = null;
-
-  learners.forEach((learner, index) => {
-    if (learner.average == null) {
-      learner.rank = null;
-      return;
-    }
-
-    if (
-      previous == null ||
-      Math.abs(previous - learner.average) > 0.00001
-    ) {
-      rank = index + 1;
-    }
-
-    learner.rank = rank;
-    previous = learner.average;
-  });
-
-  const allTopics = learners.flatMap(
-    (learner) => learner.topics
-  );
-
-  const topicMap = new Map<
-    string,
-    {
-      sum: number;
-      count: number;
-    }
-  >();
-
-  for (const topic of allTopics) {
-    const value = topicMap.get(topic.topic) ?? {
-      sum: 0,
-      count: 0,
-    };
-
-    value.sum += topic.average * topic.count;
-    value.count += topic.count;
-
-    topicMap.set(topic.topic, value);
-  }
-
-  const topics = [...topicMap].map(
-    ([topic, value]) => ({
-      topic,
-      average: value.sum / value.count,
-      count: value.count,
-    })
-  );
-
-  const scored = learners.filter(
-    (learner) => learner.average != null
-  );
-
-  const classAverage = scored.length
-    ? scored.reduce(
-        (total, learner) =>
-          total + (learner.average ?? 0),
-        0
-      ) / scored.length
-    : null;
+  // Resolve available waves exclusively from assigned trainees and the TL.
+  const { data: enrollments, error: enrollmentError } = await admin
+    .from("program_enrollments").select("program_id")
+    .in("learner_id", [...new Set([...ids, user.id])]);
+  if (enrollmentError) throw new Error("Could not load team waves");
+  const programIds = [...new Set((enrollments ?? []).map(e => e.program_id))];
+  const programResult = programIds.length ? await admin.from("programs")
+    .select("id,title").in("id", programIds).order("created_at", { ascending: false }).order("id") : { data: [], error: null };
+  if (programResult.error) throw new Error("Could not load team programs");
+  const programs = programResult.data ?? [];
+  const params = await searchParams;
+  const selectedProgram = programs.find(p => p.id === params.programId);
+  const selected = selectedProgram?.id ?? "all";
+  const selectedPrograms = selectedProgram ? [selectedProgram] : programs;
+  const datasets = await Promise.all(selectedPrograms.map(async program => {
+    const common = { programId: program.id, programTitle: program.title, useAdmin: true };
+    const [trainee, own] = await Promise.all([
+      getTrainerLeaderboard({ ...common, role: "learner", learnerIds: ids }),
+      getTrainerLeaderboard({ ...common, role: "team_leader", learnerIds: [user.id] }),
+    ]);
+    // Both roles share the same assessment catalog; count it only once.
+    return { ...combineLeaderboards([trainee, own]), expectedCount: Math.max(trainee.expectedCount, own.expectedCount), programCount: 1 };
+  }));
+  const leaderboard = combineLeaderboards(datasets);
+  // Only link to learning days available in the TL's own authenticated journey.
+  // Never expose trainer answer keys or switch the TL's active program.
+  const journey = await getLearnerJourney(user.id);
+  const accessibleDayIds = (journey?.days ?? []).filter(day => day.unlocked || day.completed).map(day => day.id);
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
@@ -161,21 +106,8 @@ export default async function TeamDashboard() {
         results appear here.
       </p>
 
-      {/* TEAM LEADERBOARD */}
-
-      <TrainingLeaderboard
-        data={{
-          learners,
-          classAverage,
-          topics,
-          expectedCount:
-            trainee.expectedCount ||
-            own.expectedCount,
-          warning:
-            trainee.warning ||
-            own.warning,
-        }}
-      />
+      <DashboardWaveSelector programs={programs} selected={selected} action="/team" />
+      <TrainingLeaderboard key={selected} data={leaderboard} contentMode="team" accessibleDayIds={accessibleDayIds} />
 
       {/* TRAINER FEEDBACK */}
 

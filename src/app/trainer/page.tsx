@@ -5,13 +5,13 @@ import AppShell from "@/components/layout/AppShell";
 import TrainingLeaderboard from "@/components/trainer/TrainingLeaderboard";
 import CertificationAccessControl from "@/components/trainer/CertificationAccessControl";
 
-import { getTrainerLeaderboard } from "@/lib/trainer/getLeaderboard";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+import { getTrainerLeaderboard, combineLeaderboards } from "@/lib/trainer/getLeaderboard";
+import DashboardWaveSelector from "@/components/trainer/DashboardWaveSelector";
 import { createClient } from "@/lib/supabase/server";
 
 import type { TrainerLearner } from "@/lib/trainer/types";
 
-export default async function TrainerPage() {
+export default async function TrainerPage({ searchParams }: { searchParams: Promise<{ programId?: string }> }) {
   const supabase = await createClient();
 
   // ---------------------------------------------------------
@@ -28,11 +28,11 @@ export default async function TrainerPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name,email,role")
+    .select("full_name,email,role,account_status")
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "trainer") {
+  if (!profile || profile.role !== "trainer" || profile.account_status !== "active") {
     redirect("/learn");
   }
 
@@ -40,113 +40,39 @@ export default async function TrainerPage() {
   // TRAINER DASHBOARD DATA
   // ---------------------------------------------------------
 
-  const [
-    { data: learners },
-    { data: checkpoints },
-    { data: certs },
-    {
-      data: programSettings,
-      error: certificationSettingsError,
-    },
-  ] = await Promise.all([
-    // Trainees
-    supabase.rpc("get_trainer_learners", {
-      target_program_id: HELLOGOV_PROGRAM_ID,
-    }),
-
-    // Pending checkpoints
-    supabase
-      .from("checkpoint_results")
-      .select(
-        `
-        id,
-        status,
-        submitted_at,
-        learner_id,
-        checkpoints!inner(
-          id,
-          title,
-          passing_score,
-          days!inner(program_id)
-        ),
-        profiles!checkpoint_results_learner_id_fkey(
-          full_name,
-          email
-        )
-        `
-      )
-      .eq("status", "submitted")
-      .eq(
-        "checkpoints.days.program_id",
-        HELLOGOV_PROGRAM_ID
-      ),
-
-    // Pending certification reviews
-    supabase
-      .from("certification_component_results")
-      .select(
-        `
-        id,
-        status,
-        submitted_at,
-        learner_id,
-        certification_components!inner(
-          id,
-          title,
-          passing_score,
-          certifications!inner(program_id)
-        ),
-        profiles!certification_component_results_learner_id_fkey(
-          full_name,
-          email
-        )
-        `
-      )
-      .eq("status", "submitted")
-      .eq(
-        "certification_components.certifications.program_id",
-        HELLOGOV_PROGRAM_ID
-      ),
-
-    // Global certification access
-    supabase
-      .from("programs")
-      .select("certification_enabled")
-      .eq("id", HELLOGOV_PROGRAM_ID)
-      .single(),
-  ]);
-
-  // ---------------------------------------------------------
-  // CERTIFICATION SETTINGS
-  // ---------------------------------------------------------
-
-  if (certificationSettingsError) {
-    console.error(
-      "Unable to load certification settings:",
-      certificationSettingsError
-    );
-  }
-
-  const certificationEnabled =
-    programSettings?.certification_enabled === true;
-
-  // ---------------------------------------------------------
-  // LEADERBOARDS
-  // ---------------------------------------------------------
-
-  const leaderboard = await getTrainerLeaderboard();
-
-  const teamLeaderLeaderboard =
-    await getTrainerLeaderboard({
-      role: "team_leader",
-    });
+  const { data: programs, error: programsError } = await supabase
+    .from("programs").select("id,title,certification_enabled")
+    .order("created_at", { ascending: false }).order("id");
+  if (programsError) throw new Error("Could not load training waves.");
+  const available = programs ?? [];
+  const params = await searchParams;
+  const selectedProgram = available.find(p => p.id === params.programId);
+  const selected = selectedProgram?.id ?? "all";
+  const selectedPrograms = selectedProgram ? [selectedProgram] : available;
+  const results = await Promise.all(selectedPrograms.map(async program => {
+    const [learners, checkpoints, certs, leaderboard, teamLeaders] = await Promise.all([
+      supabase.rpc("get_trainer_learners", { target_program_id: program.id }),
+      supabase.from("checkpoint_results")
+        .select("id,checkpoints!inner(days!inner(program_id))", { count: "exact", head: true })
+        .eq("status", "submitted").eq("checkpoints.days.program_id", program.id),
+      supabase.from("certification_component_results")
+        .select("id,certification_components!inner(certifications!inner(program_id))", { count: "exact", head: true })
+        .eq("status", "submitted").eq("certification_components.certifications.program_id", program.id),
+      getTrainerLeaderboard({ programId: program.id, programTitle: program.title }),
+      getTrainerLeaderboard({ role: "team_leader", programId: program.id, programTitle: program.title }),
+    ]);
+    if (learners.error || checkpoints.error || certs.error) throw new Error("Could not load dashboard metrics for " + program.title);
+    return { learners: (learners.data ?? []) as TrainerLearner[], checkpoints: checkpoints.count ?? 0, certs: certs.count ?? 0, leaderboard, teamLeaders };
+  }));
+  const leaderboard = combineLeaderboards(results.map(r => r.leaderboard));
+  const teamLeaderLeaderboard = combineLeaderboards(results.map(r => r.teamLeaders));
 
   // ---------------------------------------------------------
   // TRAINEE METRICS
   // ---------------------------------------------------------
 
   const traineeList =
-    (learners ?? []) as TrainerLearner[];
+    results.flatMap(r => r.learners);
 
   const averageProgress = traineeList.length
     ? traineeList.reduce(
@@ -169,10 +95,10 @@ export default async function TrainerPage() {
   );
 
   const checkpointPending =
-    checkpoints?.length ?? 0;
+    results.reduce((sum, r) => sum + r.checkpoints, 0);
 
   const certificationPending =
-    certs?.length ?? 0;
+    results.reduce((sum, r) => sum + r.certs, 0);
 
   const totalPendingReviews =
     quizPending +
@@ -186,14 +112,14 @@ export default async function TrainerPage() {
 
   const metrics = [
     {
-      label: "Trainees",
+      label: selected === "all" ? "Trainee enrollments" : "Trainees",
       value: traineeList.length,
       helper: `${inProgress} currently in progress`,
     },
     {
       label: "Average progress",
       value: `${averageProgress.toFixed(0)}%`,
-      helper: "Across active onboarding",
+      helper: "Across selected onboarding enrollments",
     },
     {
       label: "Completed",
@@ -248,6 +174,8 @@ export default async function TrainerPage() {
             </Link>
           </section>
 
+          <DashboardWaveSelector programs={available} selected={selected} action="/trainer" />
+
           {/* =================================================
               METRICS
           ================================================= */}
@@ -277,15 +205,18 @@ export default async function TrainerPage() {
               GLOBAL CERTIFICATION ACCESS
           ================================================= */}
 
-          <CertificationAccessControl
-            initialEnabled={certificationEnabled}
-          />
+          {selectedProgram ? <CertificationAccessControl
+            key={selectedProgram.id}
+            programId={selectedProgram.id}
+            programTitle={selectedProgram.title}
+            initialEnabled={selectedProgram.certification_enabled === true}
+          /> : <p className="mt-7 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Select a specific wave to manage its certification access.</p>}
 
           {/* =================================================
               TRAINING LEADERBOARD
           ================================================= */}
 
-          <TrainingLeaderboard data={leaderboard} />
+          <TrainingLeaderboard key={selected} data={leaderboard} contentMode="trainer" />
 
           {/* =================================================
               TEAM LEADER RANKING
@@ -301,6 +232,7 @@ export default async function TrainerPage() {
               Leaders. Visible only to Trainers.
             </p>
 
+            {teamLeaderLeaderboard.warning && <p className="mt-3 text-xs text-amber-800">{teamLeaderLeaderboard.warning}</p>}
             <div className="mt-5 space-y-3">
               {teamLeaderLeaderboard.learners
                 .filter(
@@ -309,11 +241,11 @@ export default async function TrainerPage() {
                 )
                 .map((learner) => (
                   <div
-                    key={learner.id}
+                    key={learner.enrollmentKey ?? learner.id}
                     className="flex justify-between border-b border-slate-100 py-2 text-sm"
                   >
                     <span>
-                      #{learner.rank} · {learner.name}
+                      #{learner.rank} · {learner.name} · {learner.programTitle}
                     </span>
 
                     <span>

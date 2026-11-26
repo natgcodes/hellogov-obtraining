@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { type ProgressDetail, withWave, statusLabel } from "@/lib/trainer/progressV2";
 import { notFound, redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
@@ -13,6 +14,7 @@ import ResetTraineeProgress from "@/components/trainer/ResetTraineeProgress";
 import { createClient } from "@/lib/supabase/server";
 
 type Props = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
   }>;
@@ -125,7 +127,7 @@ type LearnerProfileRow = {
 };
 
 export default async function LearnerDetailPage({
-  params,
+  params, searchParams,
 }: Props) {
   const { learnerId } = await params;
 
@@ -211,17 +213,19 @@ export default async function LearnerDetailPage({
   // ACTIVE PROGRAM
   // ----------------------------------------------------------
 
-  const activeProgramId =
-    learnerProfile.active_program_id;
+  const activeProgramId = learnerProfile.active_program_id;
+  const requestedWave = (await searchParams).wave ?? activeProgramId;
+  const {data: enrollment, error: enrollmentError} = await supabase.from("program_enrollments").select("program_id").eq("learner_id",learnerId).eq("program_id",requestedWave ?? "").maybeSingle();
+  if (enrollmentError || !enrollment) notFound();
 
-  if (!activeProgramId) {
+  if (!requestedWave) {
     throw new Error(
       "This trainee does not have an assigned training wave."
     );
   }
 
   const activeWave = availableWaves.find(
-    (wave) => wave.id === activeProgramId
+    (wave) => wave.id === requestedWave
   );
 
   if (!activeWave) {
@@ -232,6 +236,7 @@ export default async function LearnerDetailPage({
 
   const programId = activeWave.id;
 
+  const isHistorical = programId !== activeProgramId;
   const rpcParams = {
     target_program_id: programId,
     target_learner_id: learnerId,
@@ -241,19 +246,16 @@ export default async function LearnerDetailPage({
   // TRAINER / TRAINEE DATA
   // ----------------------------------------------------------
 
+  const {data: detailData, error: detailError} = await supabase.rpc("hg_get_trainee_detail_v2",rpcParams);
+  if (detailError || !detailData) throw new Error("Unable to load complete trainee progress.");
+  const detail = detailData as ProgressDetail;
   const [
-    summaryResponse,
     daysResponse,
     modulesResponse,
     quizzesResponse,
     checkpointsResponse,
     activityResponse,
   ] = await Promise.all([
-    supabase.rpc(
-      "get_trainer_learner_summary",
-      rpcParams
-    ),
-
     supabase.rpc(
       "get_trainer_learner_day_progress",
       rpcParams
@@ -283,17 +285,6 @@ export default async function LearnerDetailPage({
   // ----------------------------------------------------------
   // ERRORS
   // ----------------------------------------------------------
-
-  if (summaryResponse.error) {
-    console.error(
-      "Unable to load trainee summary:",
-      summaryResponse.error
-    );
-
-    throw new Error(
-      "Unable to load trainee summary."
-    );
-  }
 
   if (daysResponse.error) {
     console.error(
@@ -350,17 +341,14 @@ export default async function LearnerDetailPage({
   // NORMALIZE DATA
   // ----------------------------------------------------------
 
-  const summaryRaw = summaryResponse.data;
+  const summary: LearnerSummaryRow = {
+    learner_id:detail.learner_id, full_name:detail.full_name,email:detail.email,
+    enrollment_status:detail.training_status,progress_percent:detail.overall_progress,
+    completed_modules:detail.completed_modules,total_modules:detail.total_modules,
+    passed_quizzes:detail.submitted_assessments,total_quizzes:detail.total_assessments,
+    needs_review:detail.pending_review_assessments,completed_checkpoints:detail.completed_checkpoints,total_checkpoints:detail.total_checkpoints,
+  };
 
-  const summary = (
-    Array.isArray(summaryRaw)
-      ? summaryRaw[0]
-      : summaryRaw
-  ) as LearnerSummaryRow | null;
-
-  if (!summary) {
-    notFound();
-  }
 
   const dayRows = (daysResponse.data ??
     []) as DayRow[];
@@ -711,11 +699,11 @@ export default async function LearnerDetailPage({
           {/* BACK */}
 
           <Link
-            href="/trainer/learners"
+            href={withWave("/trainer/learners",programId)}
             className="inline-flex items-center gap-1.5 text-[12px] font-medium !text-[var(--text-muted)] transition hover:!text-[var(--text-primary)]"
           >
             <span aria-hidden="true">←</span>
-            Back to trainees
+            Back to Trainee Progress
           </Link>
 
           {/* PROFILE HEADER */}
@@ -745,8 +733,8 @@ export default async function LearnerDetailPage({
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <Link
-                href={`/trainer/impersonate/${learnerId}`}
+              {detail.program_status === "published" && <Link
+                href={withWave(`/trainer/impersonate/${learnerId}`,programId)}
                 className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#08A9C1]/25 bg-[#EAF8FA] px-4 text-[11px] font-semibold !text-[#07879B] transition hover:bg-[#DDF4F7]"
               >
                 <svg
@@ -763,8 +751,8 @@ export default async function LearnerDetailPage({
                   <circle cx="12" cy="12" r="2.5" />
                 </svg>
 
-                Impersonate
-              </Link>
+                View as Learner
+              </Link>}
 
               <StatusBadge
                 status={
@@ -776,7 +764,8 @@ export default async function LearnerDetailPage({
 
           {/* MANAGEMENT */}
 
-          <div className="mt-7">
+          <p className="mt-4 text-sm text-[var(--text-secondary)]">{detail.wave_title} · {isHistorical ? "Historical enrollment (read-only)" : "Current assignment"} · {statusLabel(detail.account_status)}</p>
+          {!isHistorical && <div className="mt-7">
             <LearnerManagementPanel
               learnerId={learnerId}
               programId={programId}
@@ -791,7 +780,7 @@ export default async function LearnerDetailPage({
                 summary.enrollment_status
               }
             />
-          </div>
+          </div>}
 
           {/* OVERALL PROGRESS */}
 
@@ -808,7 +797,7 @@ export default async function LearnerDetailPage({
                   </p>
 
                   <p className="text-[11px] text-[var(--text-muted)]">
-                    completed
+                    of full onboarding · {Number(detail.available_progress).toFixed(1)}% of available content
                   </p>
                 </div>
               </div>
@@ -849,9 +838,9 @@ export default async function LearnerDetailPage({
             />
 
             <Metric
-              label="Quizzes passed"
+              label="Assessments submitted"
               value={`${passedQuizzes}/${totalQuizzes}`}
-              helper="Passed assessments"
+              helper={`${detail.passed_assessments} passed`}
             />
 
             <Metric
@@ -867,6 +856,13 @@ export default async function LearnerDetailPage({
             />
           </section>
 
+          <section className="mt-6 rounded-2xl border border-[var(--border)] bg-white p-5">
+            <h2 className="text-lg font-semibold">Full onboarding inventory</h2><p className="mt-1 text-xs text-[var(--text-muted)]">Includes unpublished and optional content. Submission, academic result and completion are separate.</p>
+            {Array.from(new Set([...detail.modules.map(m=>m.day_number),...detail.assessments.map(a=>a.day_number)])).sort((a,b)=>a-b).map(day=><details key={day} className="mt-3 rounded-lg border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-semibold">Day {day} · {detail.modules.filter(m=>m.day_number===day&&m.calculated_status==="completed").length}/{detail.modules.filter(m=>m.day_number===day).length} modules completed</summary>
+            <div className="mt-3 divide-y divide-[var(--border-soft)]">{detail.modules.filter(m=>m.day_number===day).map(m=><div key={m.module_id} className="flex flex-wrap justify-between gap-2 py-2 text-sm"><span>{m.module_title} <small className="text-[var(--text-muted)]">· {m.is_required?"Required":"Optional"}</small></span><span>{statusLabel(m.calculated_status)} · {m.available?"Available":`Unavailable (${statusLabel(m.publication_status)})`}</span></div>)}</div>
+            <div className="mt-3 divide-y divide-[var(--border-soft)]">{detail.assessments.filter(a=>a.day_number===day).map(a=><div key={`${a.assessment_type}:${a.id}`} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><div><p className="font-medium">{a.title}</p><p className="text-xs text-[var(--text-muted)]">{a.assessment_type==="module_quiz"?a.module_title:"Checkpoint assessment"} · {a.is_required?"Required":"Optional"} · {a.available?"Available":"Unavailable"}</p></div><div className="text-right text-xs"><p>{a.completion?"Completed":"Incomplete"}{a.manually_completed?" · Manual completion":""} · {a.ever_passed?"Previously passed":"No passing result"}</p><p>Latest valid attempt: {statusLabel(a.latest_attempt_status)}{a.latest_score!==null?` · ${a.latest_score}%`:""}{a.latest_passed===false&&a.latest_attempt_status==="graded"?" · Not passed":""} · Best: {a.best_score===null?"—":`${a.best_score}%`}</p>{a.pending_review_count>0&&<p>{a.pending_review_count} pending review</p>}{a.cancelled_attempt_count>0&&<p>{a.cancelled_attempt_count} cancelled</p>}{a.latest_attempt_id&&a.submitted_at&&<Link className="!text-[#07879B]" href={`/trainer/review/${a.latest_attempt_id}`}>View submission →</Link>}</div></div>)}</div></details>)}
+          </section>
+          <h2 className="mt-6 text-lg font-semibold">Published content breakdown</h2>
           {/* DETAILED PROGRESS */}
 
           <LearnerProgressBreakdown
@@ -937,11 +933,11 @@ export default async function LearnerDetailPage({
 
           {/* DANGER ZONE */}
 
-          <ResetTraineeProgress
+          {!isHistorical && <ResetTraineeProgress
             learnerId={learnerId}
             programId={programId}
             traineeName={traineeName}
-          />
+          />}
         </main>
       </div>
     </AppShell>

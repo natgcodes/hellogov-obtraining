@@ -9,8 +9,7 @@ import TeamAssignments from "@/components/trainer/TeamAssignments";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/constants/program";
-import { getTrainerProgram } from "@/lib/trainer/getTrainerProgram";
+import type { ProgressSnapshot, TrainingWave } from "@/lib/trainer/progressV2";
 
 type UserProfile = {
   id: string;
@@ -19,6 +18,7 @@ type UserProfile = {
   role: string;
   team_lead: string | null;
   account_status: "active" | "deactivated";
+  active_program_id: string | null;
 };
 
 type UserStatus =
@@ -27,15 +27,6 @@ type UserStatus =
   | "in_progress"
   | "completed";
 
-type Enrollment = {
-  learner_id: string;
-  status: string;
-};
-
-type LearnerProgress = {
-  learner_id: string;
-  progress_percent: number | null;
-};
 
 // ============================================================
 // USER STATUS
@@ -52,14 +43,10 @@ function getUserStatus({
   enrollmentStatus: string | null;
   progressPercent: number;
 }): UserStatus {
-  // Never logged in
-  if (!lastSignInAt) {
-    return "not_logged_in";
-  }
 
   // Trainers do not complete learner onboarding
   if (role === "trainer") {
-    return "logged_in";
+    return lastSignInAt ? "logged_in" : "not_logged_in";
   }
 
   // Completed onboarding
@@ -76,7 +63,7 @@ function getUserStatus({
   }
 
   // Logged in but has not started onboarding
-  return "logged_in";
+  return lastSignInAt ? "logged_in" : "not_logged_in";
 }
 
 // ============================================================
@@ -104,13 +91,13 @@ export default async function TrainerUsersPage() {
 
   const { data: currentProfile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     !currentProfile ||
-    currentProfile.role !== "trainer"
+    currentProfile.role !== "trainer" || currentProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
@@ -121,7 +108,7 @@ export default async function TrainerUsersPage() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, team_lead, account_status")
+    .select("id, full_name, email, role, team_lead, account_status, active_program_id")
     .in("role", [
   "learner",
   "trainer",
@@ -183,74 +170,19 @@ export default async function TrainerUsersPage() {
   // FETCH LEARNER ENROLLMENT STATUS
   // ---------------------------------------------------------
 
-  const {
-    data: enrollments,
-    error: enrollmentsError,
-  } = await admin
-    .from("program_enrollments")
-    .select("learner_id, status")
-    .eq("program_id", HELLOGOV_PROGRAM_ID);
-
-  if (enrollmentsError) {
-    console.error(
-      "Unable to load enrollment statuses:",
-      enrollmentsError
-    );
+  const [progressResult,wavesResult] = await Promise.all([
+    supabase.rpc("hg_get_trainee_progress_v2",{target_program_id:null,target_role:null,include_historical:false}),
+    supabase.rpc("hg_get_training_waves_v2")
+  ]);
+  const enrollmentsError = progressResult.error;
+  const progressErrorMessage = progressResult.error || wavesResult.error ? "Some training information is temporarily unavailable." : null;
+  const enrollmentMap = new Map<string,string>();
+  const progressMap = new Map<string,number>();
+  for (const learner of (progressResult.data ?? []) as ProgressSnapshot[]) {
+    enrollmentMap.set(learner.learner_id,learner.training_status);
+    progressMap.set(learner.learner_id,Number(learner.overall_progress));
   }
-
-  const enrollmentMap = new Map<string, string>();
-
-  for (const enrollment of (enrollments ?? []) as Enrollment[]) {
-    enrollmentMap.set(
-      enrollment.learner_id,
-      enrollment.status
-    );
-  }
-
-  // ---------------------------------------------------------
-  // FETCH LEARNER PROGRESS
-  //
-  // Uses the same RPC as Trainer > Trainees.
-  // ---------------------------------------------------------
-
-  const program = await getTrainerProgram();
-
-  const progressMap = new Map<string, number>();
-
-  let progressErrorMessage: string | null = null;
-
-  if (program) {
-    const {
-      data: learnerProgress,
-      error: progressError,
-    } = await supabase.rpc(
-      "get_trainer_learners",
-      {
-        target_program_id: program.id,
-      }
-    );
-
-    if (progressError) {
-      console.error(
-        "Unable to load learner progress:",
-        progressError
-      );
-
-      progressErrorMessage =
-        "Some learner progress information is temporarily unavailable.";
-    }
-
-    for (const learner of
-      (learnerProgress ?? []) as LearnerProgress[]) {
-      progressMap.set(
-        learner.learner_id,
-        Number(learner.progress_percent ?? 0)
-      );
-    }
-  } else {
-    progressErrorMessage =
-      "The onboarding program could not be found.";
-  }
+  const waveNames = new Map(((wavesResult.data ?? []) as TrainingWave[]).map(w=>[w.id,w.title]));
 
   // ---------------------------------------------------------
   // RESOLVE USER STATUSES
@@ -387,6 +319,7 @@ export default async function TrainerUsersPage() {
                     <tr className="border-b border-[var(--border-soft)]">
                       <TableHeader>User</TableHeader>
                       <TableHeader>Role</TableHeader>
+                      <TableHeader>Wave</TableHeader>
                       <TableHeader>Team Lead</TableHeader>
                       <TableHeader>Status</TableHeader>
 
@@ -419,6 +352,7 @@ export default async function TrainerUsersPage() {
                           <RoleBadge role={profile.role} />
                         </td>
 
+                        <td className="px-4 py-4 text-xs">{profile.active_program_id ? waveNames.get(profile.active_program_id) ?? "Unavailable" : "—"}</td>
                         {/* TEAM LEAD */}
 
                         <td className="px-4 py-4 text-[12px] text-[var(--text-secondary)]">

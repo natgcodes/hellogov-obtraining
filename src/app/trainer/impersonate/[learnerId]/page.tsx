@@ -1,23 +1,25 @@
+import { withWave } from "@/lib/trainer/progressV2";
+import { resolvePreviewProgram, getPreviewProgram } from "@/lib/trainer/getImpersonatedLearner";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import SetupChecklist from "@/components/learning/SetupChecklist";
 import LearnerProgressBar from "@/components/learning/LearnerProgressBar";
 import { createClient } from "@/lib/supabase/server";
-import { getLearnerProgram } from "@/lib/learning/getLearnerProgram";
 import {
   getImpersonatedLearnerProgress,
   getImpersonatedLearnerJourney,
 } from "@/lib/trainer/getImpersonatedLearner";
 
 type PageProps = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
   }>;
 };
 
 export default async function ImpersonateLearnerPage({
-  params,
+  params, searchParams,
 }: PageProps) {
   const { learnerId } = await params;
   const supabase = await createClient();
@@ -36,16 +38,18 @@ export default async function ImpersonateLearnerPage({
 
   const { data: trainerProfile } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     !trainerProfile ||
-    trainerProfile.role !== "trainer"
+    trainerProfile.role !== "trainer" || trainerProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
+
+  const programId = await resolvePreviewProgram(learnerId, (await searchParams).wave);
 
   // ============================================================
   // TARGET TRAINEE + PROGRAM
@@ -58,7 +62,7 @@ export default async function ImpersonateLearnerPage({
       .eq("id", learnerId)
       .single(),
 
-    getLearnerProgram(),
+    getPreviewProgram(learnerId,programId),
   ]);
 
   const {
@@ -95,7 +99,7 @@ export default async function ImpersonateLearnerPage({
         userName={trainee.full_name}
         userEmail={trainee.email}
         impersonation={{
-          learnerId,
+        learnerId, programId,
           learnerName: traineeName,
           learnerEmail: trainee.email,
         }}
@@ -103,6 +107,7 @@ export default async function ImpersonateLearnerPage({
         <ImpersonationBanner
           traineeName={traineeName}
           learnerId={learnerId}
+          programId={programId}
         />
 
         <div className="px-5 py-8 sm:px-7 lg:px-8">
@@ -134,9 +139,7 @@ export default async function ImpersonateLearnerPage({
         learnerId
       ),
 
-      getImpersonatedLearnerJourney(
-        learnerId
-      ),
+      getImpersonatedLearnerJourney(learnerId, programId),
     ]);
 
   // ============================================================
@@ -246,7 +249,7 @@ export default async function ImpersonateLearnerPage({
         learnerJourneyWithSetup
       }
       impersonation={{
-        learnerId,
+        learnerId, programId,
         learnerName: traineeName,
         learnerEmail: trainee.email,
       }}
@@ -254,6 +257,7 @@ export default async function ImpersonateLearnerPage({
       <ImpersonationBanner
         traineeName={traineeName}
         learnerId={learnerId}
+          programId={programId}
       />
 
       <div className="px-5 py-7 sm:px-7 lg:px-8 lg:py-8">
@@ -265,7 +269,7 @@ export default async function ImpersonateLearnerPage({
 
           <section>
             <p className="text-[12px] font-medium text-[var(--text-muted)]">
-              HelloGov Learning Center
+              {program.title}
             </p>
 
             <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.035em] text-[var(--text-primary)] sm:text-[30px]">
@@ -499,7 +503,7 @@ export default async function ImpersonateLearnerPage({
 
                     <div className="mt-5">
                       <Link
-                        href={`${impersonationBase}/day/${currentDayState.day.id}`}
+                        href={withWave(`${impersonationBase}/day/${currentDayState.day.id}`,programId)}
                         prefetch
                         className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] bg-[#08A9C1] px-4 text-[13px] font-semibold !text-white shadow-[0_4px_12px_rgba(8,169,193,0.16)] transition hover:bg-[#0795AA] hover:!text-white"
                       >
@@ -806,7 +810,7 @@ export default async function ImpersonateLearnerPage({
                       <div className="shrink-0 pl-[52px] sm:pl-0">
                         {accessible ? (
                           <Link
-                            href={`${impersonationBase}/day/${day.id}`}
+                            href={withWave(`${impersonationBase}/day/${day.id}`,programId)}
                             prefetch
                             className={`inline-flex min-h-9 items-center justify-center rounded-[9px] px-3.5 text-[12px] font-semibold transition ${
                               isCurrent
@@ -880,10 +884,11 @@ export default async function ImpersonateLearnerPage({
 
 function ImpersonationBanner({
   traineeName,
-  learnerId,
+  learnerId, programId,
 }: {
   traineeName: string;
   learnerId: string;
+  programId: string;
 }) {
   return (
     <div className="border-b border-[#08A9C1]/20 bg-[#EAF8FA]">
@@ -912,7 +917,7 @@ function ImpersonationBanner({
 
           <div>
             <p className="text-[12px] font-semibold text-[#07879B]">
-              Impersonating {traineeName}
+              Learner Preview · {traineeName}
             </p>
 
             <p className="text-[11px] text-[var(--text-secondary)]">
@@ -922,10 +927,10 @@ function ImpersonationBanner({
         </div>
 
         <Link
-          href={`/trainer/learners/${learnerId}`}
+          href={withWave(`/trainer/learners/${learnerId}`, programId)}
           className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-white px-3.5 text-[12px] font-semibold !text-[#07879B] transition hover:bg-[#F5FCFD]"
         >
-          Exit impersonation
+          Exit preview
         </Link>
       </div>
     </div>

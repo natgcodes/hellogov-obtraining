@@ -12,6 +12,8 @@ type Props = {
   module: LearnerModule;
   progress: ProgressMap;
   readOnly?: boolean;
+  previewQuizBase?: string;
+  previewProgramId?: string;
 };
 
 function getStatusStyles(status: string) {
@@ -44,7 +46,7 @@ function getStatusStyles(status: string) {
 export default function LearnerModuleCard({
   module,
   progress,
-  readOnly = false,
+  readOnly = false, previewQuizBase, previewProgramId,
 }: Props) {
   const status =
     progress.modules[module.id] ?? "not_started";
@@ -269,9 +271,7 @@ export default function LearnerModuleCard({
                     </div>
 
                     {readOnly ? (
-                      <span className="inline-flex shrink-0 items-center justify-center rounded-[9px] border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-2.5 text-[12px] font-semibold text-[var(--text-muted)]">
-                        Read only
-                      </span>
+                      <div className="text-right text-xs"><p>{progress.quizzes[quiz.id] ? "Completed" : "Incomplete"}{progress.manuallyCompletedQuizzes[quiz.id] ? " · Manual completion" : ""}</p>{previewQuizBase && previewProgramId && <Link className="font-semibold !text-[#07879B]" href={`${previewQuizBase}/${quiz.id}?wave=${encodeURIComponent(previewProgramId)}`}>View quiz →</Link>}</div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
                         <Link

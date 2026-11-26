@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import TrainingLeaderboard from "@/components/trainer/TrainingLeaderboard";
 
-import { getTrainerLeaderboard } from "@/lib/trainer/getLeaderboard";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+import { getTrainerLeaderboard, combineLeaderboards } from "@/lib/trainer/getLeaderboard";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { TrainingWave } from "@/lib/trainer/progressV2";
 import { createClient } from "@/lib/supabase/server";
 
 type ExecutiveMetrics = {
@@ -15,7 +16,7 @@ type ExecutiveMetrics = {
   needs_review: number;
 };
 
-export default async function ExecutivePage() {
+export default async function ExecutivePage({searchParams}: {searchParams: Promise<{wave?:string}>}) {
   const supabase = await createClient();
 
   // ---------------------------------------------------------
@@ -48,18 +49,21 @@ export default async function ExecutivePage() {
   // EXECUTIVE DASHBOARD METRICS
   // ---------------------------------------------------------
 
+  const waveResult = await supabase.rpc("hg_get_executive_waves_v2");
+  if (waveResult.error) throw new Error("Unable to load executive waves.");
+  const waves = (waveResult.data ?? []) as TrainingWave[];
+  const awaitedWave = (await searchParams).wave;
+  const selected = waves.find(w=>w.id === (awaitedWave));
+  const selectedPrograms = selected ? [selected] : waves;
   const { data: metricsData, error: metricsError } =
     await supabase
       .rpc("get_executive_dashboard_metrics", {
-        target_program_id: HELLOGOV_PROGRAM_ID,
+        target_program_id: selected?.id ?? null,
       })
       .single();
 
   if (metricsError) {
-    console.error(
-      "Unable to load Executive dashboard metrics:",
-      metricsError
-    );
+    throw new Error("Unable to load Executive dashboard metrics.");
   }
 
   const dashboardMetrics =
@@ -72,10 +76,10 @@ export default async function ExecutivePage() {
   // Executive authorization.
   // ---------------------------------------------------------
 
-  const leaderboard = await getTrainerLeaderboard({
-    role: "learner",
-    useAdmin: true,
-  });
+  const admin = createAdminClient();
+  const {data: assignments,error: assignmentError} = selected ? {data:[],error:null} : await admin.from("profiles").select("id,active_program_id").eq("role","learner");
+  if (assignmentError) throw new Error("Unable to load current wave assignments.");
+  const leaderboard = combineLeaderboards(await Promise.all(selectedPrograms.map(w=>getTrainerLeaderboard({role:"learner",useAdmin:true,programId:w.id,programTitle:w.title,...(!selected?{learnerIds:(assignments??[]).filter(a=>a.active_program_id===w.id).map(a=>a.id)}:{})}))));
 
   // ---------------------------------------------------------
   // METRIC CARDS
@@ -94,7 +98,7 @@ export default async function ExecutivePage() {
       value: `${Number(
         dashboardMetrics?.average_progress ?? 0
       ).toFixed(0)}%`,
-      helper: "Across active onboarding",
+      helper: "Across full onboarding content",
     },
     {
       label: "Completed",
@@ -140,6 +144,8 @@ export default async function ExecutivePage() {
             </div>
           </section>
 
+          <form action="/executive" className="mt-5 flex items-end gap-3"><label className="grid gap-1 text-xs font-medium">Training wave<select name="wave" defaultValue={selected?.id??"all"} className="rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm"><option value="all">All Waves — current assignments</option>{waves.map(w=><option key={w.id} value={w.id}>{w.title}</option>)}</select></label><button className="rounded-lg bg-[#07879B] px-4 py-2 text-sm font-semibold text-white">Apply</button></form>
+          <p className="mt-2 text-xs text-[var(--text-muted)]">{selected?"Includes historical enrollments in this wave.":"Current assignments only; no duplicate historical users."}</p>
           {/* METRICS */}
 
           <section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

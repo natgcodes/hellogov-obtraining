@@ -36,6 +36,7 @@ export type SubmissionItem = {
 type Props = {
   submissions: SubmissionItem[];
   basePath?: string;
+  programId?: string;
 };
 
 function formatDate(value: string | null) {
@@ -52,7 +53,7 @@ function formatDate(value: string | null) {
 
 export default function SubmissionHistory({
   submissions,
-  basePath = "/learn/submissions",
+  basePath = "/learn/submissions", programId,
 }: Props) {
   const [typeFilter, setTypeFilter] =
     useState<SubmissionFilter>("all");
@@ -255,7 +256,7 @@ export default function SubmissionHistory({
                     </div>
 
                     <Link
-                      href={`${basePath}/${submission.id}`}
+                      href={`${basePath}/${submission.id}${programId ? `?wave=${encodeURIComponent(programId)}` : ""}`}
                       className="ml-auto inline-flex items-center gap-2 whitespace-nowrap text-[12px] font-semibold text-[var(--text-primary)] transition hover:text-[var(--teal)]"
                     >
                       View details

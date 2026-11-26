@@ -1,3 +1,5 @@
+import { withWave } from "@/lib/trainer/progressV2";
+import { resolvePreviewProgram } from "@/lib/trainer/getImpersonatedLearner";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -6,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getImpersonatedLearnerJourney } from "@/lib/trainer/getImpersonatedLearner";
 
 type Props = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
     attemptId: string;
@@ -79,7 +82,7 @@ type GroupedAnswer = {
 };
 
 export default async function ImpersonatedSubmissionPage({
-  params,
+  params, searchParams,
 }: Props) {
   const { learnerId, attemptId } =
     await params;
@@ -107,17 +110,19 @@ export default async function ImpersonatedSubmissionPage({
     error: trainerError,
   } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     trainerError ||
     !trainerProfile ||
-    trainerProfile.role !== "trainer"
+    trainerProfile.role !== "trainer" || trainerProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
+
+  const programId = await resolvePreviewProgram(learnerId, (await searchParams).wave);
 
   // ============================================================
   // TARGET TRAINEE
@@ -146,9 +151,7 @@ export default async function ImpersonatedSubmissionPage({
     "Trainee";
 
   const journey =
-    await getImpersonatedLearnerJourney(
-      learnerId
-    );
+    await getImpersonatedLearnerJourney(learnerId, programId);
 
   // ============================================================
   // ATTEMPT
@@ -181,11 +184,14 @@ export default async function ImpersonatedSubmissionPage({
         description,
         passing_score,
         show_results,
+        is_published,
+        max_attempts,
 
         modules (
           id,
           title,
           day_id,
+          publication_status,
 
           days (
             id,
@@ -220,11 +226,16 @@ export default async function ImpersonatedSubmissionPage({
   }
 
   if (!attempt.submitted_at) {
-    redirect(
-      `/trainer/impersonate/${learnerId}`
-    );
+    redirect(withWave(`/trainer/impersonate/${learnerId}`,programId));
   }
 
+  const sourceQuiz = Array.isArray(attempt.quizzes) ? attempt.quizzes[0] : attempt.quizzes;
+  if (!sourceQuiz || !sourceQuiz.is_published || !["graded","needs_review","submitted","completed"].includes(attempt.status)) notFound();
+  const sourceModule = Array.isArray(sourceQuiz.modules) ? sourceQuiz.modules[0] : sourceQuiz.modules;
+  const sourceCheckpoint = Array.isArray(sourceQuiz.checkpoints) ? sourceQuiz.checkpoints[0] : sourceQuiz.checkpoints;
+  const sourceDayId = sourceCheckpoint?.day_id ?? sourceModule?.day_id;
+  if (!sourceDayId || !journey?.days.some(d=>d.id===sourceDayId) || (!sourceCheckpoint && sourceModule?.publication_status !== "published")) notFound();
+  const reveal = attempt.status === "graded" && sourceQuiz.show_results === true && (attempt.passed === true || attempt.attempt_number >= Number(sourceQuiz.max_attempts));
   // ============================================================
   // SUBMISSION ANSWERS
   //
@@ -251,7 +262,7 @@ export default async function ImpersonatedSubmissionPage({
   }
 
   const submissionRows =
-    (submissionData ?? []) as SubmissionRow[];
+    ((submissionData ?? []) as SubmissionRow[]).map(row=>reveal?row:{...row,can_reveal_correct_answer:false,correct_option_text:null,correct_match_right_text:null});
 
   // ============================================================
   // GROUP ANSWERS
@@ -612,7 +623,7 @@ export default async function ImpersonatedSubmissionPage({
       userEmail={trainerProfile.email}
       learnerJourney={journey}
       impersonation={{
-        learnerId,
+        learnerId, programId,
         learnerName: traineeName,
         learnerEmail: trainee.email,
       }}
@@ -624,7 +635,7 @@ export default async function ImpersonatedSubmissionPage({
         <section className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-[#08A9C1]/20 bg-[#EAF8FA] px-5 py-4">
           <div>
             <p className="text-[12px] font-semibold text-[#07879B]">
-              Impersonating {traineeName}
+              Learner Preview · {traineeName}
             </p>
 
             <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
@@ -633,15 +644,15 @@ export default async function ImpersonatedSubmissionPage({
           </div>
 
           <Link
-            href={`/trainer/learners/${learnerId}`}
+            href={withWave(`/trainer/learners/${learnerId}`, programId)}
             className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-white px-3.5 text-[12px] font-semibold !text-[#07879B] transition hover:bg-[#F5FCFD]"
           >
-            Exit impersonation
+            Exit preview
           </Link>
         </section>
 
         <Link
-          href={`/trainer/impersonate/${learnerId}/submissions`}
+          href={withWave(`/trainer/impersonate/${learnerId}/submissions`, programId)}
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
           ← Back to submissions

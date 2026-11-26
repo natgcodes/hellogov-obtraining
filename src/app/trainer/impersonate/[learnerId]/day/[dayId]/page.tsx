@@ -1,3 +1,5 @@
+import { withWave } from "@/lib/trainer/progressV2";
+import { resolvePreviewProgram } from "@/lib/trainer/getImpersonatedLearner";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -19,6 +21,7 @@ import type {
 // ============================================================
 
 type PageProps = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
     dayId: string;
@@ -26,6 +29,7 @@ type PageProps = {
 };
 
 type DayProgressRpc = {
+  quizzes?: Array<{quiz_id:string; completed:boolean; manually_completed:boolean}>;
   modules?: Array<{
     module_id: string;
     status: string | null;
@@ -106,7 +110,7 @@ type OrderedContent =
 // ============================================================
 
 export default async function ImpersonatedDayPage({
-  params,
+  params, searchParams,
 }: PageProps) {
   const { learnerId, dayId } = await params;
 
@@ -133,17 +137,19 @@ export default async function ImpersonatedDayPage({
     error: trainerProfileError,
   } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     trainerProfileError ||
     !trainerProfile ||
-    trainerProfile.role !== "trainer"
+    trainerProfile.role !== "trainer" || trainerProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
+
+  const programId = await resolvePreviewProgram(learnerId, (await searchParams).wave);
 
   // ============================================================
   // TARGET TRAINEE
@@ -176,14 +182,10 @@ export default async function ImpersonatedDayPage({
   // ============================================================
 
   const journey =
-    await getImpersonatedLearnerJourney(
-      learnerId
-    );
+    await getImpersonatedLearnerJourney(learnerId, programId);
 
   if (!journey) {
-    redirect(
-      `/trainer/impersonate/${learnerId}`
-    );
+    redirect(withWave(`/trainer/impersonate/${learnerId}`,programId));
   }
 
   const journeyDay =
@@ -196,9 +198,7 @@ export default async function ImpersonatedDayPage({
   }
 
   if (!journeyDay.unlocked) {
-    redirect(
-      `/trainer/impersonate/${learnerId}`
-    );
+    redirect(withWave(`/trainer/impersonate/${learnerId}`,programId));
   }
 
   // ============================================================
@@ -233,6 +233,7 @@ export default async function ImpersonatedDayPage({
         objective,
         duration_minutes,
         is_required,
+        publication_status,
         position,
 
         materials (
@@ -321,10 +322,7 @@ export default async function ImpersonatedDayPage({
   );
 
   if (progressError) {
-    console.error(
-      "Unable to load impersonated day progress:",
-      progressError
-    );
+    throw new Error("Unable to load learner preview day progress.");
   }
 
   const rawProgress =
@@ -343,6 +341,11 @@ export default async function ImpersonatedDayPage({
   manuallyCompletedQuizzes: {},
   percent: 0,
 };
+
+  for (const item of rawProgress.quizzes ?? []) {
+    progress.quizzes[item.quiz_id] = item.completed;
+    progress.manuallyCompletedQuizzes[item.quiz_id] = item.manually_completed;
+  }
 
   for (const item of rawProgress.modules ?? []) {
     progress.modules[item.module_id] =
@@ -382,7 +385,7 @@ export default async function ImpersonatedDayPage({
   // ============================================================
 
   const rawModules = [
-    ...(day.modules ?? []),
+    ...(day.modules ?? []).filter(m=>m.publication_status === "published"),
   ].sort(
     (a, b) =>
       (a.position ?? 0) -
@@ -554,6 +557,14 @@ export default async function ImpersonatedDayPage({
   // DAY SUMMARY
   // ============================================================
 
+  const checkpointIds = checkpoints.flatMap(c=>c.quiz_id?[c.quiz_id]:[]);
+  const submittedCheckpointQuizIds = new Set<string>();
+  if (checkpointIds.length) {
+    const {data,error} = await supabase.from("quiz_attempts").select("quiz_id").eq("learner_id",learnerId).in("quiz_id",checkpointIds).not("submitted_at","is",null).in("status",["submitted","needs_review","graded","completed"]);
+    if (error) throw new Error("Unable to load checkpoint submissions.");
+    for (const row of data ?? []) submittedCheckpointQuizIds.add(row.quiz_id);
+  }
+  const lockedModules = (day.modules ?? []).filter(m=>m.publication_status === "locked");
   const completedModules =
     modules.filter(
       (module) =>
@@ -566,21 +577,8 @@ export default async function ImpersonatedDayPage({
     const result =
       checkpointProgress[checkpoint.id];
 
-    if (!result) {
-      return false;
-    }
-
-    if (
-      checkpoint.checkpoint_type ===
-      "assessment"
-    ) {
-      return (
-        result.status === "completed" &&
-        result.passed === true
-      );
-    }
-
-    return result.status === "completed";
+    if (checkpoint.checkpoint_type === "assessment") return !!checkpoint.quiz_id && submittedCheckpointQuizIds.has(checkpoint.quiz_id);
+    return result?.status === "completed";
   };
 
   const completedCheckpoints =
@@ -597,7 +595,7 @@ export default async function ImpersonatedDayPage({
     );
 
   const requiredItems =
-    requiredModules.length +
+    requiredModules.length + lockedModules.filter(m=>m.is_required).length +
     requiredCheckpoints.length;
 
   const completedRequiredModules =
@@ -628,6 +626,13 @@ export default async function ImpersonatedDayPage({
   // RENDER
   // ============================================================
 
+  const checkpointQuizIds = checkpoints.flatMap(c=>c.quiz_id?[c.quiz_id]:[]);
+  const publishedCheckpointQuizIds = new Set<string>();
+  if (checkpointQuizIds.length) {
+    const {data,error} = await supabase.from("quizzes").select("id").in("id",checkpointQuizIds).eq("is_published",true);
+    if (error) throw new Error("Unable to load checkpoint availability.");
+    for (const q of data ?? []) publishedCheckpointQuizIds.add(q.id);
+  }
   return (
     <AppShell
       role="trainer"
@@ -635,7 +640,7 @@ export default async function ImpersonatedDayPage({
       userEmail={trainerProfile.email}
       learnerJourney={journey}
       impersonation={{
-        learnerId,
+        learnerId, programId,
         learnerName: traineeName,
         learnerEmail: trainee.email,
       }}
@@ -665,7 +670,7 @@ export default async function ImpersonatedDayPage({
 
             <div>
               <p className="text-[12px] font-semibold text-[#07879B]">
-                Impersonating {traineeName}
+                Learner Preview · {traineeName}
               </p>
 
               <p className="text-[11px] text-[var(--text-secondary)]">
@@ -675,10 +680,10 @@ export default async function ImpersonatedDayPage({
           </div>
 
           <Link
-            href={`/trainer/learners/${learnerId}`}
+            href={withWave(`/trainer/learners/${learnerId}`, programId)}
             className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-white px-3.5 text-[12px] font-semibold !text-[#07879B] transition hover:bg-[#F5FCFD]"
           >
-            Exit impersonation
+            Exit preview
           </Link>
         </div>
       </div>
@@ -690,7 +695,7 @@ export default async function ImpersonatedDayPage({
       <div className="px-5 py-7 sm:px-7 lg:px-8">
         <div className="mx-auto max-w-[1180px]">
           <Link
-            href={`/trainer/impersonate/${learnerId}`}
+            href={withWave(`/trainer/impersonate/${learnerId}`, programId)}
             className="inline-flex items-center gap-2 text-[12px] font-semibold !text-[var(--text-secondary)] transition hover:!text-[var(--teal-deep)]"
           >
             ← Back to training
@@ -766,6 +771,7 @@ export default async function ImpersonatedDayPage({
           =================================================== */}
 
           <div className="mt-6 space-y-6">
+            {lockedModules.map(m=><div key={m.id} className="rounded-xl border border-[var(--border)] bg-white p-4 text-sm"><p className="font-semibold">{m.title}</p><p className="text-xs text-[var(--text-muted)]">Locked · Not available yet</p></div>)}
             {orderedContent.map((content) => {
               // ===============================================
               // MODULE
@@ -778,6 +784,8 @@ export default async function ImpersonatedDayPage({
                       module={content.module}
                       progress={progress}
                       readOnly
+                      previewQuizBase={`/trainer/impersonate/${learnerId}/quiz`}
+                      previewProgramId={programId}
                     />
 
                     <ModuleNotes
@@ -895,10 +903,10 @@ export default async function ImpersonatedDayPage({
                       )}
 
                       {isAssessment &&
-                        checkpoint.quiz_id && (
+                        checkpoint.quiz_id && publishedCheckpointQuizIds.has(checkpoint.quiz_id) && (
                           <div className="mt-3">
                             <Link
-                              href={`/trainer/impersonate/${learnerId}/quiz/${checkpoint.quiz_id}`}
+                              href={withWave(`/trainer/impersonate/${learnerId}/quiz/${checkpoint.quiz_id}`, programId)}
                               className="inline-flex min-h-9 items-center rounded-[9px] border border-[var(--border)] bg-white px-3.5 text-[12px] font-semibold !text-[var(--teal-deep)] transition hover:bg-[var(--surface-soft)]"
                             >
                               View assessment

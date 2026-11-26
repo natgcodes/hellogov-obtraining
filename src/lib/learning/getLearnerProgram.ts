@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { LearnerProgram } from "./types";
 
-export async function getLearnerProgram(): Promise<LearnerProgram | null> {
+export async function getLearnerProgram(preview?: {programId:string;learnerId:string}): Promise<LearnerProgram | null> {
   const totalStart = performance.now();
 
   const supabase = await createClient();
@@ -37,7 +37,7 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
     error: profileError,
   } = await supabase
     .from("profiles")
-    .select("active_program_id")
+    .select("active_program_id,role,account_status")
     .eq("id", user.id)
     .single();
 
@@ -50,7 +50,12 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
     return null;
   }
 
-  const programId = profile?.active_program_id;
+  if (preview) {
+    if (profile?.role !== "trainer" || profile.account_status !== "active") return null;
+    const {data:enrollment} = await supabase.from("program_enrollments").select("program_id").eq("program_id",preview.programId).eq("learner_id",preview.learnerId).maybeSingle();
+    if (!enrollment) return null;
+  }
+  const programId = preview?.programId ?? profile?.active_program_id;
 
   if (!programId) {
     console.warn(
@@ -102,6 +107,7 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
         modules (
           id,
           duration_minutes,
+          publication_status,
           position,
           is_required
         )
@@ -187,6 +193,7 @@ export async function getLearnerProgram(): Promise<LearnerProgram | null> {
         is_published: day.is_published,
 
         modules: [...(day.modules ?? [])]
+          .filter(module => module.publication_status !== "draft")
           .sort(
             (a, b) => a.position - b.position
           )

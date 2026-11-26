@@ -1,18 +1,20 @@
+import { withWave } from "@/lib/trainer/progressV2";
+import { resolvePreviewProgram } from "@/lib/trainer/getImpersonatedLearner";
 import { notFound, redirect } from "next/navigation";
 
 import AppShell from "@/components/layout/AppShell";
 import { createClient } from "@/lib/supabase/server";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 import { getImpersonatedLearnerJourney } from "@/lib/trainer/getImpersonatedLearner";
 
 type Props = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
   }>;
 };
 
 export default async function ImpersonatedPostTrainingPage({
-  params,
+  params, searchParams,
 }: Props) {
   const { learnerId } = await params;
   const supabase = await createClient();
@@ -38,17 +40,19 @@ export default async function ImpersonatedPostTrainingPage({
     error: trainerError,
   } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     trainerError ||
     !trainerProfile ||
-    trainerProfile.role !== "trainer"
+    trainerProfile.role !== "trainer" || trainerProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
+
+  const programId = await resolvePreviewProgram(learnerId, (await searchParams).wave);
 
   // ============================================================
   // TARGET TRAINEE
@@ -81,9 +85,7 @@ export default async function ImpersonatedPostTrainingPage({
   // ============================================================
 
   const journey =
-    await getImpersonatedLearnerJourney(
-      learnerId
-    );
+    await getImpersonatedLearnerJourney(learnerId, programId);
 
   // ============================================================
   // POST-TRAINING CONTENT
@@ -109,7 +111,7 @@ export default async function ImpersonatedPostTrainingPage({
     `)
     .eq(
       "program_id",
-      HELLOGOV_PROGRAM_ID
+      programId
     )
     .maybeSingle();
 
@@ -139,7 +141,7 @@ export default async function ImpersonatedPostTrainingPage({
       userEmail={trainerProfile.email}
       learnerJourney={journey}
       impersonation={{
-        learnerId,
+        learnerId, programId,
         learnerName: traineeName,
         learnerEmail: trainee.email,
       }}
@@ -154,7 +156,7 @@ export default async function ImpersonatedPostTrainingPage({
           <section className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-[#08A9C1]/20 bg-[#EAF8FA] px-5 py-4">
             <div>
               <p className="text-[12px] font-semibold text-[#07879B]">
-                Impersonating {traineeName}
+                Learner Preview · {traineeName}
               </p>
 
               <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
@@ -163,10 +165,10 @@ export default async function ImpersonatedPostTrainingPage({
             </div>
 
             <a
-              href={`/trainer/learners/${learnerId}`}
+              href={withWave(`/trainer/learners/${learnerId}`, programId)}
               className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-white px-3.5 text-[12px] font-semibold !text-[#07879B] transition hover:bg-[#F5FCFD]"
             >
-              Exit impersonation
+              Exit preview
             </a>
           </section>
 

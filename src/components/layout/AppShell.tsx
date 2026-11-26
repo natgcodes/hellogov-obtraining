@@ -38,6 +38,7 @@ type AppShellProps = {
 
   impersonation?: {
     learnerId: string;
+    programId?: string;
     learnerName: string;
     learnerEmail?: string | null;
   };
@@ -281,6 +282,8 @@ const isTeamLeader = role === "team_leader";
     ? `/trainer/impersonate/${impersonation!.learnerId}`
     : "/learn";
 
+  const previewHref = (path: string) => impersonation?.programId && path.startsWith("/trainer/") ? `${path}?wave=${encodeURIComponent(impersonation.programId)}` : path;
+
   const shellHomePath = showTrainerNavigation
   ? "/trainer"
   : isExecutive
@@ -311,7 +314,7 @@ const isTeamLeader = role === "team_leader";
       icon: "program",
     },
     {
-      label: "Trainees",
+      label: "Trainee Progress",
       href: "/trainer/learners",
       icon: "learners",
     },
@@ -467,7 +470,7 @@ href: "/trainer/quiz-review",
     return (
       <Link
         key={item.href}
-        href={item.href}
+        href={previewHref(item.href)}
         title={
           collapsed
             ? item.label
@@ -642,11 +645,7 @@ href: "/trainer/quiz-review",
             return (
               <Link
                 key={day.id}
-                href={
-                  accessible
-                    ? `${learnerBasePath}/day/${day.id}`
-                    : learnerBasePath
-                }
+                href={previewHref(accessible ? `${learnerBasePath}/day/${day.id}` : learnerBasePath)}
                 title={
                   collapsed
                     ? `Day ${day.dayNumber} · ${shortTitle}`
@@ -732,7 +731,7 @@ href: "/trainer/quiz-review",
 
         {!isExecutive && learnerJourney.certificationUnlocked && (
           <Link
-            href={`${learnerBasePath}/certification`}
+            href={previewHref(`${learnerBasePath}/certification`)}
             title={
               collapsed
                 ? "Certification"
@@ -916,7 +915,7 @@ function renderExecutiveNavigation(mobile = false) {
           }`}
         >
           <Link
-            href={shellHomePath}
+            href={previewHref(shellHomePath)}
             title={
               sidebarCollapsed
                 ? "HelloGov"
@@ -1198,7 +1197,7 @@ function renderExecutiveNavigation(mobile = false) {
                       {/* PROFILE */}
 
                       <Link
-                        href={profilePath}
+                        href={previewHref(profilePath)}
                         role="menuitem"
                         onClick={() =>
                           setUserMenuOpen(false)
@@ -1228,7 +1227,7 @@ function renderExecutiveNavigation(mobile = false) {
 
                       {isImpersonating && (
                         <Link
-                          href={`/trainer/learners/${impersonation!.learnerId}`}
+                          href={previewHref(`/trainer/learners/${impersonation!.learnerId}`)}
                           role="menuitem"
                           onClick={() =>
                             setUserMenuOpen(false)
@@ -1241,7 +1240,7 @@ function renderExecutiveNavigation(mobile = false) {
                           />
 
                           <span>
-                            Exit impersonation
+                            Exit preview
                           </span>
                         </Link>
                       )}
@@ -1307,7 +1306,7 @@ function renderExecutiveNavigation(mobile = false) {
             <aside className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col border-r border-[var(--border)] bg-white shadow-[var(--shadow-lg)]">
               <div className="flex h-[var(--topbar-height)] items-center justify-between border-b border-[var(--border-soft)] px-5">
                 <Link
-                  href={shellHomePath}
+                  href={previewHref(shellHomePath)}
                   onClick={() =>
                     setMobileMenuOpen(false)
                   }
@@ -1379,7 +1378,7 @@ function renderExecutiveNavigation(mobile = false) {
                 {/* PROFILE */}
 
                 <Link
-                  href={profilePath}
+                  href={previewHref(profilePath)}
                   onClick={() =>
                     setMobileMenuOpen(false)
                   }
@@ -1390,13 +1389,13 @@ function renderExecutiveNavigation(mobile = false) {
 
                 {isImpersonating && (
                   <Link
-                    href={`/trainer/learners/${impersonation!.learnerId}`}
+                    href={previewHref(`/trainer/learners/${impersonation!.learnerId}`)}
                     onClick={() =>
                       setMobileMenuOpen(false)
                     }
                     className="mt-3 flex w-full items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-[#F3FBFC] px-4 py-2.5 text-sm font-semibold text-[#07879B]"
                   >
-                    Exit impersonation
+                    Exit preview
                   </Link>
                 )}
 

@@ -1,3 +1,5 @@
+import { withWave } from "@/lib/trainer/progressV2";
+import { resolvePreviewProgram } from "@/lib/trainer/getImpersonatedLearner";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -7,6 +9,7 @@ import { getLearnerQuiz } from "@/lib/quizzes/getLearnerQuiz";
 import { getImpersonatedLearnerJourney } from "@/lib/trainer/getImpersonatedLearner";
 
 type Props = {
+  searchParams: Promise<{wave?:string}>;
   params: Promise<{
     learnerId: string;
     quizId: string;
@@ -23,7 +26,7 @@ type CheckpointResult = {
 };
 
 export default async function ImpersonatedQuizPage({
-  params,
+  params, searchParams,
 }: Props) {
   const { learnerId, quizId } = await params;
   const supabase = await createClient();
@@ -49,17 +52,19 @@ export default async function ImpersonatedQuizPage({
     error: trainerError,
   } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, account_status")
     .eq("id", user.id)
     .single();
 
   if (
     trainerError ||
     !trainerProfile ||
-    trainerProfile.role !== "trainer"
+    trainerProfile.role !== "trainer" || trainerProfile.account_status !== "active"
   ) {
     redirect("/learn");
   }
+
+  const programId = await resolvePreviewProgram(learnerId, (await searchParams).wave);
 
   // ============================================================
   // TARGET TRAINEE
@@ -95,9 +100,7 @@ export default async function ImpersonatedQuizPage({
   // ============================================================
 
   const journey =
-    await getImpersonatedLearnerJourney(
-      learnerId
-    );
+    await getImpersonatedLearnerJourney(learnerId, programId);
 
   // ============================================================
   // QUIZ
@@ -144,6 +147,7 @@ export default async function ImpersonatedQuizPage({
         day_id
       `)
       .eq("id", quiz.module_id)
+      .eq("publication_status","published")
       .single();
 
     if (moduleError || !module) {
@@ -217,8 +221,8 @@ export default async function ImpersonatedQuizPage({
       (day) => day.id === dayId
     );
 
-  const isUnlocked =
-    journeyDay?.unlocked ?? false;
+  const isUnlocked = journeyDay?.unlocked ?? false;
+  if (!isUnlocked) notFound();
 
   // ============================================================
   // TARGET TRAINEE QUIZ ATTEMPTS
@@ -241,6 +245,7 @@ export default async function ImpersonatedQuizPage({
     `)
     .eq("quiz_id", quiz.id)
     .eq("learner_id", learnerId)
+    .neq("status","cancelled")
     .order("attempt_number", {
       ascending: false,
     });
@@ -410,7 +415,7 @@ export default async function ImpersonatedQuizPage({
       userEmail={trainerProfile.email}
       learnerJourney={journey}
       impersonation={{
-        learnerId,
+        learnerId, programId,
         learnerName: traineeName,
         learnerEmail: trainee.email,
       }}
@@ -424,7 +429,7 @@ export default async function ImpersonatedQuizPage({
           <section className="mb-7 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-[#08A9C1]/20 bg-[#EAF8FA] px-5 py-4">
             <div>
               <p className="text-[12px] font-semibold text-[#07879B]">
-                Impersonating {traineeName}
+                Learner Preview · {traineeName}
               </p>
 
               <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">
@@ -433,10 +438,10 @@ export default async function ImpersonatedQuizPage({
             </div>
 
             <Link
-              href={`/trainer/learners/${learnerId}`}
+              href={withWave(`/trainer/learners/${learnerId}`, programId)}
               className="inline-flex min-h-9 items-center justify-center rounded-[9px] border border-[#08A9C1]/30 bg-white px-3.5 text-[12px] font-semibold !text-[#07879B] transition hover:bg-[#F5FCFD]"
             >
-              Exit impersonation
+              Exit preview
             </Link>
           </section>
 
@@ -445,7 +450,7 @@ export default async function ImpersonatedQuizPage({
           =============================================== */}
 
           <Link
-            href={`/trainer/impersonate/${learnerId}/day/${dayId}`}
+            href={withWave(`/trainer/impersonate/${learnerId}/day/${dayId}`, programId)}
             className="inline-flex items-center gap-2 text-[12px] font-semibold text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
           >
             ← Back to Day{" "}
@@ -654,7 +659,7 @@ export default async function ImpersonatedQuizPage({
             {latestSubmittedAttempt && (
               <div className="mt-5 border-t border-[var(--border-soft)] pt-5">
                 <Link
-                  href={`/trainer/impersonate/${learnerId}/submissions/${latestSubmittedAttempt.id}`}
+                  href={withWave(`/trainer/impersonate/${learnerId}/submissions/${latestSubmittedAttempt.id}`, programId)}
                   className="inline-flex min-h-10 items-center justify-center rounded-[10px] bg-[var(--teal)] px-4 text-[12px] font-semibold !text-white transition hover:bg-[var(--teal-deep)]"
                 >
                   View submitted answers
@@ -673,7 +678,7 @@ export default async function ImpersonatedQuizPage({
                 <p className="mt-1 text-[11px] leading-5 text-amber-700">
                   {traineeName} currently has
                   an unfinished attempt.
-                  Impersonation mode will not
+                  Preview mode will not
                   resume or modify it.
                 </p>
               </div>

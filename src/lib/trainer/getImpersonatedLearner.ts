@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ProgressMap } from "@/lib/learning/types";
 import type { LearnerJourney } from "@/components/layout/AppShell";
-import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
+import { notFound } from "next/navigation";
+import { getLearnerProgram } from "@/lib/learning/getLearnerProgram";
 
 type JourneyDayRow = {
   id: string;
@@ -10,6 +11,26 @@ type JourneyDayRow = {
   unlocked: boolean;
   completed: boolean;
 };
+
+export async function resolvePreviewProgram(learnerId: string, requested?: string) {
+  const supabase = await createClient();
+  const {data:{user}} = await supabase.auth.getUser();
+  if (!user) notFound();
+  const {data: trainer} = await supabase.from("profiles").select("role,account_status").eq("id",user.id).maybeSingle();
+  if (trainer?.role !== "trainer" || trainer.account_status !== "active") notFound();
+  const {data: learner} = await supabase.from("profiles").select("role,active_program_id").eq("id",learnerId).maybeSingle();
+  const programId = requested ?? learner?.active_program_id;
+  if (!learner || learner.role === "trainer" || !programId) notFound();
+  const {data: enrollment} = await supabase.from("program_enrollments").select("program_id").eq("program_id",programId).eq("learner_id",learnerId).maybeSingle();
+  const {data: program} = await supabase.from("programs").select("id").eq("id",programId).eq("status","published").maybeSingle();
+  if (!enrollment || !program) notFound();
+  return programId as string;
+}
+
+export async function getPreviewProgram(learnerId:string, programId:string) {
+  await resolvePreviewProgram(learnerId,programId);
+  return getLearnerProgram({programId,learnerId});
+}
 
 function emptyProgress(): ProgressMap {
   return {
@@ -39,10 +60,7 @@ export async function getImpersonatedLearnerProgress(
 
   const [setupResult, progressResult] =
     await Promise.all([
-      supabase
-        .from("learner_setup_progress")
-        .select("setup_item_id, completed")
-        .eq("learner_id", learnerId),
+      supabase.rpc("get_trainer_learner_setup_progress", {target_program_id:programId,target_learner_id:learnerId}),
 
       supabase.rpc(
         "get_trainer_impersonated_progress",
@@ -54,17 +72,11 @@ export async function getImpersonatedLearnerProgress(
     ]);
 
   if (setupResult.error) {
-    console.error(
-      "Unable to load impersonated trainee setup progress:",
-      setupResult.error
-    );
+    throw new Error("Unable to load learner preview setup progress.");
   }
 
   if (progressResult.error) {
-    console.error(
-      "Unable to load impersonated trainee progress:",
-      progressResult.error
-    );
+    throw new Error("Unable to load learner preview progress.");
   }
 
   const rawPercent = Number(
@@ -80,7 +92,7 @@ export async function getImpersonatedLearnerProgress(
 
   return {
     setup: Object.fromEntries(
-      (setupResult.data ?? []).map(
+      ((setupResult.data ?? []) as {setup_item_id:string;completed:boolean}[]).map(
         (item) => [
           item.setup_item_id,
           item.completed === true,
@@ -103,6 +115,7 @@ export async function getImpersonatedLearnerProgress(
 
 export async function getImpersonatedLearnerJourney(
   learnerId: string,
+  programId: string,
   options: {
     setupCompleted?: number;
     setupTotal?: number;
@@ -112,6 +125,7 @@ export async function getImpersonatedLearnerJourney(
     return undefined;
   }
 
+  await resolvePreviewProgram(learnerId,programId);
   const supabase = await createClient();
 
   // ---------------------------------------------------------
@@ -121,7 +135,7 @@ export async function getImpersonatedLearnerJourney(
   const { data, error } = await supabase.rpc(
     "get_trainer_impersonated_journey_days",
     {
-      target_program_id: HELLOGOV_PROGRAM_ID,
+      target_program_id: programId,
       target_learner_id: learnerId,
     }
   );
@@ -132,7 +146,7 @@ export async function getImpersonatedLearnerJourney(
       error
     );
 
-    return undefined;
+    throw new Error("Unable to load learner preview journey.");
   }
 
   // ---------------------------------------------------------
@@ -166,7 +180,7 @@ export async function getImpersonatedLearnerJourney(
   } = await supabase
     .from("programs")
     .select("certification_enabled")
-    .eq("id", HELLOGOV_PROGRAM_ID)
+    .eq("id", programId)
     .maybeSingle();
 
   if (settingsError) {
@@ -190,12 +204,12 @@ export async function getImpersonatedLearnerJourney(
   // RESULT
   // ---------------------------------------------------------
 
+  const {data: setup,error: setupError} = await supabase.rpc("get_trainer_learner_setup_progress",{target_program_id:programId,target_learner_id:learnerId});
+  if (setupError) throw new Error("Unable to load learner setup progress.");
+  const required = ((setup ?? []) as {is_required:boolean;completed:boolean}[]).filter(x=>x.is_required);
   return {
-    setupCompleted:
-      options.setupCompleted ?? 0,
-
-    setupTotal:
-      options.setupTotal ?? 0,
+    setupCompleted: options.setupCompleted ?? required.filter(x=>x.completed).length,
+    setupTotal: options.setupTotal ?? required.length,
 
     days,
 

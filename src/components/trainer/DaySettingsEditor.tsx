@@ -14,11 +14,13 @@ type EditableDay = {
 
 type DaySettingsEditorProps = {
   day: EditableDay;
+  unpublishedAssessments?: string[];
   onClose: () => void;
 };
 
 export default function DaySettingsEditor({
   day,
+  unpublishedAssessments = [],
   onClose,
 }: DaySettingsEditorProps) {
   const router = useRouter();
@@ -194,6 +196,13 @@ export default function DaySettingsEditor({
             </div>
           </div>
 
+          {isPublished && unpublishedAssessments.length > 0 && (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+              <p className="font-semibold">Assessments not published</p>
+              <p>{unpublishedAssessments.join(", ")}</p>
+              <p>Publishing this day does not publish these quizzes. Open each assessment to publish it when ready.</p>
+            </div>
+          )}
           <div className="rounded-xl border border-[#e4e7ec] bg-[#f9fafb] px-4 py-3">
             <p className="text-xs leading-5 text-[#667085]">
               Publishing a day controls its visibility, but learner

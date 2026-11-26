@@ -8,16 +8,21 @@ type AddModuleEditorProps = {
   dayId: string;
   nextPosition: number;
   onClose: () => void;
+  afterDayContentId?: string | null;
+  afterTitle?: string;
+  allowRequired?: boolean;
+  onCreated?: (id:string)=>void;
 };
 
 export default function AddModuleEditor({
   dayId,
-  onClose,
+  onClose, afterDayContentId, afterTitle, onCreated, allowRequired = true,
 }: AddModuleEditorProps) {
   const router = useRouter();
   const supabase = createClient();
 
   const [title, setTitle] = useState("");
+  const [insertAfter,setInsertAfter]=useState(!!afterDayContentId);
   const [description, setDescription] =
     useState("");
   const [objective, setObjective] =
@@ -25,7 +30,7 @@ export default function AddModuleEditor({
   const [duration, setDuration] =
     useState("");
   const [isRequired, setIsRequired] =
-    useState(true);
+    useState(allowRequired);
 
   const [isSaving, setIsSaving] =
     useState(false);
@@ -70,10 +75,11 @@ export default function AddModuleEditor({
      * The module is automatically appended to
      * the end of the day's shared content sequence.
      */
-    const { error } = await supabase.rpc(
-      "create_day_module",
+    const { data, error } = await supabase.rpc(
+      "hg_create_module_after",
       {
         target_day_id: dayId,
+        after_day_content_id: insertAfter ? afterDayContentId ?? null : null,
         module_title: cleanTitle,
         module_description:
           description.trim() || null,
@@ -81,7 +87,7 @@ export default function AddModuleEditor({
           objective.trim() || null,
         module_duration_minutes:
           parsedDuration,
-        module_is_required: isRequired,
+        module_is_required: allowRequired && isRequired,
       }
     );
 
@@ -99,6 +105,7 @@ export default function AddModuleEditor({
       return;
     }
 
+    if(typeof data==="string")onCreated?.(data);
     router.refresh();
     onClose();
   }
@@ -135,6 +142,8 @@ export default function AddModuleEditor({
         </div>
 
         <div className="space-y-5 p-6">
+          {afterDayContentId&&<label className="block text-sm font-medium text-[#344054]">Position<select value={insertAfter?"after":"end"} onChange={e=>setInsertAfter(e.target.value==="after")} className="mt-2 w-full rounded-xl border px-3 py-2"><option value="after">After {afterTitle||"this module"}</option><option value="end">At the end of the day</option></select></label>}
+          {!allowRequired&&<p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">This day is published. The new module will be optional and created as a draft.</p>}
           {/* TITLE */}
           <div>
             <label
@@ -246,13 +255,13 @@ export default function AddModuleEditor({
               <label className="flex min-h-[42px] cursor-pointer items-center gap-3 rounded-xl border border-[#d0d5dd] px-3.5">
                 <input
                   type="checkbox"
-                  checked={isRequired}
+                  checked={allowRequired && isRequired}
+              disabled={!allowRequired}
                   onChange={(event) =>
                     setIsRequired(
                       event.target.checked
                     )
                   }
-                  disabled={isSaving}
                   className="h-4 w-4 rounded border-[#d0d5dd] accent-[#08A9C1]"
                 />
 

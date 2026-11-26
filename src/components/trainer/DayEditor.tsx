@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -9,12 +9,15 @@ import {
   DragOverlay,
   type DragStartEvent,
   PointerSensor,
+  KeyboardSensor,
   closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
+  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -35,8 +38,11 @@ import QuizEditor, {
   type Quiz,
 } from "@/components/trainer/QuizEditor";
 import DualDateTime from "@/components/ui/DualDateTime";
+import LessonContentEditor from "@/components/trainer/LessonContentEditor";
+import LearnerModuleCard from "@/components/learning/LearnerModuleCard";
+import { isLesson, type LessonFields } from "@/lib/lesson/content";
 
-type SupabaseMaterial = {
+type SupabaseMaterial = LessonFields & {
   id: string;
   title: string;
   description: string | null;
@@ -117,7 +123,8 @@ type DayEditorProps = {
   dayNumber: number;
   title: string;
   description: string;
-  onClose: () => void;
+  onClose?: () => void;
+  programId?: string;
 };
 
 type MoveDirection = "up" | "down";
@@ -624,8 +631,14 @@ function ModuleCard({
   onMoveMaterial,
   onMoveActivity,
   onMoveQuiz,
+  allowNewRequired, onCollapse, onAddModule, onNextModule, onPreviousModule,
 }: {
   module: SupabaseModule;
+  allowNewRequired: boolean;
+  onCollapse: () => void;
+  onAddModule: () => void;
+  onNextModule?: () => void;
+  onPreviousModule?: () => void;
   moduleNumber: number;
   isReordering: boolean;
   dragHandle?: ReactNode;
@@ -653,6 +666,8 @@ function ModuleCard({
   const [isAddingQuiz, setIsAddingQuiz] =
     useState(false);
 
+  const [preview, setPreview] = useState(false);
+  const legacyMaterials = module.materials.filter(m=>!isLesson(m));
   return (
     <>
       <div className="overflow-hidden rounded-[18px] border border-[#e5e7eb] bg-white">
@@ -718,6 +733,11 @@ function ModuleCard({
         </span>
       </div>
 
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <button type="button" className="rounded-lg border px-3 py-2 text-xs font-semibold text-[#475467]" disabled={isReordering} onClick={()=>setIsEditing(v=>!v)}>Edit module settings</button>
+        <button type="button" className="rounded-lg border px-3 py-2 text-xs font-semibold text-[#07879B]" onClick={()=>setPreview(v=>!v)}>{preview?"Back to editing":"Learner preview"}</button>
+        <button type="button" className="rounded-lg border px-3 py-2 text-xs font-semibold text-[#475467]" onClick={onCollapse}>Collapse</button>
+      </div>
       {module.objective && (
         <div className="mt-4 rounded-xl bg-[#f9fafb] px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#98a2b3]">
@@ -732,25 +752,29 @@ function ModuleCard({
     </div>
   </div>
 
-        <div className="border-t border-[#eef0f3] px-5 py-4">
-          <div className="grid gap-5 xl:grid-cols-3">
+        {isEditing && <div className="border-t p-4"><ModuleEditor module={module} inline onClose={()=>setIsEditing(false)}/></div>}
+        {preview && <div className="space-y-2 border-t bg-[#f2f7f8] p-4"><p className="text-xs font-semibold text-[#07879B]">Learner preview · read-only · draft layout, no learner data</p><LearnerModuleCard module={{...module, quizzes:module.quizzes.filter(q=>q.is_published)}} progress={{setup:{},materials:{},activities:{},quizzes:{},manuallyCompletedQuizzes:{},modules:{},percent:0}} readOnly/></div>}
+        <div className={`border-t border-[#eef0f3] px-5 py-4 ${preview?"hidden":""}`}>
+          {module.is_required && !module.materials.some(m=>!isLesson(m)||m.lesson_tracking) && !module.activities.length && !module.quizzes.length && <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">This required module has no completion-tracked items yet. Add a tracked lesson, material, activity or quiz before publishing.</p>}
+          <LessonContentEditor moduleId={module.id} materials={module.materials} allowNewRequired={allowNewRequired} disabled={isReordering}/>
+          <div className="mt-6 space-y-6 border-t pt-6">
             <div>
               <SectionHeader
-                title="Materials"
+                title="Existing / individual materials"
                 onAdd={() => setIsAddingMaterial(true)}
                 disabled={isReordering}
               />
 
-              {module.materials.length > 0 ? (
+              {legacyMaterials.length > 0 ? (
                 <div className="space-y-2">
-                  {module.materials.map(
+                  {legacyMaterials.map(
                     (material, materialIndex) => (
                       <MaterialCard
                         key={material.id}
                         material={material}
                         index={materialIndex}
                         totalMaterials={
-                          module.materials.length
+                          legacyMaterials.length
                         }
                         isReordering={isReordering}
                         onMoveUp={() =>
@@ -873,28 +897,19 @@ function ModuleCard({
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsEditing(true)}
-            disabled={isReordering}
-            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-[#475467] hover:bg-[#f2f4f7] disabled:opacity-50"
-          >
-            Edit module
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={!onPreviousModule||isReordering} onClick={onPreviousModule} className="rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40">← Previous module</button>
+            <button type="button" disabled={isReordering} onClick={onAddModule} className="rounded-lg border border-[#B9E8EE] px-3 py-2 text-xs font-semibold text-[#07879B] disabled:opacity-40">+ Add module</button>
+            <button type="button" disabled={!onNextModule||isReordering} onClick={onNextModule} className="rounded-lg bg-[#07879B] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Next module →</button>
+          </div>
         </div>
       </div>
 
-      {isEditing && (
-        <ModuleEditor
-          module={module}
-          onClose={() => setIsEditing(false)}
-        />
-      )}
 
       {isAddingMaterial && (
         <AddMaterialEditor
           moduleId={module.id}
-          nextPosition={module.materials.length + 1}
+          nextPosition={Math.max(0,...module.materials.map(m=>m.position)) + 1}
           onClose={() => setIsAddingMaterial(false)}
         />
       )}
@@ -996,6 +1011,10 @@ function CheckpointCard({
                           : "questions"}
                       </span>
 
+                      <span className={checkpointQuiz?.is_published ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
+                        {checkpointQuiz ? (checkpointQuiz.is_published ? "Published" : "Draft") : "Quiz missing"}
+                      </span>
+
                       {checkpoint.passing_score !==
                         null && (
                         <>
@@ -1092,8 +1111,10 @@ function SortableDayItem({
   onMoveMaterial,
   onMoveActivity,
   onMoveQuiz,
+  collapsed, onToggle, allowNewRequired, onAddModule, onNextModule, onPreviousModule,
 }: {
   item: RenderedDayContent;
+  collapsed:boolean; onToggle:()=>void; allowNewRequired:boolean; onAddModule:()=>void; onNextModule?:()=>void; onPreviousModule?:()=>void;
   moduleNumber?: number;
   contentIndex: number;
   isReordering: boolean;
@@ -1152,31 +1173,41 @@ function SortableDayItem({
   return (
     <div
       ref={setNodeRef}
+      id={`day-item-${item.dayContent.id}`}
       style={style}
       className={
         isDragging
-          ? "relative rounded-[18px]"
-          : ""
+          ? "relative scroll-mt-48 rounded-[18px]"
+          : "scroll-mt-48"
       }
     >
+      {collapsed && <div className="flex flex-wrap items-center gap-3 rounded-[18px] border bg-white p-4">
+        {dragHandle}<div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase text-[#07879B]">{item.type==="module"?`Module ${moduleNumber}`:getCheckpointPresentation(item.checkpoint.checkpoint_type).label}</p><p className="font-semibold text-[#172033]">{item.type==="module"?item.module.title:item.checkpoint.title}</p>{item.type==="module"&&<p className="text-xs text-[#667085]">{formatDuration(item.module.duration_minutes)} · {item.module.publication_status}</p>}</div><button type="button" className="rounded-lg border px-3 py-2 text-xs font-semibold" onClick={onToggle}>Expand</button>{item.type==="module"&&<button type="button" disabled={isReordering} className="rounded-lg border px-3 py-2 text-xs font-semibold text-[#07879B]" onClick={onAddModule}>+ Add module after</button>}</div>}
+      <div className={collapsed?"hidden":""}>
       {item.type === "module" ? (
         <ModuleCard
           module={item.module}
           moduleNumber={moduleNumber ?? 1}
           isReordering={isReordering}
-          dragHandle={dragHandle}
+          dragHandle={collapsed?undefined:dragHandle}
+          allowNewRequired={allowNewRequired}
+          onCollapse={onToggle}
+          onAddModule={onAddModule}
+          onNextModule={onNextModule}
+          onPreviousModule={onPreviousModule}
           onMoveMaterial={onMoveMaterial}
           onMoveActivity={onMoveActivity}
           onMoveQuiz={onMoveQuiz}
         />
       ) : (
-        <CheckpointCard
+        <div className="space-y-1"><div className="flex justify-end"><button type="button" className="rounded-lg border bg-white px-3 py-1 text-xs font-semibold" onClick={onToggle}>Collapse checkpoint</button></div><CheckpointCard
           checkpoint={item.checkpoint}
           contentIndex={contentIndex}
           isReordering={isReordering}
-          dragHandle={dragHandle}
-        />
+          dragHandle={collapsed?undefined:dragHandle}
+        /></div>
       )}
+      </div>
     </div>
   );
 }
@@ -1227,10 +1258,20 @@ export default function DayEditor({
   title,
   description,
   onClose,
+  programId,
 }: DayEditorProps) {
   const router = useRouter();
   const supabase = createClient();
   const activeDay = day;
+  const [collapsedIds,setCollapsedIds]=useState<Set<string>>(()=>new Set((day?.day_content||[]).slice().sort((a,b)=>a.position-b.position).slice(1).map(x=>x.id)));
+  const [outlineOpen,setOutlineOpen]=useState(true);
+  const [afterItemId,setAfterItemId]=useState<string|null>(null);
+  const [pendingScroll,setPendingScroll]=useState<string|null>(null);
+  const [localOrder,setLocalOrder]=useState<string[]|null>(null);
+  const openItem=(contentId:string)=>setPendingScroll(contentId);
+  const toggleItem=(id:string)=>setCollapsedIds(old=>{const next=new Set(old); if(next.has(id))next.delete(id);else next.add(id);return next;});
+  const addModule=(after:string|null)=>{if(hasPendingOrder){setReorderError("Save or cancel the new day order before adding a module.");return;}setAfterItemId(after);setIsAddingModule(true);};
+  const closeEditor=()=>{if(hasPendingOrder&&!window.confirm("Discard the unsaved day order?"))return; if(onClose)onClose();else router.push(`/trainer/program${programId?`?programId=${encodeURIComponent(programId)}`:""}`);};
 
   const [isAddingModule, setIsAddingModule] =
     useState(false);
@@ -1255,10 +1296,11 @@ export default function DayEditor({
       activationConstraint: {
         distance: 6,
       },
-    })
+    }),
+    useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates})
   );
 
-  const orderedContent = useMemo<
+  const serverContent = useMemo<
     RenderedDayContent[]
   >(() => {
     if (!activeDay) return [];
@@ -1328,6 +1370,18 @@ export default function DayEditor({
     return result;
   }, [activeDay]);
 
+  const serverOrderKey=serverContent.map(x=>x.dayContent.id).join(",");
+  const hasPendingOrder=!!localOrder&&localOrder.join(",")!==serverOrderKey;
+  useEffect(()=>{setLocalOrder(null);},[serverOrderKey]);
+  const orderedContent=useMemo(()=>localOrder?localOrder.map(id=>serverContent.find(x=>x.dayContent.id===id)).filter((x):x is RenderedDayContent=>!!x):serverContent,[localOrder,serverContent]);
+  useEffect(()=>{
+    if(!pendingScroll)return;
+    const found=orderedContent.find(x=>x.dayContent.id===pendingScroll||x.dayContent.content_id===pendingScroll);
+    if(!found)return;
+    setCollapsedIds(old=>{const next=new Set(old);next.delete(found.dayContent.id);return next;});
+    const timer=window.setTimeout(()=>{document.getElementById(`day-item-${found.dayContent.id}`)?.scrollIntoView({behavior:"smooth",block:"start"});setPendingScroll(null);},80);
+    return ()=>window.clearTimeout(timer);
+  },[pendingScroll,orderedContent]);
   const moduleNumbers = useMemo(() => {
     const map = new Map<string, number>();
 
@@ -1483,7 +1537,7 @@ export default function DayEditor({
   ) {
     return moveNestedItem(
       "materials",
-      module.materials,
+      module.materials.filter(m=>!isLesson(m)),
       index,
       direction,
       "We couldn't change the material order. Please try again."
@@ -1525,7 +1579,7 @@ export default function DayEditor({
     setReorderError(null);
   }
 
-  async function handleDragEnd(
+  function handleDragEnd(
     event: DragEndEvent
   ) {
     setActiveDragId(null);
@@ -1562,50 +1616,21 @@ export default function DayEditor({
       return;
     }
 
-    setIsReordering(true);
+    const ids=arrayMove(orderedContent,oldIndex,newIndex).map(x=>x.dayContent.id);
+    setLocalOrder(ids.join(",")===serverOrderKey?null:ids);
     setReorderError(null);
+  }
 
-    const direction: MoveDirection =
-      newIndex > oldIndex ? "down" : "up";
-
-    const totalMoves = Math.abs(
-      newIndex - oldIndex
-    );
-
-    let failed = false;
-
-    for (
-      let move = 0;
-      move < totalMoves;
-      move += 1
-    ) {
-      const { error } = await supabase.rpc(
-        "move_day_content",
-        {
-          target_day_content_id: activeId,
-          move_direction: direction,
-        }
-      );
-
-      if (error) {
-        console.error(
-          "Error reordering day content:",
-          error
-        );
-
-        failed = true;
-        break;
-      }
-    }
-
-    if (failed) {
-      setReorderError(
-        "We couldn't change the day content order. Please try again."
-      );
-    }
-
-    setIsReordering(false);
-    router.refresh();
+  async function saveDayOrder(){
+    if(!activeDay||!localOrder||isReordering||!hasPendingOrder)return;
+    setIsReordering(true);setReorderError(null);
+    try {
+      const {error}=await supabase.rpc("hg_reorder_day_items",{target_day_id:activeDay.id,ordered_ids:localOrder});
+      if(error) throw error;
+      router.refresh();
+    } catch(error) {
+      setReorderError(typeof error==="object"&&error&&"message" in error?String(error.message):"We couldn't change the day content order.");
+    } finally {setIsReordering(false);}
   }
 
   function handleDragCancel() {
@@ -1613,11 +1638,12 @@ export default function DayEditor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-[1px]">
-      <div className="h-full w-full max-w-[1040px] overflow-y-auto border-l border-[#e5e7eb] bg-[#f7f8fa] shadow-2xl">
+    <div className="min-h-screen w-full bg-[#f7f8fa]">
+      <div className="min-h-screen w-full">
         <div className="sticky top-0 z-10 border-b border-[#e9ebef] bg-white/95 px-8 py-6 backdrop-blur">
           <div className="flex items-start justify-between gap-6">
-            <div>
+            <div className="min-w-0">
+              <button type="button" onClick={closeEditor} className="mb-3 text-xs font-semibold text-[#07879B] hover:underline">← Back to Program Builder</button>
               <div className="mb-2 flex items-center gap-2">
                 <span className="rounded-full bg-[#F0FAFB] px-2.5 py-1 text-xs font-semibold text-[#08788A]">
                   Day {dayNumber}
@@ -1653,7 +1679,7 @@ export default function DayEditor({
 
               <button
                 type="button"
-                onClick={onClose}
+                onClick={closeEditor}
                 disabled={isReordering}
                 className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e4e7ec] bg-white text-lg text-[#667085] hover:bg-[#f7f8fa] disabled:opacity-50"
               >
@@ -1663,7 +1689,9 @@ export default function DayEditor({
           </div>
         </div>
 
-        <div className="p-8">
+        <div className={`mx-auto grid max-w-[1800px] items-start gap-5 px-4 py-6 sm:px-6 ${outlineOpen?"lg:grid-cols-[250px_minmax(0,1fr)]":"grid-cols-1"}`}>
+          {outlineOpen&&<aside className="rounded-xl border bg-white p-3 lg:sticky lg:top-[180px] lg:max-h-[calc(100vh-200px)] lg:overflow-auto"><div className="mb-3 flex items-center justify-between gap-2"><p className="text-xs font-semibold uppercase text-[#07879B]">Day outline</p><button type="button" className="text-xs font-semibold text-[#667085]" onClick={()=>setOutlineOpen(false)}>Hide</button></div>{orderedContent.map(item=><button type="button" key={item.dayContent.id} onClick={()=>openItem(item.dayContent.id)} className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-[#EAF8FA]"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#EAF8FA] text-[10px] font-semibold text-[#07879B]">{item.type==="module"?moduleNumbers.get(item.module.id):"◇"}</span><span className="min-w-0 flex-1 break-words">{item.type==="module"?item.module.title:item.checkpoint.title}</span></button>)}</aside>}
+          <div className="min-w-0">
           {activeDay ? (
             <>
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -1691,10 +1719,13 @@ export default function DayEditor({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  {!outlineOpen&&<button type="button" onClick={()=>setOutlineOpen(true)} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Show outline</button>}
+                  <button type="button" onClick={()=>setCollapsedIds(new Set(orderedContent.map(i=>i.dayContent.id)))} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Collapse all</button>
+                  <button type="button" onClick={()=>setCollapsedIds(new Set())} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold">Expand all</button>
                   <button
                     type="button"
                     onClick={() =>
-                      setIsAddingCheckpoint(true)
+                      hasPendingOrder?setReorderError("Save or cancel the new day order first."):setIsAddingCheckpoint(true)
                     }
                     disabled={isReordering}
                     className="rounded-xl border border-[#B9E8EE] bg-white px-4 py-2.5 text-sm font-semibold text-[#07879B] transition hover:bg-[#F0FAFB] disabled:opacity-50"
@@ -1705,7 +1736,7 @@ export default function DayEditor({
                   <button
                     type="button"
                     onClick={() =>
-                      setIsAddingModule(true)
+                      addModule(null)
                     }
                     disabled={isReordering}
                     className="rounded-xl bg-[#172033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#263247] disabled:opacity-50"
@@ -1715,6 +1746,8 @@ export default function DayEditor({
                 </div>
               </div>
 
+              {hasPendingOrder&&<div className="sticky top-[155px] z-[9] mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#B9E8EE] bg-[#F0FAFB] p-3"><p className="text-sm font-medium text-[#07879B]">Unsaved day order. Save when you are finished rearranging the day.</p><div className="flex gap-2"><button type="button" disabled={isReordering} className="rounded-lg border bg-white px-3 py-2 text-xs font-semibold" onClick={()=>{setLocalOrder(null);setReorderError(null);}}>Cancel order</button><button type="button" disabled={isReordering} className="rounded-lg bg-[#07879B] px-3 py-2 text-xs font-semibold text-white" onClick={saveDayOrder}>{isReordering?"Saving…":"Save order"}</button></div></div>}
+              {activeDay.is_published && <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">This day is published. New lesson blocks and modules must be optional to protect current learner progress. New modules are created as drafts.</p>}
               {reorderError && (
                 <div className="mb-4 rounded-xl border border-[#fecdca] bg-[#fef3f2] px-4 py-3">
                   <p className="text-sm text-[#b42318]">
@@ -1762,6 +1795,12 @@ export default function DayEditor({
                                 : undefined
                             }
                             isReordering={isReordering}
+                            collapsed={collapsedIds.has(item.dayContent.id)}
+                            onToggle={()=>toggleItem(item.dayContent.id)}
+                            allowNewRequired={!activeDay.is_published}
+                            onAddModule={()=>addModule(item.dayContent.id)}
+                            onPreviousModule={(()=>{const prev=orderedContent.slice(0,contentIndex).reverse().find(x=>x.type==="module");return prev?()=>openItem(prev.dayContent.id):undefined;})()}
+                            onNextModule={(()=>{const next=orderedContent.slice(contentIndex+1).find(x=>x.type==="module");return next?()=>openItem(next.dayContent.id):undefined;})()}
                             onMoveMaterial={
                               handleMoveMaterial
                             }
@@ -1795,7 +1834,7 @@ export default function DayEditor({
               <div className="mt-6 flex flex-wrap items-center justify-center gap-2 rounded-[18px] border border-dashed border-[#cfd8dc] bg-white/60 px-5 py-5">
                 <button
                   type="button"
-                  onClick={() => setIsAddingModule(true)}
+                  onClick={() => addModule(null)}
                   disabled={isReordering}
                   className="rounded-xl bg-[#172033] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#263247] disabled:opacity-50"
                 >
@@ -1805,7 +1844,7 @@ export default function DayEditor({
                 <button
                   type="button"
                   onClick={() =>
-                    setIsAddingCheckpoint(true)
+                    hasPendingOrder?setReorderError("Save or cancel the new day order first."):setIsAddingCheckpoint(true)
                   }
                   disabled={isReordering}
                   className="rounded-xl border border-[#B9E8EE] bg-white px-4 py-2.5 text-sm font-semibold text-[#07879B] hover:bg-[#F0FAFB] disabled:opacity-50"
@@ -1821,6 +1860,7 @@ export default function DayEditor({
               </p>
             </div>
           )}
+          </div>
         </div>
       </div>
 
@@ -1828,6 +1868,10 @@ export default function DayEditor({
         <AddModuleEditor
           dayId={activeDay.id}
           nextPosition={activeDay.modules.length + 1}
+          allowRequired={!activeDay.is_published}
+          afterDayContentId={afterItemId}
+          afterTitle={activeDay.modules.find(m=>m.id===orderedContent.find(x=>x.dayContent.id===afterItemId)?.dayContent.content_id)?.title}
+          onCreated={id=>setPendingScroll(id)}
           onClose={() => setIsAddingModule(false)}
         />
       )}
@@ -1843,6 +1887,10 @@ export default function DayEditor({
       {isEditingDay && activeDay && (
         <DaySettingsEditor
           day={activeDay}
+          unpublishedAssessments={activeDay.checkpoints.filter((checkpoint) => {
+            const quiz = Array.isArray(checkpoint.quizzes) ? checkpoint.quizzes[0] : checkpoint.quizzes;
+            return checkpoint.checkpoint_type === "assessment" && !quiz?.is_published;
+          }).map((checkpoint) => checkpoint.title)}
           onClose={() => setIsEditingDay(false)}
         />
       )}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import CertificationEditor from "@/components/trainer/CertificationEditor";
-import DayEditor from "@/components/trainer/DayEditor";
 import PostTrainingEditor from "@/components/trainer/PostTrainingEditor";
 import SetupEditor from "@/components/trainer/SetupEditor";
 import type { Quiz } from "@/components/trainer/QuizEditor";
@@ -305,9 +304,6 @@ export default function ProgramTimeline({
 }: ProgramTimelineProps) {
   const router = useRouter();
 
-  const [selectedDayId, setSelectedDayId] =
-    useState<string | null>(null);
-
   const [activeSection, setActiveSection] =
     useState<ActiveSection>(null);
 
@@ -325,11 +321,6 @@ export default function ProgramTimeline({
 
   const [createDayError, setCreateDayError] =
     useState<string | null>(null);
-
-  const selectedDay =
-    days.find(
-      (day) => day.id === selectedDayId
-    ) ?? null;
 
   const dayItems: TimelineItem[] =
     days.map((day) => ({
@@ -415,11 +406,10 @@ export default function ProgramTimeline({
   ) {
     if (item.day) {
       setActiveSection(null);
-      setSelectedDayId(item.day.id);
+      router.push(`/trainer/program/day/${item.day.id}`);
       return;
     }
 
-    setSelectedDayId(null);
 
     if (item.id === "setup") {
       setActiveSection("setup");
@@ -437,7 +427,6 @@ export default function ProgramTimeline({
   }
 
   function openAddDay() {
-    setSelectedDayId(null);
     setActiveSection(null);
     setCreateDayError(null);
     setNewDayTitle("");
@@ -515,7 +504,7 @@ export default function ProgramTimeline({
     router.refresh();
 
     if (newDayId) {
-      setSelectedDayId(newDayId);
+      router.push(`/trainer/program/day/${newDayId}`);
     }
   }
 
@@ -853,20 +842,6 @@ export default function ProgramTimeline({
             </form>
           </div>
         </div>
-      )}
-
-      {selectedDay && (
-        <DayEditor
-          day={selectedDay}
-          dayNumber={selectedDay.day_number}
-          title={selectedDay.title}
-          description={
-            selectedDay.description ?? ""
-          }
-          onClose={() =>
-            setSelectedDayId(null)
-          }
-        />
       )}
 
       {activeSection === "setup" && (

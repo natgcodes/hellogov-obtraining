@@ -1,4 +1,6 @@
-export type LearnerMaterial = {
+import type { LessonFields } from "@/lib/lesson/content";
+
+export type LearnerMaterial = LessonFields & {
   id: string;
   title: string;
   description: string | null;

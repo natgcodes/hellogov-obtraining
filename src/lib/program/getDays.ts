@@ -2,11 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { HELLOGOV_PROGRAM_ID } from "@/lib/program/constants";
 
 export async function getDays(
-  programId: string = HELLOGOV_PROGRAM_ID
+  programId: string = HELLOGOV_PROGRAM_ID,
+  dayId?: string
 ) {
   const supabase = await createClient();
 
-  const { data: days, error } = await supabase
+  const query = supabase
     .from("days")
     .select(`
       id,
@@ -38,6 +39,7 @@ export async function getDays(
           title,
           description,
           material_type,
+          lesson_kind, lesson_order, lesson_tracking, lesson_reference, lesson_asset_path, lesson_duration_minutes, lesson_alt, lesson_callout_style,
           url,
           is_required,
           position
@@ -212,6 +214,7 @@ export async function getDays(
       ascending: true,
     });
 
+  const { data: days, error } = await (dayId ? query.eq("id",dayId) : query);
   if (error) {
     console.error(
       "Error loading training days:",

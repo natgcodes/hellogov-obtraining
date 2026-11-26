@@ -241,6 +241,7 @@ export default async function ImpersonatedDayPage({
           title,
           description,
           material_type,
+          lesson_kind, lesson_order, lesson_tracking, lesson_reference, lesson_asset_path, lesson_duration_minutes, lesson_alt, lesson_callout_style,
           url,
           is_required,
           position
@@ -407,6 +408,7 @@ export default async function ImpersonatedDayPage({
           title: material.title,
           description: material.description,
           material_type: material.material_type,
+          lesson_kind: material.lesson_kind, lesson_order: material.lesson_order, lesson_tracking: material.lesson_tracking, lesson_reference: material.lesson_reference, lesson_asset_path: material.lesson_asset_path, lesson_duration_minutes: material.lesson_duration_minutes, lesson_alt: material.lesson_alt, lesson_callout_style: material.lesson_callout_style,
           url: material.url,
           is_required: material.is_required,
           position: material.position ?? 0,

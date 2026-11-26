@@ -20,11 +20,13 @@ type EditableModule = {
 type ModuleEditorProps = {
   module: EditableModule;
   onClose: () => void;
+  inline?: boolean;
 };
 
 export default function ModuleEditor({
   module,
   onClose,
+  inline = false,
 }: ModuleEditorProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -143,8 +145,8 @@ export default function ModuleEditor({
   const isBusy = isSaving || isDeleting;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[1px]">
-      <div className="max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[24px] border border-[#e5e7eb] bg-white shadow-2xl">
+    <div className={inline?"w-full":"fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[1px]"}>
+      <div className={inline?"w-full rounded-xl border bg-white":"max-h-[90vh] w-full max-w-[620px] overflow-y-auto rounded-[24px] border border-[#e5e7eb] bg-white shadow-2xl"}>
         <div className="flex items-start justify-between border-b border-[#eef0f3] px-6 py-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#98a2b3]">

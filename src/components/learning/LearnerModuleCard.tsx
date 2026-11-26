@@ -2,6 +2,8 @@ import Link from "next/link";
 import MaterialCard from "./MaterialCard";
 import ActivityCard from "./ActivityCard";
 import QuizCompletionButton from "./QuizCompletionButton";
+import { LessonContentSection, LessonReferenceSection } from "@/components/lesson/LessonSections";
+import { isLesson, referenceMaterials } from "@/lib/lesson/content";
 
 import type {
   LearnerModule,
@@ -53,8 +55,11 @@ export default function LearnerModuleCard({
 
   const statusStyle = getStatusStyles(status);
 
+  const legacyMaterials = module.materials.filter(m=>!isLesson(m));
+  const hasLesson = module.materials.some(isLesson);
+  const hasReferences = referenceMaterials(module.materials).length > 0 || module.materials.some(m=>m.lesson_kind==="bookmarks");
   const totalItems =
-    module.materials.length +
+    module.materials.filter(m=>!isLesson(m)||m.lesson_tracking).length +
     module.activities.length +
     module.quizzes.length;
 
@@ -142,9 +147,10 @@ export default function LearnerModuleCard({
       {/* MODULE CONTENT */}
 
       <div className="space-y-8 px-6 py-6 sm:px-7">
+        <LessonContentSection materials={module.materials} progress={progress.materials} readOnly={readOnly}/>
         {/* MATERIALS */}
 
-        {module.materials.length > 0 && (
+        {(legacyMaterials.length > 0 || hasReferences) && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-4">
               <div>
@@ -153,17 +159,17 @@ export default function LearnerModuleCard({
                 </p>
 
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  Review the resources for this module.
+                  {hasLesson ? "Review these resources and save the reference links in your browser when instructed." : "Review the resources for this module."}
                 </p>
               </div>
 
               <span className="text-[11px] font-medium text-[var(--text-muted)]">
-                {module.materials.length}
+                {legacyMaterials.length + referenceMaterials(module.materials).length}
               </span>
             </div>
 
             <div className="space-y-3">
-              {module.materials.map((material) => (
+              {legacyMaterials.map((material) => (
                 <MaterialCard
                   key={material.id}
                   material={material}
@@ -174,6 +180,7 @@ export default function LearnerModuleCard({
                   readOnly={readOnly}
                 />
               ))}
+              <LessonReferenceSection materials={module.materials} progress={progress.materials} readOnly={readOnly}/>
             </div>
           </div>
         )}
@@ -303,7 +310,7 @@ export default function LearnerModuleCard({
 
         {/* EMPTY MODULE */}
 
-        {totalItems === 0 && (
+        {totalItems === 0 && !hasLesson && (
           <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-soft)] px-5 py-8 text-center">
             <p className="text-[13px] font-medium text-[var(--text-primary)]">
               Content coming soon

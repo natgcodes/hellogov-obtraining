@@ -314,6 +314,7 @@ if (!programId) {
             title,
             description,
             material_type,
+          lesson_kind, lesson_order, lesson_tracking, lesson_reference, lesson_asset_path, lesson_duration_minutes, lesson_alt, lesson_callout_style,
             url,
             is_required,
             position
@@ -558,6 +559,17 @@ const learningRole = profile.role as LearningRole;
 
   const checkpoints: LearnerCheckpoint[] =
     (day.checkpoints ?? []) as LearnerCheckpoint[];
+
+  const checkpointQuizIds = checkpoints.flatMap((checkpoint) =>
+    checkpoint.quiz_id ? [checkpoint.quiz_id] : []
+  );
+  const publishedCheckpointQuizIds = new Set<string>();
+  if (checkpointQuizIds.length > 0) {
+    const { data, error } = await supabase.from("quizzes")
+      .select("id").in("id", checkpointQuizIds).eq("is_published", true);
+    if (error) console.error("Unable to verify checkpoint publication:", error);
+    else for (const quiz of data ?? []) publishedCheckpointQuizIds.add(quiz.id);
+  }
 
   const dayContent: DayContentRow[] = [
     ...(day.day_content ?? []),
@@ -1272,7 +1284,7 @@ const learningRole = profile.role as LearningRole;
 
                         <div className="flex shrink-0 flex-col items-end gap-2">
                           {isAssessment &&
-                            checkpoint.quiz_id && (
+                            checkpoint.quiz_id && publishedCheckpointQuizIds.has(checkpoint.quiz_id) && (
                               <Link
                                 href={`/learn/quiz/${checkpoint.quiz_id}`}
                                 prefetch
@@ -1285,9 +1297,9 @@ const learningRole = profile.role as LearningRole;
                             )}
 
                           {isAssessment &&
-                            !checkpoint.quiz_id && (
+                            (!checkpoint.quiz_id || !publishedCheckpointQuizIds.has(checkpoint.quiz_id)) && (
                               <span className="inline-flex min-w-[138px] items-center justify-center rounded-[9px] bg-[var(--surface-muted)] px-4 py-2.5 text-[11px] font-medium text-[var(--text-muted)]">
-                                Not available
+                                Not available yet
                               </span>
                             )}
 
